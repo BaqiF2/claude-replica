@@ -1,0 +1,21 @@
+/**
+ * CI/CD 支持模块导出
+ *
+ * @module ci
+ */
+
+export {
+  CISupport,
+  CIDetector,
+  StructuredLogger,
+  TimeoutManager,
+  TimeoutError,
+  APIKeyManager,
+  ExitCodes,
+  type CIEnvironment,
+  type LogLevel,
+  type StructuredLogEntry,
+  type TimeoutConfig,
+  type CIConfig,
+  type ExitCode,
+} from './CISupport';

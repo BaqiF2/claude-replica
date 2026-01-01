@@ -1,0 +1,35 @@
+{
+  "PostToolUse": [
+    {
+      "matcher": "Write|Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "echo '文件已修改: $FILE'"
+        }
+      ]
+    }
+  ],
+  "SessionStart": [
+    {
+      "matcher": ".*",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "请记住遵循项目的编码规范，使用 TypeScript 和 React 最佳实践。"
+        }
+      ]
+    }
+  ],
+  "PostToolUseFailure": [
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "命令执行失败，请检查错误信息并尝试其他方法。"
+        }
+      ]
+    }
+  ]
+}

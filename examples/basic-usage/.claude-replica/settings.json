@@ -1,0 +1,7 @@
+{
+  "model": "claude-3-5-sonnet-latest",
+  "permissionMode": "default",
+  "allowedTools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"],
+  "maxTurns": 50,
+  "maxBudgetUsd": 5
+}
