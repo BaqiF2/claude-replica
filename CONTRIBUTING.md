@@ -299,7 +299,7 @@ npm run test:coverage
 ## 获取帮助
 
 - 📖 [文档](docs/)
-- 💬 [Discussions](https://github.com/your-username/claude-replica/discussions)
-- 🐛 [Issues](https://github.com/your-username/claude-replica/issues)
+- 💬 [Discussions](https://github.com/BaqiF2/claude-replica/discussions)
+- 🐛 [Issues](https://github.com/BaqiF2/claude-replica/issues)
 
 感谢你的贡献！🎉

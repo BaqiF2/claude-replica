@@ -700,9 +700,19 @@ describe('PluginManager', () => {
               expect(allSkills.find(s => s.name === expectedSkill.name)).toBeDefined();
             }
 
+            // 清理：卸载插件并清理目录
+            await pluginManager.uninstallPlugin(name);
             pluginManager.clear();
             await fs.rm(testPluginDir, { recursive: true, force: true });
             await fs.mkdir(testPluginDir, { recursive: true });
+            // 清理 pluginsDir 中可能残留的插件目录
+            const pluginsDir = pluginManager.getPluginsDir();
+            const installedPluginDir = path.join(pluginsDir, name);
+            try {
+              await fs.rm(installedPluginDir, { recursive: true, force: true });
+            } catch {
+              // 忽略清理错误
+            }
 
             return true;
           }

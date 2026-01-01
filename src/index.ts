@@ -59,3 +59,41 @@ export { ContextManager, TokenCount, MessageImportance, ScoredMessage, FileFragm
 
 // 沙箱组件
 export { SandboxManager, SandboxSettings as SandboxManagerSettings, NetworkSandboxSettings, SandboxIgnoreViolations, ViolationType, SandboxViolation, CommandCheckResult, NetworkCheckResult, SandboxManagerConfig } from './sandbox';
+
+// 性能优化组件
+export { PerformanceManager, PerformanceConfig, StartupMetrics, MemoryUsage, ProjectCacheEntry, ProjectStats, IncrementalLoadState, TokenLimitConfig, TokenUsageStatus, PerformanceSummary } from './performance';
+
+// 测试框架集成组件
+export { TestFrameworkIntegration, createTestFrameworkIntegration, TestFramework, TestStatus, TestCase, TestSuite, TestResult, CoverageReport, FailureAnalysis, TestSuggestion, TestFrameworkConfig } from './testing';
+
+// 文档生成组件
+export { DocumentGenerator, createDocumentGenerator, DocumentFormat, ChangeType, FileChange, CodeExample, FunctionDoc, ParameterDoc, ReturnDoc, ClassDoc, PropertyDoc, ModuleDoc, TypeDoc, APIDoc, ReadmeConfig, DocumentGeneratorConfig } from './docs';
+
+// 多语言支持组件
+export { LanguageSupport, createLanguageSupport, ProgrammingLanguage, LanguageDetectionResult, LanguageEvidence, CodeGenerationStrategy, NamingConvention, IndentationStyle, ImportStyle, TypeSystemInfo, ErrorHandlingPattern, AsyncPattern, BestPractice, LanguageSupportConfig } from './language';
+
+// 安全组件
+export { SecurityManager, SensitiveInfoType, SensitiveInfoMatch, DangerousCommandType, DangerousCommandMatch, SensitiveFileConfig, SecurityConfig, APIKeyConfig, ConfirmationCallback, WarningCallback } from './security';
+
+// 协作组件
+export { CollaborationManager, ConfigTemplate, ValidationResult, ValidationError, ValidationWarning, AuthConfig, ImportOptions, ConfigDifference, ConsistencyResult } from './collaboration';
+
+// 扩展性架构组件
+export {
+  ExtensibilityManager,
+  ExtensibilityManagerConfig,
+  CustomToolDefinition,
+  ToolParameter,
+  ParameterType,
+  ToolExecutor,
+  StreamingToolExecutor,
+  ToolExecutionContext,
+  ToolExecutionResult,
+  StreamChunk,
+  ToolHookEvent,
+  ToolHookContext,
+  ToolHookHandler,
+  ParameterValidationError,
+  ToolExecutionError,
+  ToolTimeoutError,
+} from './extensibility';

@@ -29,6 +29,7 @@ import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
 import { RewindManager, Snapshot as RewindSnapshot } from './rewind/RewindManager';
 import { OutputFormatter, QueryResult as OutputQueryResult, OutputFormat } from './output/OutputFormatter';
+import { SecurityManager } from './security/SecurityManager';
 import {
   CISupport,
   CIDetector,
@@ -76,12 +77,14 @@ class Logger {
   private readonly logFile: string;
   private readonly verbose: boolean;
   private readonly debugMode: boolean;
+  private readonly securityManager: SecurityManager;
 
-  constructor(verbose = false) {
+  constructor(verbose = false, securityManager?: SecurityManager) {
     this.verbose = verbose;
     this.debugMode = process.env.CLAUDE_REPLICA_DEBUG === 'true';
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     this.logFile = path.join(LOG_DIR, `claude-replica-${timestamp}.log`);
+    this.securityManager = securityManager || new SecurityManager();
   }
 
   /**
@@ -100,7 +103,7 @@ class Logger {
       timestamp,
       level,
       message,
-      data: data ? this.sanitizeData(data) : undefined,
+      data: data ? this.securityManager.sanitizeLogData(data) : undefined,
     };
 
     // 写入日志文件
@@ -154,28 +157,6 @@ class Logger {
     const reset = '\x1b[0m';
     return `${colors[level]}[${level.toUpperCase()}]${reset}`;
   }
-
-  /**
-   * 脱敏数据（移除敏感信息）
-   */
-  private sanitizeData(data: unknown): unknown {
-    if (typeof data !== 'object' || data === null) {
-      return data;
-    }
-
-    const sensitiveKeys = ['apiKey', 'api_key', 'token', 'password', 'secret'];
-    const sanitized = { ...data as Record<string, unknown> };
-
-    for (const key of Object.keys(sanitized)) {
-      if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
-        sanitized[key] = '[REDACTED]';
-      } else if (typeof sanitized[key] === 'object') {
-        sanitized[key] = this.sanitizeData(sanitized[key]);
-      }
-    }
-
-    return sanitized;
-  }
 }
 
 /**
@@ -192,6 +173,7 @@ export class Application {
   private readonly hookManager: HookManager;
   private readonly mcpManager: MCPManager;
   private readonly outputFormatter: OutputFormatter;
+  private readonly securityManager: SecurityManager;
   
   private rewindManager: RewindManager | null = null;
   private permissionManager!: PermissionManager;
@@ -222,6 +204,7 @@ export class Application {
     this.hookManager = new HookManager();
     this.mcpManager = new MCPManager();
     this.outputFormatter = new OutputFormatter();
+    this.securityManager = new SecurityManager();
   }
 
   /**
@@ -232,8 +215,8 @@ export class Application {
       // 解析命令行参数
       const options = this.cliParser.parse(args);
 
-      // 初始化日志记录器
-      this.logger = new Logger(options.verbose);
+      // 初始化日志记录器（使用安全管理器进行日志脱敏）
+      this.logger = new Logger(options.verbose, this.securityManager);
       await this.logger.init();
       await this.logger.info('应用程序启动', { args });
 
