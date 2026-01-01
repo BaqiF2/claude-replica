@@ -80,7 +80,7 @@ async function buildQueryOptions(session: Session): Promise<Options> {
   return {
     ...baseConfig,
     // 认证由 SDK 自动从 Claude Code 配置获取，无需手动设置 apiKey
-    model: session.context.projectConfig.model || 'claude-3-5-sonnet-latest',
+    model: session.context.projectConfig.model || 'claude-sonnet-4-5-20250929',
     systemPrompt: await buildSystemPrompt(session),
     allowedTools: getEnabledToolNames(session),
     cwd: session.workingDirectory,
@@ -229,7 +229,7 @@ async function* chatWithClaude(userMessage: string, options: Options) {
 // Options 接口 (部分重要选项)
 interface Options {
   // 注意: apiKey 已移除，认证由 SDK 自动从 Claude Code 配置获取
-  model?: string;                    // 模型名称,默认 'claude-3-5-sonnet-latest'
+  model?: string;                    // 模型名称,默认 'claude-sonnet-4-5-20250929'
   systemPrompt?: string | {          // 系统提示词或预设
     type: 'preset';
     preset: 'claude_code';
@@ -336,7 +336,7 @@ class MessageRouter {
     // 使用 query() 函数处理消息
     // 认证由 SDK 自动从 Claude Code 配置获取
     const options: Options = {
-      model: session.context.projectConfig.model || 'claude-3-5-sonnet-latest',
+      model: session.context.projectConfig.model || 'claude-sonnet-4-5-20250929',
       systemPrompt: this.buildSystemPrompt(session),
       allowedTools: this.getEnabledToolNames(session),
       cwd: session.workingDirectory,
@@ -1576,7 +1576,7 @@ class SDKConfigLoader {
      settingSources: ['user', 'project'],  // 让 SDK 加载配置和认证
      
      // 手动覆盖特定选项
-     model: 'claude-3-5-sonnet-latest',
+     model: 'claude-sonnet-4-5-20250929',
      maxTurns: 50,
      
      // 添加额外的系统提示词
@@ -1599,7 +1599,7 @@ class SDKConfigLoader {
 #### settings.json
 ```json
 {
-  "model": "claude-3-5-sonnet-latest",
+  "model": "claude-sonnet-4-5-20250929",
   "maxTurns": 50,
   "maxBudgetUsd": 10.0,
   "maxThinkingTokens": 10000,

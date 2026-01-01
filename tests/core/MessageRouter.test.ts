@@ -450,7 +450,7 @@ describe('MessageRouter', () => {
         context: {
           workingDirectory: '/test/project',
           projectConfig: {
-            model: 'claude-3-5-sonnet-latest',
+            model: 'claude-sonnet-4-5-20250929',
           },
           userConfig: {},
           loadedSkills: [],
@@ -461,7 +461,7 @@ describe('MessageRouter', () => {
       const options = await router.buildQueryOptions(session);
 
       expect(options).toBeDefined();
-      expect(options.model).toBe('claude-3-5-sonnet-latest');
+      expect(options.model).toBe('claude-sonnet-4-5-20250929');
       expect(options.cwd).toBe('/test/project');
       expect(options.allowedTools).toBeDefined();
       expect(Array.isArray(options.allowedTools)).toBe(true);
@@ -477,7 +477,7 @@ describe('MessageRouter', () => {
       const session = createMockSession();
       const options = await router.buildQueryOptions(session);
 
-      expect(options.model).toBe('claude-3-5-sonnet-latest');
+      expect(options.model).toBe('claude-sonnet-4-5-20250929');
     });
 
     it('应该包含权限模式', async () => {

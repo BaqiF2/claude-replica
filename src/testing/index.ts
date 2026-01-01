@@ -17,3 +17,29 @@ export {
   type TestSuggestion,
   type TestFrameworkConfig,
 } from './TestFrameworkIntegration';
+
+export {
+  ANSIParser,
+  createANSIParser,
+  type ANSIStyle,
+  type ANSIToken,
+  type ANSITokenType,
+} from './ANSIParser';
+
+export { TerminalEmulator, createTerminalEmulator } from './TerminalEmulator';
+
+export {
+  SpecialKey,
+  TerminalTestErrorType,
+  TerminalTestError,
+  type TerminalEmulatorOptions,
+  type AssertionOptions,
+  type InteractionStep,
+  type InteractionScript,
+  type StepResult,
+  type InteractionResult,
+  type AssertionResult,
+  TestCategory,
+} from './types';
+
+export { AssertionMatcher, createAssertionMatcher } from './AssertionMatcher';

@@ -55,6 +55,10 @@
   "homepage": "https://github.com/your-username/claude-replica#readme",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
+    "@types/diff": "^7.0.2",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "diff": "^8.0.2",
     "node-pty": "^1.1.0"
   },
   "devDependencies": {

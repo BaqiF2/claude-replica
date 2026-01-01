@@ -91,7 +91,7 @@ export interface MessageRouterOptions {
 /**
  * 默认模型名称
  */
-const DEFAULT_MODEL = 'claude-3-5-sonnet-latest';
+const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 
 /**
  * 消息路由器类

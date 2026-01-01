@@ -537,7 +537,7 @@ export class CollaborationManager {
     // 验证模型配置
     if (config.model) {
       const validModels = [
-        'claude-3-5-sonnet-latest',
+        'claude-sonnet-4-5-20250929',
         'claude-3-opus-latest',
         'claude-3-haiku-latest',
       ];

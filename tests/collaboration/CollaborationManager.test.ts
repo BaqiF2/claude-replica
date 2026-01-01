@@ -36,7 +36,7 @@ describe('CollaborationManager', () => {
 
     it('应该正确加载共享配置', async () => {
       const testConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
         maxTurns: 10,
         permissionMode: 'default',
       };
@@ -47,14 +47,14 @@ describe('CollaborationManager', () => {
       );
 
       const config = await manager.getShareableConfig();
-      expect(config.model).toBe('claude-3-5-sonnet-latest');
+      expect(config.model).toBe('claude-sonnet-4-5-20250929');
       expect(config.maxTurns).toBe(10);
     });
 
 
     it('应该保存共享配置', async () => {
       const testConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
         maxTurns: 15,
       };
 
@@ -65,7 +65,7 @@ describe('CollaborationManager', () => {
         'utf-8'
       );
       const saved = JSON.parse(content);
-      expect(saved.model).toBe('claude-3-5-sonnet-latest');
+      expect(saved.model).toBe('claude-sonnet-4-5-20250929');
       expect(saved.maxTurns).toBe(15);
     });
 
@@ -133,7 +133,7 @@ describe('CollaborationManager', () => {
     it('应该正确合并共享配置和本地配置', async () => {
       // 创建共享配置
       const sharedConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
         maxTurns: 10,
         permissionMode: 'default',
       };
@@ -214,7 +214,7 @@ describe('CollaborationManager', () => {
   describe('配置导出和导入', () => {
     it('应该导出配置模板', async () => {
       const testConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
         maxTurns: 10,
       };
       await fs.writeFile(
@@ -230,13 +230,13 @@ describe('CollaborationManager', () => {
       expect(template.name).toBe('test-template');
       expect(template.description).toBe('测试模板');
       expect(template.version).toBe('1.0.0');
-      expect(template.config.model).toBe('claude-3-5-sonnet-latest');
+      expect(template.config.model).toBe('claude-sonnet-4-5-20250929');
       expect(template.createdAt).toBeDefined();
     });
 
     it('应该导出配置模板到文件', async () => {
       const testConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
       };
       await fs.writeFile(
         path.join(tempDir, '.claude-replica', 'settings.json'),
@@ -275,7 +275,7 @@ describe('CollaborationManager', () => {
     it('应该在导入时合并配置而非覆盖', async () => {
       // 创建现有配置
       const existingConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
         maxBudgetUsd: 10.0,
       };
       await fs.writeFile(
@@ -296,7 +296,7 @@ describe('CollaborationManager', () => {
       await manager.importConfigTemplate(template, { overwrite: false });
 
       const config = await manager.getShareableConfig();
-      expect(config.model).toBe('claude-3-5-sonnet-latest'); // 保留
+      expect(config.model).toBe('claude-sonnet-4-5-20250929'); // 保留
       expect(config.maxBudgetUsd).toBe(10.0); // 保留
       expect(config.maxTurns).toBe(15); // 新增
     });
@@ -306,7 +306,7 @@ describe('CollaborationManager', () => {
   describe('配置验证', () => {
     it('应该验证有效的配置', async () => {
       const validConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
         permissionMode: 'default',
         maxTurns: 10,
       };
@@ -386,7 +386,7 @@ describe('CollaborationManager', () => {
     it('应该检测配置差异', async () => {
       // 创建共享配置
       const sharedConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
         maxTurns: 10,
       };
       await fs.writeFile(
@@ -413,7 +413,7 @@ describe('CollaborationManager', () => {
     it('应该报告一致的配置', async () => {
       // 创建共享配置
       const sharedConfig = {
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-sonnet-4-5-20250929',
       };
       await fs.writeFile(
         path.join(tempDir, '.claude-replica', 'settings.json'),

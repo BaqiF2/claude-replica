@@ -656,7 +656,7 @@ Claude Replica 自动检测以下 CI 环境：
 
 ```json
 {
-  "model": "claude-3-5-sonnet-latest",
+  "model": "claude-sonnet-4-5-20250929",
   "permissionMode": "acceptEdits",
   "allowedTools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"],
   "maxTurns": 50

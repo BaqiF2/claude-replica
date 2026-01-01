@@ -69,7 +69,7 @@ describe('CLIParser', () => {
     it('应支持不同的模型名称', () => {
       expect(parser.parse(['--model', 'haiku']).model).toBe('haiku');
       expect(parser.parse(['--model', 'opus']).model).toBe('opus');
-      expect(parser.parse(['--model', 'claude-3-5-sonnet-latest']).model).toBe('claude-3-5-sonnet-latest');
+      expect(parser.parse(['--model', 'claude-sonnet-4-5-20250929']).model).toBe('claude-sonnet-4-5-20250929');
     });
   });
 

@@ -84,7 +84,7 @@ Claude Replica 支持多级配置：
 
 ```json
 {
-  "model": "claude-3-5-sonnet-latest",
+  "model": "claude-sonnet-4-5-20250929",
   "permissionMode": "default",
   "maxTurns": 100,
   "maxBudgetUsd": 10,

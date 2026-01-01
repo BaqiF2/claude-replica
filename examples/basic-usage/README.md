@@ -87,7 +87,7 @@ claude-replica
 
 ```json
 {
-  "model": "claude-3-5-sonnet-latest",
+  "model": "claude-sonnet-4-5-20250929",
   "permissionMode": "default",
   "allowedTools": ["Read", "Write", "Edit", "Bash", "Grep"]
 }
