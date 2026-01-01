@@ -10,7 +10,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { ProjectConfig, McpServerConfig } from '../config/SDKConfigLoader';
+import { ProjectConfig, McpServerConfig } from '../config';
 
 /**
  * 配置模板接口
@@ -45,7 +45,6 @@ export interface ValidationResult {
   /** 警告列表 */
   warnings: ValidationWarning[];
 }
-
 
 /**
  * 验证错误
@@ -101,7 +100,6 @@ const DEFAULT_GITIGNORE_ENTRIES = [
   '*.pem',
 ];
 
-
 /**
  * 协作管理器
  *
@@ -147,7 +145,6 @@ export class CollaborationManager {
     return this.sanitizeConfig(config);
   }
 
-
   /**
    * 保存共享配置
    *
@@ -175,7 +172,10 @@ export class CollaborationManager {
 
     // 移除可能包含敏感信息的字段
     if (sanitized.mcpServers) {
-      sanitized.mcpServers = this.sanitizeMcpServers(sanitized.mcpServers) as Record<string, McpServerConfig>;
+      sanitized.mcpServers = this.sanitizeMcpServers(sanitized.mcpServers) as Record<
+        string,
+        McpServerConfig
+      >;
     }
 
     return sanitized;
@@ -184,9 +184,7 @@ export class CollaborationManager {
   /**
    * 清理 MCP 服务器配置中的敏感信息
    */
-  private sanitizeMcpServers(
-    servers: Record<string, unknown>
-  ): Record<string, unknown> {
+  private sanitizeMcpServers(servers: Record<string, unknown>): Record<string, unknown> {
     const sanitized: Record<string, unknown> = {};
 
     for (const [name, config] of Object.entries(servers)) {
@@ -213,7 +211,6 @@ export class CollaborationManager {
 
     return sanitized;
   }
-
 
   // ==================== 本地配置覆盖 ====================
 
@@ -283,7 +280,6 @@ export class CollaborationManager {
     };
   }
 
-
   /**
    * 合并钩子配置
    */
@@ -343,24 +339,6 @@ export class CollaborationManager {
     // 设置文件权限为仅用户可读写
     await fs.chmod(authPath, 0o600);
   }
-
-  /**
-   * 获取 API 密钥
-   *
-   * 优先级：环境变量 > 认证配置文件
-   *
-   * @returns API 密钥
-   */
-  async getApiKey(): Promise<string | undefined> {
-    // 优先使用环境变量
-    if (process.env.ANTHROPIC_API_KEY) {
-      return process.env.ANTHROPIC_API_KEY;
-    }
-
-    const authConfig = await this.loadAuthConfig();
-    return authConfig.apiKey;
-  }
-
 
   // ==================== .gitignore 管理 ====================
 
@@ -445,7 +423,6 @@ export class CollaborationManager {
     };
   }
 
-
   /**
    * 导出配置模板到文件
    *
@@ -468,10 +445,7 @@ export class CollaborationManager {
    * @param template - 配置模板
    * @param options - 导入选项
    */
-  async importConfigTemplate(
-    template: ConfigTemplate,
-    options: ImportOptions = {}
-  ): Promise<void> {
+  async importConfigTemplate(template: ConfigTemplate, options: ImportOptions = {}): Promise<void> {
     const { overwrite = false, skipSkills = false, skipCommands = false } = options;
 
     // 导入配置
@@ -545,7 +519,6 @@ export class CollaborationManager {
     return entries.filter((e) => e.endsWith('.md'));
   }
 
-
   // ==================== 配置验证 ====================
 
   /**
@@ -563,7 +536,11 @@ export class CollaborationManager {
 
     // 验证模型配置
     if (config.model) {
-      const validModels = ['claude-3-5-sonnet-latest', 'claude-3-opus-latest', 'claude-3-haiku-latest'];
+      const validModels = [
+        'claude-3-5-sonnet-latest',
+        'claude-3-opus-latest',
+        'claude-3-haiku-latest',
+      ];
       if (!validModels.some((m) => config.model?.includes(m.split('-')[2]))) {
         warnings.push({
           type: 'recommendation',
@@ -595,9 +572,7 @@ export class CollaborationManager {
 
     // 验证工具配置
     if (config.allowedTools && config.disallowedTools) {
-      const overlap = config.allowedTools.filter((t) =>
-        config.disallowedTools?.includes(t)
-      );
+      const overlap = config.allowedTools.filter((t) => config.disallowedTools?.includes(t));
       if (overlap.length > 0) {
         errors.push({
           type: 'conflict',
@@ -626,7 +601,6 @@ export class CollaborationManager {
       warnings,
     };
   }
-
 
   /**
    * 验证 MCP 服务器配置
@@ -735,7 +709,6 @@ export class CollaborationManager {
     );
   }
 
-
   /**
    * 验证团队配置一致性
    *
@@ -788,10 +761,11 @@ export class CollaborationManager {
 
 /**
  * 认证配置接口
+ * 
+ * 注意：API 密钥由 Claude Agent SDK 自动从 Claude Code 配置中获取，
+ * 不再需要在此处手动配置
  */
 export interface AuthConfig {
-  /** Anthropic API 密钥 */
-  apiKey?: string;
   /** 其他认证信息 */
   [key: string]: string | undefined;
 }

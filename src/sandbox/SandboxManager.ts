@@ -18,11 +18,7 @@ import {
 } from '../config/SDKConfigLoader';
 
 // 重新导出类型
-export {
-  SandboxSettings,
-  NetworkSandboxSettings,
-  SandboxIgnoreViolations,
-};
+export { SandboxSettings, NetworkSandboxSettings, SandboxIgnoreViolations };
 
 /**
  * 沙箱违规类型
@@ -244,9 +240,7 @@ export class SandboxManager {
   /**
    * 规范化网络设置
    */
-  private normalizeNetworkSettings(
-    network?: NetworkSandboxSettings
-  ): NetworkSandboxSettings {
+  private normalizeNetworkSettings(network?: NetworkSandboxSettings): NetworkSandboxSettings {
     return {
       allowedDomains: network?.allowedDomains || [],
       blockedDomains: network?.blockedDomains || [],
@@ -330,9 +324,7 @@ export class SandboxManager {
 
     // 通配符匹配
     if (pattern.includes('*')) {
-      const regexPattern = pattern
-        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-        .replace(/\*/g, '.*');
+      const regexPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
       const regex = new RegExp(`^${regexPattern}$`);
       return regex.test(command);
     }
@@ -428,9 +420,7 @@ export class SandboxManager {
 
     // 通配符匹配
     if (pattern.includes('*')) {
-      const regexPattern = pattern
-        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-        .replace(/\*/g, '.*');
+      const regexPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
       const regex = new RegExp(`^${regexPattern}$`);
       return regex.test(domain);
     }
@@ -528,10 +518,7 @@ export class SandboxManager {
     return {
       ...this.settings,
       // 合并默认排除命令和用户配置
-      excludedCommands: [
-        ...DEFAULT_EXCLUDED_COMMANDS,
-        ...(this.settings.excludedCommands || []),
-      ],
+      excludedCommands: [...DEFAULT_EXCLUDED_COMMANDS, ...(this.settings.excludedCommands || [])],
     };
   }
 
@@ -604,9 +591,7 @@ export class SandboxManager {
    */
   removeExcludedCommand(command: string): void {
     if (this.settings.excludedCommands) {
-      this.settings.excludedCommands = this.settings.excludedCommands.filter(
-        (c) => c !== command
-      );
+      this.settings.excludedCommands = this.settings.excludedCommands.filter((c) => c !== command);
     }
   }
 
@@ -614,10 +599,7 @@ export class SandboxManager {
    * 获取所有排除命令（包括默认）
    */
   getAllExcludedCommands(): string[] {
-    return [
-      ...DEFAULT_EXCLUDED_COMMANDS,
-      ...(this.settings.excludedCommands || []),
-    ];
+    return [...DEFAULT_EXCLUDED_COMMANDS, ...(this.settings.excludedCommands || [])];
   }
 
   /**
@@ -705,9 +687,7 @@ export class SandboxManager {
    *
    * @param callback - 回调函数
    */
-  setViolationCallback(
-    callback: (violation: SandboxViolation) => void | Promise<void>
-  ): void {
+  setViolationCallback(callback: (violation: SandboxViolation) => void | Promise<void>): void {
     this.onViolation = callback;
   }
 

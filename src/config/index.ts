@@ -29,3 +29,5 @@ export {
 } from './SDKConfigLoader';
 
 export { ConfigManager } from './ConfigManager';
+
+export { EnvConfig, EnvConfiguration, CIEnvironmentInfo, ENV_KEYS } from './EnvConfig';

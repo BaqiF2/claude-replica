@@ -157,11 +157,11 @@ export interface PerformanceConfig {
  * 默认配置
  */
 const DEFAULT_CONFIG: PerformanceConfig = {
-  targetStartupTime: 2000,           // 2 秒
+  targetStartupTime: 2000, // 2 秒
   memoryThreshold: 512 * 1024 * 1024, // 512 MB
-  memoryCheckInterval: 30000,         // 30 秒
+  memoryCheckInterval: 30000, // 30 秒
   cacheDir: path.join(os.homedir(), '.claude-replica', 'cache'),
-  cacheExpiry: 24 * 60 * 60 * 1000,  // 24 小时
+  cacheExpiry: 24 * 60 * 60 * 1000, // 24 小时
   maxConcurrentIO: 10,
   incrementalBatchSize: 100,
   enableMemoryMonitoring: true,
@@ -246,7 +246,6 @@ export class PerformanceManager {
 
     this.initialized = false;
   }
-
 
   // ==================== 快速启动相关方法 ====================
 
@@ -504,15 +503,31 @@ export class PerformanceManager {
    */
   private countCodeFiles(distribution: Record<string, number>): number {
     const codeExtensions = [
-      '.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.go', '.rs',
-      '.cpp', '.c', '.cs', '.rb', '.php', '.swift', '.kt', '.vue',
-      '.svelte', '.html', '.css', '.scss', '.less', '.sql',
+      '.ts',
+      '.tsx',
+      '.js',
+      '.jsx',
+      '.py',
+      '.java',
+      '.go',
+      '.rs',
+      '.cpp',
+      '.c',
+      '.cs',
+      '.rb',
+      '.php',
+      '.swift',
+      '.kt',
+      '.vue',
+      '.svelte',
+      '.html',
+      '.css',
+      '.scss',
+      '.less',
+      '.sql',
     ];
 
-    return codeExtensions.reduce(
-      (sum, ext) => sum + (distribution[ext] || 0),
-      0
-    );
+    return codeExtensions.reduce((sum, ext) => sum + (distribution[ext] || 0), 0);
   }
 
   /**
@@ -521,7 +536,6 @@ export class PerformanceManager {
   private yieldToMainThread(): Promise<void> {
     return new Promise((resolve) => setImmediate(resolve));
   }
-
 
   // ==================== 项目结构缓存相关方法 ====================
 
@@ -632,9 +646,7 @@ export class PerformanceManager {
       try {
         const files = await fs.readdir(this.config.cacheDir);
         await Promise.all(
-          files.map((file) =>
-            fs.unlink(path.join(this.config.cacheDir, file)).catch(() => {})
-          )
+          files.map((file) => fs.unlink(path.join(this.config.cacheDir, file)).catch(() => {}))
         );
       } catch {
         // 忽略清除失败
@@ -671,7 +683,7 @@ export class PerformanceManager {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // 转换为 32 位整数
     }
     return Math.abs(hash).toString(16);
@@ -703,10 +715,7 @@ export class PerformanceManager {
    * @returns 文件内容
    */
   async readFileAsync(filePath: string, priority: number = 5): Promise<string> {
-    return this.enqueueOperation(
-      () => fs.readFile(filePath, 'utf-8'),
-      priority
-    );
+    return this.enqueueOperation(() => fs.readFile(filePath, 'utf-8'), priority);
   }
 
   /**
@@ -716,11 +725,7 @@ export class PerformanceManager {
    * @param content - 文件内容
    * @param priority - 优先级
    */
-  async writeFileAsync(
-    filePath: string,
-    content: string,
-    priority: number = 5
-  ): Promise<void> {
+  async writeFileAsync(filePath: string, content: string, priority: number = 5): Promise<void> {
     return this.enqueueOperation(async () => {
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, content, 'utf-8');
@@ -733,9 +738,7 @@ export class PerformanceManager {
    * @param filePaths - 文件路径列表
    * @returns 文件内容映射
    */
-  async readFilesAsync(
-    filePaths: string[]
-  ): Promise<Map<string, string | Error>> {
+  async readFilesAsync(filePaths: string[]): Promise<Map<string, string | Error>> {
     const results = new Map<string, string | Error>();
 
     await Promise.all(
@@ -755,10 +758,7 @@ export class PerformanceManager {
   /**
    * 将操作加入队列
    */
-  private enqueueOperation<T>(
-    operation: () => Promise<T>,
-    priority: number
-  ): Promise<T> {
+  private enqueueOperation<T>(operation: () => Promise<T>, priority: number): Promise<T> {
     return new Promise((resolve, reject) => {
       const item: AsyncQueueItem<T> = {
         operation,
@@ -769,9 +769,7 @@ export class PerformanceManager {
       };
 
       // 按优先级插入队列
-      const insertIndex = this.asyncQueue.findIndex(
-        (q) => q.priority > priority
-      );
+      const insertIndex = this.asyncQueue.findIndex((q) => q.priority > priority);
       if (insertIndex === -1) {
         this.asyncQueue.push(item as AsyncQueueItem<unknown>);
       } else {
@@ -787,10 +785,7 @@ export class PerformanceManager {
    * 处理异步操作队列
    */
   private async processQueue(): Promise<void> {
-    while (
-      this.asyncQueue.length > 0 &&
-      this.activeOperations < this.config.maxConcurrentIO
-    ) {
+    while (this.asyncQueue.length > 0 && this.activeOperations < this.config.maxConcurrentIO) {
       const item = this.asyncQueue.shift();
       if (!item) break;
 
@@ -821,17 +816,16 @@ export class PerformanceManager {
     };
   }
 
-
   // ==================== Token 限制管理相关方法 ====================
 
   /**
    * Token 限制配置
    */
   private tokenLimits: TokenLimitConfig = {
-    maxContextTokens: 200000,      // Claude 3.5 Sonnet 上下文窗口
-    maxOutputTokens: 8192,         // 最大输出 token
-    reserveRatio: 0.2,             // 预留比例
-    warningThreshold: 0.8,         // 警告阈值
+    maxContextTokens: 200000, // Claude 3.5 Sonnet 上下文窗口
+    maxOutputTokens: 8192, // 最大输出 token
+    reserveRatio: 0.2, // 预留比例
+    warningThreshold: 0.8, // 警告阈值
   };
 
   /**
@@ -857,8 +851,7 @@ export class PerformanceManager {
    * @returns Token 使用状态
    */
   checkTokenUsage(currentTokens: number): TokenUsageStatus {
-    const effectiveLimit =
-      this.tokenLimits.maxContextTokens * (1 - this.tokenLimits.reserveRatio);
+    const effectiveLimit = this.tokenLimits.maxContextTokens * (1 - this.tokenLimits.reserveRatio);
     const usagePercent = currentTokens / effectiveLimit;
 
     return {
@@ -968,9 +961,7 @@ export class PerformanceManager {
 
     // 清理旧的异步操作队列项
     const maxAge = 60000; // 1 分钟
-    this.asyncQueue = this.asyncQueue.filter(
-      (item) => now - item.createdAt < maxAge
-    );
+    this.asyncQueue = this.asyncQueue.filter((item) => now - item.createdAt < maxAge);
 
     // 建议垃圾回收（如果可用）
     if (global.gc) {

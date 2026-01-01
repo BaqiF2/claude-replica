@@ -17,11 +17,7 @@ import {
   HookCallbackMatcher,
 } from '../config/SDKConfigLoader';
 import { ToolRegistry } from '../tools/ToolRegistry';
-import {
-  PermissionManager,
-  CanUseTool,
-  ToolUseParams,
-} from '../permissions/PermissionManager';
+import { PermissionManager, CanUseTool, ToolUseParams } from '../permissions/PermissionManager';
 import { Session, Skill, ContentBlock } from './SessionManager';
 
 /**

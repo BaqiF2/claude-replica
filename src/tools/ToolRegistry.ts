@@ -1,8 +1,8 @@
 /**
  * 工具注册表
- * 
+ *
  * 管理 SDK 内置工具的启用和配置
- * 
+ *
  * SDK 内置工具列表:
  * - 文件操作: Read, Write, Edit
  * - 命令执行: Bash, BashOutput, KillBash
@@ -68,7 +68,7 @@ export interface ToolMetadata {
 
 /**
  * 工具注册表类
- * 
+ *
  * 负责管理 SDK 内置工具的注册、查询和启用状态
  */
 export class ToolRegistry {
@@ -216,9 +216,9 @@ export class ToolRegistry {
 
   /**
    * 获取默认启用的工具列表
-   * 
+   *
    * 默认工具集包含最常用的文件操作和搜索工具
-   * 
+   *
    * @returns 默认工具名称数组
    */
   getDefaultTools(): string[] {
@@ -227,7 +227,7 @@ export class ToolRegistry {
 
   /**
    * 获取所有可用工具列表
-   * 
+   *
    * @returns 所有工具名称数组
    */
   getAllTools(): string[] {
@@ -236,22 +236,22 @@ export class ToolRegistry {
 
   /**
    * 根据配置获取启用的工具列表
-   * 
+   *
    * 处理逻辑:
    * 1. 如果指定了 allowedTools，则使用白名单
    * 2. 否则使用默认工具列表
    * 3. 从结果中移除 disallowedTools 中的工具
-   * 
+   *
    * @param config 工具配置
    * @returns 启用的工具名称数组
    */
   getEnabledTools(config: ToolConfig = {}): string[] {
     // 1. 确定基础工具列表
     let tools: string[];
-    
+
     if (config.allowedTools && config.allowedTools.length > 0) {
       // 使用白名单，但只保留有效的工具名称
-      tools = config.allowedTools.filter(tool => this.isValidTool(tool));
+      tools = config.allowedTools.filter((tool) => this.isValidTool(tool));
     } else {
       // 使用默认工具列表
       tools = [...this.getDefaultTools()];
@@ -260,7 +260,7 @@ export class ToolRegistry {
     // 2. 移除黑名单中的工具
     if (config.disallowedTools && config.disallowedTools.length > 0) {
       const disallowedSet = new Set(config.disallowedTools);
-      tools = tools.filter(tool => !disallowedSet.has(tool));
+      tools = tools.filter((tool) => !disallowedSet.has(tool));
     }
 
     return tools;
@@ -268,7 +268,7 @@ export class ToolRegistry {
 
   /**
    * 验证工具名称是否有效
-   * 
+   *
    * @param toolName 工具名称
    * @returns 是否为有效的工具名称
    */
@@ -278,7 +278,7 @@ export class ToolRegistry {
 
   /**
    * 获取工具元数据
-   * 
+   *
    * @param toolName 工具名称
    * @returns 工具元数据，如果工具不存在则返回 undefined
    */
@@ -288,7 +288,7 @@ export class ToolRegistry {
 
   /**
    * 获取指定分类的所有工具
-   * 
+   *
    * @param category 工具分类
    * @returns 该分类下的工具名称数组
    */
@@ -304,9 +304,9 @@ export class ToolRegistry {
 
   /**
    * 获取所有危险工具列表
-   * 
+   *
    * 危险工具是指需要用户确认才能执行的工具
-   * 
+   *
    * @returns 危险工具名称数组
    */
   getDangerousTools(): string[] {
@@ -321,7 +321,7 @@ export class ToolRegistry {
 
   /**
    * 检查工具是否为危险工具
-   * 
+   *
    * @param toolName 工具名称
    * @returns 是否为危险工具
    */
@@ -332,7 +332,7 @@ export class ToolRegistry {
 
   /**
    * 验证工具配置
-   * 
+   *
    * @param config 工具配置
    * @returns 验证结果，包含无效的工具名称
    */

@@ -248,20 +248,24 @@ export class PluginManager {
    */
   detectSourceType(source: string): PluginSourceType {
     // Git URL 模式
-    if (source.startsWith('git@') ||
-        source.startsWith('https://github.com') ||
-        source.startsWith('https://gitlab.com') ||
-        source.startsWith('git://') ||
-        source.endsWith('.git')) {
+    if (
+      source.startsWith('git@') ||
+      source.startsWith('https://github.com') ||
+      source.startsWith('https://gitlab.com') ||
+      source.startsWith('git://') ||
+      source.endsWith('.git')
+    ) {
       return 'git';
     }
 
     // 本地路径模式
-    if (source.startsWith('/') ||
-        source.startsWith('./') ||
-        source.startsWith('../') ||
-        source.startsWith('~') ||
-        /^[a-zA-Z]:[\\/]/.test(source)) {
+    if (
+      source.startsWith('/') ||
+      source.startsWith('./') ||
+      source.startsWith('../') ||
+      source.startsWith('~') ||
+      /^[a-zA-Z]:[\\/]/.test(source)
+    ) {
       return 'local';
     }
 
@@ -371,10 +375,9 @@ export class PluginManager {
       await fs.mkdir(tempPath, { recursive: true });
 
       // 下载并解压插件
-      await execAsync(
-        `curl -sL "${downloadUrl}" | tar -xz -C "${tempPath}"`,
-        { timeout: this.gitTimeout }
-      );
+      await execAsync(`curl -sL "${downloadUrl}" | tar -xz -C "${tempPath}"`, {
+        timeout: this.gitTimeout,
+      });
 
       // 读取插件元数据
       const metadata = await this.readPluginMetadata(tempPath);
@@ -541,10 +544,7 @@ export class PluginManager {
     }
 
     // 加载 MCP 服务器配置
-    const mcpPaths = [
-      path.join(directory, '.mcp.json'),
-      path.join(directory, 'mcp.json'),
-    ];
+    const mcpPaths = [path.join(directory, '.mcp.json'), path.join(directory, 'mcp.json')];
     for (const mcpPath of mcpPaths) {
       if (await this.fileExists(mcpPath)) {
         content.mcpServers = await this.loadMcpServers(mcpPath);
@@ -692,11 +692,7 @@ export class PluginManager {
    */
   private isAgentFile(filename: string): boolean {
     const lowerName = filename.toLowerCase();
-    return (
-      filename === 'AGENT.md' ||
-      lowerName === 'agent.md' ||
-      lowerName.endsWith('.agent.md')
-    );
+    return filename === 'AGENT.md' || lowerName === 'agent.md' || lowerName.endsWith('.agent.md');
   }
 
   /**
@@ -763,11 +759,7 @@ export class PluginManager {
    */
   private isSkillFile(filename: string): boolean {
     const lowerName = filename.toLowerCase();
-    return (
-      filename === 'SKILL.md' ||
-      lowerName === 'skill.md' ||
-      lowerName.endsWith('.skill.md')
-    );
+    return filename === 'SKILL.md' || lowerName === 'skill.md' || lowerName.endsWith('.skill.md');
   }
 
   /**
@@ -918,8 +910,10 @@ export class PluginManager {
    * 解析 YAML 值
    */
   private parseYamlValue(value: string): string | number | boolean {
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       return value.slice(1, -1);
     }
 
@@ -956,8 +950,8 @@ export class PluginManager {
   private extractRepoName(gitUrl: string): string {
     // 处理各种 Git URL 格式
     const patterns = [
-      /\/([^/]+?)(?:\.git)?$/,           // https://github.com/user/repo.git
-      /:([^/]+\/[^/]+?)(?:\.git)?$/,     // git@github.com:user/repo.git
+      /\/([^/]+?)(?:\.git)?$/, // https://github.com/user/repo.git
+      /:([^/]+\/[^/]+?)(?:\.git)?$/, // git@github.com:user/repo.git
     ];
 
     for (const pattern of patterns) {

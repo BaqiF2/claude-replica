@@ -1,6 +1,6 @@
 /**
  * CLI 参数解析器
- * 
+ *
  * 负责解析命令行参数并生成配置选项
  * **验证: 需求 1.1, 1.2, 1.3, 14.4, 17.1, 17.2, 17.3, 19.1, 19.2, 19.3**
  */
@@ -35,52 +35,57 @@ export type SettingSource = 'user' | 'project' | 'local';
  */
 export interface CLIOptions {
   // 基本选项
-  print?: boolean;              // -p, --print
-  prompt?: string;              // 查询内容
-  continue?: boolean;           // -c, --continue
-  resume?: string;              // --resume <session-id>
-  resumeSessionAt?: string;     // --resume-at <message-uuid>
-  forkSession?: boolean;        // --fork
-  
+  print?: boolean; // -p, --print
+  prompt?: string; // 查询内容
+  continue?: boolean; // -c, --continue
+  resume?: string; // --resume <session-id>
+  resumeSessionAt?: string; // --resume-at <message-uuid>
+  forkSession?: boolean; // --fork
+
   // 模型和提示
-  model?: string;               // --model
-  systemPrompt?: string;        // --system-prompt
-  systemPromptFile?: string;    // --system-prompt-file
-  appendSystemPrompt?: string;  // --append-system-prompt
-  
+  model?: string; // --model
+  systemPrompt?: string; // --system-prompt
+  systemPromptFile?: string; // --system-prompt-file
+  appendSystemPrompt?: string; // --append-system-prompt
+
   // 工具和权限
-  allowedTools?: string[];      // --allowed-tools
-  disallowedTools?: string[];   // --disallowed-tools
-  permissionMode?: PermissionMode;  // --permission-mode
-  allowDangerouslySkipPermissions?: boolean;  // --dangerously-skip-permissions
-  
+  allowedTools?: string[]; // --allowed-tools
+  disallowedTools?: string[]; // --disallowed-tools
+  permissionMode?: PermissionMode; // --permission-mode
+  allowDangerouslySkipPermissions?: boolean; // --dangerously-skip-permissions
+
   // 输出
-  outputFormat?: OutputFormat;  // --output-format
-  verbose?: boolean;            // --verbose
-  includePartialMessages?: boolean;  // --include-partial-messages
-  
+  outputFormat?: OutputFormat; // --output-format
+  verbose?: boolean; // --verbose
+  includePartialMessages?: boolean; // --include-partial-messages
+
   // 扩展
-  agents?: string;              // --agents (JSON 字符串)
-  pluginDir?: string;           // --plugin-dir
-  settingSources?: SettingSource[];  // --setting-sources
-  
+  agents?: string; // --agents (JSON 字符串)
+  pluginDir?: string; // --plugin-dir
+  settingSources?: SettingSource[]; // --setting-sources
+
   // 高级选项
-  maxTurns?: number;            // --max-turns
-  maxBudgetUsd?: number;        // --max-budget-usd
-  maxThinkingTokens?: number;   // --max-thinking-tokens
-  enableFileCheckpointing?: boolean;  // --enable-file-checkpointing
-  sandbox?: boolean;            // --sandbox
-  timeout?: number;             // --timeout (秒)
-  
+  maxTurns?: number; // --max-turns
+  maxBudgetUsd?: number; // --max-budget-usd
+  maxThinkingTokens?: number; // --max-thinking-tokens
+  enableFileCheckpointing?: boolean; // --enable-file-checkpointing
+  sandbox?: boolean; // --sandbox
+  timeout?: number; // --timeout (秒)
+
   // 其他
-  help?: boolean;               // -h, --help
-  version?: boolean;            // -v, --version
+  help?: boolean; // -h, --help
+  version?: boolean; // -v, --version
 }
 
 /**
  * 有效的权限模式列表
  */
-const VALID_PERMISSION_MODES: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
+const VALID_PERMISSION_MODES: PermissionMode[] = [
+  'default',
+  'acceptEdits',
+  'bypassPermissions',
+  'plan',
+];
 
 /**
  * 有效的输出格式列表
@@ -169,12 +174,16 @@ export class CLIParser {
           break;
 
         case '--disallowed-tools':
-          options.disallowedTools = this.parseToolList(this.requireValue(args, i, '--disallowed-tools'));
+          options.disallowedTools = this.parseToolList(
+            this.requireValue(args, i, '--disallowed-tools')
+          );
           i++;
           break;
 
         case '--permission-mode':
-          options.permissionMode = this.parsePermissionMode(this.requireValue(args, i, '--permission-mode'));
+          options.permissionMode = this.parsePermissionMode(
+            this.requireValue(args, i, '--permission-mode')
+          );
           i++;
           break;
 
@@ -184,7 +193,9 @@ export class CLIParser {
 
         // 输出
         case '--output-format':
-          options.outputFormat = this.parseOutputFormat(this.requireValue(args, i, '--output-format'));
+          options.outputFormat = this.parseOutputFormat(
+            this.requireValue(args, i, '--output-format')
+          );
           i++;
           break;
 
@@ -208,23 +219,34 @@ export class CLIParser {
           break;
 
         case '--setting-sources':
-          options.settingSources = this.parseSettingSources(this.requireValue(args, i, '--setting-sources'));
+          options.settingSources = this.parseSettingSources(
+            this.requireValue(args, i, '--setting-sources')
+          );
           i++;
           break;
 
         // 高级选项
         case '--max-turns':
-          options.maxTurns = this.parseNumber(this.requireValue(args, i, '--max-turns'), '--max-turns');
+          options.maxTurns = this.parseNumber(
+            this.requireValue(args, i, '--max-turns'),
+            '--max-turns'
+          );
           i++;
           break;
 
         case '--max-budget-usd':
-          options.maxBudgetUsd = this.parseNumber(this.requireValue(args, i, '--max-budget-usd'), '--max-budget-usd');
+          options.maxBudgetUsd = this.parseNumber(
+            this.requireValue(args, i, '--max-budget-usd'),
+            '--max-budget-usd'
+          );
           i++;
           break;
 
         case '--max-thinking-tokens':
-          options.maxThinkingTokens = this.parseNumber(this.requireValue(args, i, '--max-thinking-tokens'), '--max-thinking-tokens');
+          options.maxThinkingTokens = this.parseNumber(
+            this.requireValue(args, i, '--max-thinking-tokens'),
+            '--max-thinking-tokens'
+          );
           i++;
           break;
 
@@ -349,7 +371,10 @@ claude-replica - Claude Code 智能代码助手命令行工具
    * 解析工具列表
    */
   private parseToolList(value: string): string[] {
-    return value.split(',').map(tool => tool.trim()).filter(tool => tool.length > 0);
+    return value
+      .split(',')
+      .map((tool) => tool.trim())
+      .filter((tool) => tool.length > 0);
   }
 
   /**
@@ -380,7 +405,7 @@ claude-replica - Claude Code 智能代码助手命令行工具
    * 解析配置源列表
    */
   private parseSettingSources(value: string): SettingSource[] {
-    const sources = value.split(',').map(s => s.trim()) as SettingSource[];
+    const sources = value.split(',').map((s) => s.trim()) as SettingSource[];
     for (const source of sources) {
       if (!VALID_SETTING_SOURCES.includes(source)) {
         throw new CLIParseError(

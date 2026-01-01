@@ -8,6 +8,8 @@
  * **验证: 需求 21.1, 21.2, 21.3, 21.4, 21.6**
  */
 
+import { EnvConfig, ENV_KEYS } from '../config';
+
 /**
  * CI 环境类型
  */
@@ -71,8 +73,6 @@ export interface CIConfig {
   isCI: boolean;
   /** CI 环境类型 */
   environment: CIEnvironment;
-  /** API 密钥 */
-  apiKey?: string;
   /** 超时配置 */
   timeout?: TimeoutConfig;
   /** 是否启用结构化日志 */
@@ -113,65 +113,16 @@ export class CIDetector {
    * 检测当前是否在 CI 环境中运行
    */
   static isCI(): boolean {
-    return (
-      // 通用 CI 环境变量
-      process.env.CI === 'true' ||
-      process.env.CI === '1' ||
-      process.env.CONTINUOUS_INTEGRATION === 'true' ||
-      // 特定 CI 平台
-      !!process.env.GITHUB_ACTIONS ||
-      !!process.env.GITLAB_CI ||
-      !!process.env.JENKINS_URL ||
-      !!process.env.CIRCLECI ||
-      !!process.env.TRAVIS ||
-      !!process.env.TF_BUILD ||
-      !!process.env.BITBUCKET_PIPELINE_UUID ||
-      !!process.env.TEAMCITY_VERSION ||
-      !!process.env.BUILDKITE ||
-      !!process.env.CODEBUILD_BUILD_ID ||
-      !!process.env.DRONE
-    );
+    return EnvConfig.isCI();
   }
 
   /**
    * 检测 CI 环境类型
    */
   static detectEnvironment(): CIEnvironment {
-    if (process.env.GITHUB_ACTIONS) {
-      return 'github-actions';
-    }
-    if (process.env.GITLAB_CI) {
-      return 'gitlab-ci';
-    }
-    if (process.env.JENKINS_URL) {
-      return 'jenkins';
-    }
-    if (process.env.CIRCLECI) {
-      return 'circleci';
-    }
-    if (process.env.TRAVIS) {
-      return 'travis';
-    }
-    if (process.env.TF_BUILD) {
-      return 'azure-pipelines';
-    }
-    if (process.env.BITBUCKET_PIPELINE_UUID) {
-      return 'bitbucket-pipelines';
-    }
-    if (process.env.TEAMCITY_VERSION) {
-      return 'teamcity';
-    }
-    if (process.env.BUILDKITE) {
-      return 'buildkite';
-    }
-    if (process.env.CODEBUILD_BUILD_ID) {
-      return 'codebuild';
-    }
-    if (process.env.DRONE) {
-      return 'drone';
-    }
-    if (this.isCI()) {
-      return 'unknown-ci';
+    const env = EnvConfig.detectCIEnvironment();
+    if (env) {
+      return env as CIEnvironment;
     }
     return 'local';
   }
@@ -187,33 +138,30 @@ export class CIDetector {
 
     switch (env) {
       case 'github-actions':
-        info.repository = process.env.GITHUB_REPOSITORY;
-        info.workflow = process.env.GITHUB_WORKFLOW;
-        info.runId = process.env.GITHUB_RUN_ID;
-        info.runNumber = process.env.GITHUB_RUN_NUMBER;
-        info.actor = process.env.GITHUB_ACTOR;
-        info.ref = process.env.GITHUB_REF;
-        info.sha = process.env.GITHUB_SHA;
+        info.repository = EnvConfig.getString(ENV_KEYS.GITHUB_REPOSITORY);
+        info.workflow = EnvConfig.getString(ENV_KEYS.GITHUB_WORKFLOW);
+        info.runId = EnvConfig.getString(ENV_KEYS.GITHUB_RUN_ID);
+        info.runNumber = EnvConfig.getString(ENV_KEYS.GITHUB_RUN_NUMBER);
+        info.actor = EnvConfig.getString(ENV_KEYS.GITHUB_ACTOR);
+        info.ref = EnvConfig.getString(ENV_KEYS.GITHUB_REF);
+        info.sha = EnvConfig.getString(ENV_KEYS.GITHUB_SHA);
         break;
       case 'gitlab-ci':
-        info.project = process.env.CI_PROJECT_NAME;
-        info.pipeline = process.env.CI_PIPELINE_ID;
-        info.job = process.env.CI_JOB_NAME;
-        info.ref = process.env.CI_COMMIT_REF_NAME;
-        info.sha = process.env.CI_COMMIT_SHA;
+        info.project = EnvConfig.getString(ENV_KEYS.CI_PROJECT_NAME);
+        info.pipeline = EnvConfig.getString(ENV_KEYS.CI_PIPELINE_ID);
+        info.job = EnvConfig.getString(ENV_KEYS.CI_JOB_NAME);
+        info.ref = EnvConfig.getString(ENV_KEYS.CI_COMMIT_REF_NAME);
+        info.sha = EnvConfig.getString(ENV_KEYS.CI_COMMIT_SHA);
         break;
       case 'jenkins':
-        info.job = process.env.JOB_NAME;
-        info.buildNumber = process.env.BUILD_NUMBER;
-        info.buildUrl = process.env.BUILD_URL;
+        info.job = EnvConfig.getString(ENV_KEYS.JOB_NAME);
+        info.buildNumber = EnvConfig.getString(ENV_KEYS.BUILD_NUMBER);
+        info.buildUrl = EnvConfig.getString(ENV_KEYS.BUILD_URL);
         break;
       case 'circleci':
-        info.project = process.env.CIRCLE_PROJECT_REPONAME;
-        info.buildNum = process.env.CIRCLE_BUILD_NUM;
-        info.branch = process.env.CIRCLE_BRANCH;
-        info.sha = process.env.CIRCLE_SHA1;
+        info.project = EnvConfig.getString(ENV_KEYS.CIRCLE_PROJECT_REPONAME);
+        info.buildNum = EnvConfig.getString(ENV_KEYS.CIRCLE_BUILD_NUM);
         break;
-      // 其他 CI 环境可以按需添加
     }
 
     return info;
@@ -329,9 +277,8 @@ export class StructuredLogger {
    * 记录错误
    */
   logError(error: Error | string, context?: Record<string, unknown>): void {
-    const errorData = error instanceof Error
-      ? { message: error.message, stack: error.stack }
-      : { message: error };
+    const errorData =
+      error instanceof Error ? { message: error.message, stack: error.stack } : { message: error };
     this.error('执行错误', { ...errorData, ...context }, 'error');
   }
 }
@@ -441,67 +388,7 @@ export class TimeoutError extends Error {
   }
 }
 
-/**
- * API 密钥管理器
- */
-export class APIKeyManager {
-  /** 支持的环境变量名称 */
-  private static readonly ENV_VARS = [
-    'ANTHROPIC_API_KEY',
-    'CLAUDE_API_KEY',
-    'CLAUDE_REPLICA_API_KEY',
-  ];
 
-  /**
-   * 获取 API 密钥
-   */
-  static getAPIKey(): string | undefined {
-    for (const envVar of this.ENV_VARS) {
-      const value = process.env[envVar];
-      if (value && value.trim()) {
-        return value.trim();
-      }
-    }
-    return undefined;
-  }
-
-  /**
-   * 检查 API 密钥是否存在
-   */
-  static hasAPIKey(): boolean {
-    return !!this.getAPIKey();
-  }
-
-  /**
-   * 验证 API 密钥格式
-   */
-  static validateAPIKey(key: string): boolean {
-    // Anthropic API 密钥通常以 'sk-ant-' 开头
-    return key.startsWith('sk-ant-') && key.length > 20;
-  }
-
-  /**
-   * 获取 API 密钥来源
-   */
-  static getAPIKeySource(): string | undefined {
-    for (const envVar of this.ENV_VARS) {
-      if (process.env[envVar]) {
-        return envVar;
-      }
-    }
-    return undefined;
-  }
-
-  /**
-   * 脱敏 API 密钥（用于日志）
-   */
-  static maskAPIKey(key: string): string {
-    if (key.length <= 8) {
-      return '****';
-    }
-    return key.substring(0, 7) + '...' + key.substring(key.length - 4);
-  }
-}
 
 /**
  * CI 支持管理器
@@ -518,7 +405,6 @@ export class CISupport {
     this.config = {
       isCI,
       environment,
-      apiKey: options.apiKey ?? APIKeyManager.getAPIKey(),
       timeout: options.timeout,
       structuredLogs: options.structuredLogs ?? isCI,
       silent: options.silent ?? false,
@@ -552,20 +438,6 @@ export class CISupport {
    */
   getEnvironment(): CIEnvironment {
     return this.config.environment;
-  }
-
-  /**
-   * 获取 API 密钥
-   */
-  getAPIKey(): string | undefined {
-    return this.config.apiKey;
-  }
-
-  /**
-   * 检查 API 密钥是否可用
-   */
-  hasAPIKey(): boolean {
-    return !!this.config.apiKey;
   }
 
   /**
@@ -617,10 +489,19 @@ export class CISupport {
     if (error instanceof TimeoutError || lowerMessage.includes('timeout')) {
       return ExitCodes.TIMEOUT_ERROR;
     }
-    if (lowerMessage.includes('network') || lowerMessage.includes('enotfound') || lowerMessage.includes('econnrefused')) {
+    if (
+      lowerMessage.includes('network') ||
+      lowerMessage.includes('enotfound') ||
+      lowerMessage.includes('econnrefused')
+    ) {
       return ExitCodes.NETWORK_ERROR;
     }
-    if (lowerMessage.includes('401') || lowerMessage.includes('403') || lowerMessage.includes('api key') || lowerMessage.includes('auth')) {
+    if (
+      lowerMessage.includes('401') ||
+      lowerMessage.includes('403') ||
+      lowerMessage.includes('api key') ||
+      lowerMessage.includes('auth')
+    ) {
       return ExitCodes.AUTH_ERROR;
     }
     if (lowerMessage.includes('config')) {
@@ -640,18 +521,11 @@ export class CISupport {
    * 验证 CI 环境配置
    */
   validate(): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
-
-    // 检查 API 密钥
-    if (!this.hasAPIKey()) {
-      errors.push('未找到 API 密钥。请设置 ANTHROPIC_API_KEY 环境变量。');
-    } else if (this.config.apiKey && !APIKeyManager.validateAPIKey(this.config.apiKey)) {
-      errors.push('API 密钥格式无效。');
-    }
-
+    // CI 环境验证现在不再检查 API 密钥
+    // SDK 会自动从 Claude Code 配置中获取认证信息
     return {
-      valid: errors.length === 0,
-      errors,
+      valid: true,
+      errors: [],
     };
   }
 
@@ -662,8 +536,6 @@ export class CISupport {
     return {
       isCI: this.config.isCI,
       environment: this.config.environment,
-      hasAPIKey: this.hasAPIKey(),
-      apiKeySource: APIKeyManager.getAPIKeySource(),
       timeout: this.config.timeout,
       structuredLogs: this.config.structuredLogs,
       environmentInfo: CIDetector.getEnvironmentInfo(),

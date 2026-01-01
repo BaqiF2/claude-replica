@@ -133,9 +133,14 @@ export class OutputFormatter {
       output.toolCalls = result.toolCalls;
     }
 
-    if (result.model || result.totalCostUsd !== undefined || 
-        result.inputTokens !== undefined || result.outputTokens !== undefined ||
-        result.sessionId || result.messageUuid) {
+    if (
+      result.model ||
+      result.totalCostUsd !== undefined ||
+      result.inputTokens !== undefined ||
+      result.outputTokens !== undefined ||
+      result.sessionId ||
+      result.messageUuid
+    ) {
       output.metadata = {};
       if (result.model) output.metadata.model = result.model;
       if (result.totalCostUsd !== undefined) output.metadata.totalCostUsd = result.totalCostUsd;
@@ -177,17 +182,25 @@ export class OutputFormatter {
     lines.push(JSON.stringify(resultOutput));
 
     // 输出元数据
-    if (result.model || result.totalCostUsd !== undefined || 
-        result.inputTokens !== undefined || result.outputTokens !== undefined ||
-        result.sessionId || result.messageUuid) {
+    if (
+      result.model ||
+      result.totalCostUsd !== undefined ||
+      result.inputTokens !== undefined ||
+      result.outputTokens !== undefined ||
+      result.sessionId ||
+      result.messageUuid
+    ) {
       const metadataOutput: StreamJsonOutput = {
         type: 'metadata',
         metadata: {},
       };
       if (result.model) metadataOutput.metadata!.model = result.model;
-      if (result.totalCostUsd !== undefined) metadataOutput.metadata!.totalCostUsd = result.totalCostUsd;
-      if (result.inputTokens !== undefined) metadataOutput.metadata!.inputTokens = result.inputTokens;
-      if (result.outputTokens !== undefined) metadataOutput.metadata!.outputTokens = result.outputTokens;
+      if (result.totalCostUsd !== undefined)
+        metadataOutput.metadata!.totalCostUsd = result.totalCostUsd;
+      if (result.inputTokens !== undefined)
+        metadataOutput.metadata!.inputTokens = result.inputTokens;
+      if (result.outputTokens !== undefined)
+        metadataOutput.metadata!.outputTokens = result.outputTokens;
       if (result.sessionId) metadataOutput.metadata!.sessionId = result.sessionId;
       if (result.messageUuid) metadataOutput.metadata!.messageUuid = result.messageUuid;
       lines.push(JSON.stringify(metadataOutput));
@@ -221,7 +234,7 @@ export class OutputFormatter {
       lines.push('');
       lines.push('## 工具调用');
       lines.push('');
-      
+
       for (const toolCall of result.toolCalls) {
         lines.push(`### ${toolCall.name}`);
         lines.push('');
@@ -229,14 +242,16 @@ export class OutputFormatter {
         lines.push('```json');
         lines.push(JSON.stringify(toolCall.args, null, 2));
         lines.push('```');
-        
+
         if (toolCall.result !== undefined) {
           lines.push('');
           lines.push('**结果:**');
           lines.push('```');
-          lines.push(typeof toolCall.result === 'string' 
-            ? toolCall.result 
-            : JSON.stringify(toolCall.result, null, 2));
+          lines.push(
+            typeof toolCall.result === 'string'
+              ? toolCall.result
+              : JSON.stringify(toolCall.result, null, 2)
+          );
           lines.push('```');
         }
         lines.push('');
@@ -244,13 +259,17 @@ export class OutputFormatter {
     }
 
     // 添加元数据
-    if (result.model || result.totalCostUsd !== undefined || 
-        result.inputTokens !== undefined || result.outputTokens !== undefined) {
+    if (
+      result.model ||
+      result.totalCostUsd !== undefined ||
+      result.inputTokens !== undefined ||
+      result.outputTokens !== undefined
+    ) {
       lines.push('---');
       lines.push('');
       lines.push('## 元数据');
       lines.push('');
-      
+
       if (result.model) {
         lines.push(`- **模型:** ${result.model}`);
       }
@@ -300,7 +319,7 @@ export class OutputFormatter {
    * @returns 解析后的 StreamJsonOutput 数组
    */
   parseStreamJsonOutput(streamJsonString: string): StreamJsonOutput[] {
-    const lines = streamJsonString.split('\n').filter(line => line.trim());
-    return lines.map(line => JSON.parse(line) as StreamJsonOutput);
+    const lines = streamJsonString.split('\n').filter((line) => line.trim());
+    return lines.map((line) => JSON.parse(line) as StreamJsonOutput);
   }
 }

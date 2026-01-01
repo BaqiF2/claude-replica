@@ -157,12 +157,12 @@ export interface ContextManagerConfig {
  * 默认配置
  */
 const DEFAULT_CONFIG: ContextManagerConfig = {
-  maxTokens: 200000,           // Claude 3.5 Sonnet 的上下文窗口
+  maxTokens: 200000, // Claude 3.5 Sonnet 的上下文窗口
   toolOutputReserveRatio: 0.2, // 预留 20% 给工具输出
-  compressionThreshold: 0.8,   // 80% 时触发压缩
+  compressionThreshold: 0.8, // 80% 时触发压缩
   defaultCompressionStrategy: 'smart',
   keepRecentMessages: 10,
-  tokensPerChar: 0.25,         // 平均每 4 个字符约 1 个 token
+  tokensPerChar: 0.25, // 平均每 4 个字符约 1 个 token
 };
 
 /**
@@ -234,10 +234,7 @@ export class ContextManager {
    */
   countTokens(messages: Message[], systemPrompt?: string): TokenCount {
     const systemPromptTokens = systemPrompt ? this.estimateTokens(systemPrompt) : 0;
-    const messagesTokens = messages.reduce(
-      (sum, msg) => sum + this.estimateMessageTokens(msg),
-      0
-    );
+    const messagesTokens = messages.reduce((sum, msg) => sum + this.estimateMessageTokens(msg), 0);
     const toolOutputReserve = Math.floor(
       this.config.maxTokens * this.config.toolOutputReserveRatio
     );
@@ -275,7 +272,6 @@ export class ContextManager {
     };
   }
 
-
   /**
    * 评估消息的重要性
    *
@@ -312,9 +308,7 @@ export class ContextManager {
 
     // 3. 内容类型权重
     if (Array.isArray(message.content)) {
-      const hasToolUse = message.content.some(
-        (block: ContentBlock) => block.type === 'tool_use'
-      );
+      const hasToolUse = message.content.some((block: ContentBlock) => block.type === 'tool_use');
       const hasToolResult = message.content.some(
         (block: ContentBlock) => block.type === 'tool_result'
       );
@@ -377,10 +371,7 @@ export class ContextManager {
       generateSummary: options.generateSummary ?? true,
     };
 
-    const originalTokens = messages.reduce(
-      (sum, msg) => sum + this.estimateMessageTokens(msg),
-      0
-    );
+    const originalTokens = messages.reduce((sum, msg) => sum + this.estimateMessageTokens(msg), 0);
 
     let result: CompressionResult;
 
@@ -593,9 +584,7 @@ export class ContextManager {
     }
 
     // 6. 为未选中的旧消息生成摘要
-    const unselectedOldMessages = oldMessages.filter(
-      (msg) => !selectedOldMessages.includes(msg)
-    );
+    const unselectedOldMessages = oldMessages.filter((msg) => !selectedOldMessages.includes(msg));
 
     let summary: ConversationSummary | undefined;
     if (unselectedOldMessages.length > 0 && options.generateSummary) {
@@ -645,7 +634,6 @@ export class ContextManager {
     };
   }
 
-
   /**
    * 生成对话摘要
    *
@@ -655,10 +643,7 @@ export class ContextManager {
    * @returns 对话摘要
    */
   generateSummary(messages: Message[] | ScoredMessage[]): ConversationSummary {
-    const originalTokens = messages.reduce(
-      (sum, msg) => sum + this.estimateMessageTokens(msg),
-      0
-    );
+    const originalTokens = messages.reduce((sum, msg) => sum + this.estimateMessageTokens(msg), 0);
 
     // 提取关键信息
     const keyPoints: string[] = [];
@@ -677,9 +662,7 @@ export class ContextManager {
       if (msg.role === 'assistant') {
         // 检查是否有工具调用
         if (Array.isArray(msg.content)) {
-          const toolUses = msg.content.filter(
-            (block: ContentBlock) => block.type === 'tool_use'
-          );
+          const toolUses = msg.content.filter((block: ContentBlock) => block.type === 'tool_use');
           for (const toolUse of toolUses) {
             const toolName = (toolUse as { name?: string }).name || '未知工具';
             keyPoints.push(`执行工具: ${toolName}`);
@@ -864,15 +847,74 @@ export class ContextManager {
   private extractKeywords(query: string): string[] {
     // 移除常见停用词
     const stopWords = new Set([
-      'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
-      'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-      'would', 'could', 'should', 'may', 'might', 'must', 'shall',
-      'can', 'need', 'dare', 'ought', 'used', 'to', 'of', 'in',
-      'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into',
-      'through', 'during', 'before', 'after', 'above', 'below',
-      'between', 'under', 'again', 'further', 'then', 'once',
-      '的', '是', '在', '有', '和', '与', '或', '但', '如果',
-      '这', '那', '什么', '怎么', '如何', '为什么', '哪里',
+      'the',
+      'a',
+      'an',
+      'is',
+      'are',
+      'was',
+      'were',
+      'be',
+      'been',
+      'being',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'could',
+      'should',
+      'may',
+      'might',
+      'must',
+      'shall',
+      'can',
+      'need',
+      'dare',
+      'ought',
+      'used',
+      'to',
+      'of',
+      'in',
+      'for',
+      'on',
+      'with',
+      'at',
+      'by',
+      'from',
+      'as',
+      'into',
+      'through',
+      'during',
+      'before',
+      'after',
+      'above',
+      'below',
+      'between',
+      'under',
+      'again',
+      'further',
+      'then',
+      'once',
+      '的',
+      '是',
+      '在',
+      '有',
+      '和',
+      '与',
+      '或',
+      '但',
+      '如果',
+      '这',
+      '那',
+      '什么',
+      '怎么',
+      '如何',
+      '为什么',
+      '哪里',
     ]);
 
     // 分词并过滤
@@ -899,7 +941,7 @@ export class ContextManager {
       /^\s*(export\s+)?type\s+\w+/,
       /^\s*(export\s+)?const\s+\w+\s*=/,
       /^\s*(public|private|protected)\s+(async\s+)?\w+\s*\(/,
-      /^\s*def\s+\w+/,  // Python
+      /^\s*def\s+\w+/, // Python
       /^\s*class\s+\w+/,
     ];
 

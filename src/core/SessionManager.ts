@@ -22,6 +22,24 @@ export interface ContentBlock {
 }
 
 /**
+ * Token 使用统计接口
+ *
+ * 记录 SDK 查询的 token 使用情况和成本信息
+ *
+ * **验证: 需求 3.3**
+ */
+export interface UsageStats {
+  /** 输入 token 数量 */
+  inputTokens: number;
+  /** 输出 token 数量 */
+  outputTokens: number;
+  /** 总花费（美元） */
+  totalCostUsd?: number;
+  /** 执行时长（毫秒） */
+  durationMs?: number;
+}
+
+/**
  * 消息接口
  */
 export interface Message {
@@ -29,6 +47,8 @@ export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string | ContentBlock[];
   timestamp: Date;
+  /** Token 使用统计（仅助手消息） */
+  usage?: UsageStats;
 }
 
 /**
@@ -76,6 +96,8 @@ export interface Session {
   context: SessionContext;
   expired: boolean;
   workingDirectory: string;
+  /** SDK 会话 ID（用于恢复会话时传递给 SDK） */
+  sdkSessionId?: string;
 }
 
 /**
@@ -87,6 +109,8 @@ export interface SessionMetadata {
   lastAccessedAt: string;
   workingDirectory: string;
   expired: boolean;
+  /** SDK 会话 ID */
+  sdkSessionId?: string;
 }
 
 /**
@@ -189,13 +213,14 @@ export class SessionManager {
     const sessionDir = this.getSessionDir(session.id);
     await fs.mkdir(sessionDir, { recursive: true });
 
-    // 保存元数据
+    // 保存元数据（包含 SDK 会话 ID）
     const metadata: SessionMetadata = {
       id: session.id,
       createdAt: session.createdAt.toISOString(),
       lastAccessedAt: session.lastAccessedAt.toISOString(),
       workingDirectory: session.workingDirectory,
       expired: session.expired,
+      sdkSessionId: session.sdkSessionId,
     };
     await fs.writeFile(
       path.join(sessionDir, 'metadata.json'),
@@ -243,24 +268,26 @@ export class SessionManager {
 
     try {
       // 加载元数据
-      const metadataContent = await fs.readFile(
-        path.join(sessionDir, 'metadata.json'),
-        'utf-8'
-      );
+      const metadataContent = await fs.readFile(path.join(sessionDir, 'metadata.json'), 'utf-8');
       const metadata: SessionMetadata = JSON.parse(metadataContent);
 
       // 加载消息
       let messages: Message[] = [];
       try {
-        const messagesContent = await fs.readFile(
-          path.join(sessionDir, 'messages.json'),
-          'utf-8'
-        );
+        const messagesContent = await fs.readFile(path.join(sessionDir, 'messages.json'), 'utf-8');
         const messagesData = JSON.parse(messagesContent);
         messages = messagesData.map(
-          (msg: { id: string; role: 'user' | 'assistant' | 'system'; content: string | ContentBlock[]; timestamp: string }) => ({
+          (msg: {
+            id: string;
+            role: 'user' | 'assistant' | 'system';
+            content: string | ContentBlock[];
+            timestamp: string;
+            usage?: UsageStats;
+          }) => ({
             ...msg,
             timestamp: new Date(msg.timestamp),
+            // 保留 usage 统计信息（如果存在）
+            usage: msg.usage,
           })
         );
       } catch {
@@ -276,10 +303,7 @@ export class SessionManager {
         activeAgents: [],
       };
       try {
-        const contextContent = await fs.readFile(
-          path.join(sessionDir, 'context.json'),
-          'utf-8'
-        );
+        const contextContent = await fs.readFile(path.join(sessionDir, 'context.json'), 'utf-8');
         context = JSON.parse(contextContent);
       } catch {
         // 上下文文件可能不存在
@@ -297,6 +321,8 @@ export class SessionManager {
         context,
         expired,
         workingDirectory: metadata.workingDirectory,
+        // 加载 SDK 会话 ID（用于会话恢复）
+        sdkSessionId: metadata.sdkSessionId,
       };
 
       return session;
@@ -314,7 +340,7 @@ export class SessionManager {
    */
   async loadSession(sessionId: string): Promise<Session | null> {
     const session = await this.loadSessionInternal(sessionId);
-    
+
     if (session) {
       // 更新最后访问时间
       session.lastAccessedAt = new Date();
@@ -346,9 +372,7 @@ export class SessionManager {
       }
 
       // 按最后访问时间排序（最近的在前）
-      sessions.sort(
-        (a, b) => b.lastAccessedAt.getTime() - a.lastAccessedAt.getTime()
-      );
+      sessions.sort((a, b) => b.lastAccessedAt.getTime() - a.lastAccessedAt.getTime());
 
       return sessions;
     } catch {
@@ -431,10 +455,7 @@ export class SessionManager {
    * @param session - 会话
    * @param context - 新的上下文（部分更新）
    */
-  async updateContext(
-    session: Session,
-    context: Partial<SessionContext>
-  ): Promise<void> {
+  async updateContext(session: Session, context: Partial<SessionContext>): Promise<void> {
     session.context = {
       ...session.context,
       ...context,

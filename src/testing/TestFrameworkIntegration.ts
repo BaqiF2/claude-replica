@@ -1,14 +1,14 @@
 /**
  * 测试框架集成模块
- * 
+ *
  * 提供测试框架检测、测试执行、输出解析、失败分析和覆盖率报告功能
- * 
+ *
  * 支持的测试框架:
  * - Jest (JavaScript/TypeScript)
  * - Pytest (Python)
  * - JUnit (Java)
  * - Go Test (Go)
- * 
+ *
  * @module TestFrameworkIntegration
  */
 
@@ -157,7 +157,7 @@ export interface TestFrameworkConfig {
 
 /**
  * 测试框架集成类
- * 
+ *
  * 提供测试框架检测、执行、解析和分析功能
  */
 export class TestFrameworkIntegration {
@@ -171,9 +171,9 @@ export class TestFrameworkIntegration {
 
   /**
    * 检测项目使用的测试框架
-   * 
+   *
    * 通过检查配置文件和依赖来确定测试框架
-   * 
+   *
    * @returns 检测到的测试框架类型
    */
   async detectFramework(): Promise<TestFramework> {
@@ -223,19 +223,20 @@ export class TestFrameworkIntegration {
     return this.frameworkConfig;
   }
 
-
   /**
    * 生成测试执行命令
-   * 
+   *
    * @param options 执行选项
    * @returns 完整的测试命令
    */
-  generateTestCommand(options: {
-    testPattern?: string;
-    withCoverage?: boolean;
-    verbose?: boolean;
-    watch?: boolean;
-  } = {}): string {
+  generateTestCommand(
+    options: {
+      testPattern?: string;
+      withCoverage?: boolean;
+      verbose?: boolean;
+      watch?: boolean;
+    } = {}
+  ): string {
     if (!this.frameworkConfig) {
       throw new Error('未检测到测试框架，请先调用 detectFramework()');
     }
@@ -268,16 +269,18 @@ export class TestFrameworkIntegration {
 
   /**
    * 执行测试并返回结果
-   * 
+   *
    * @param options 执行选项
    * @returns 测试结果
    */
-  async runTests(options: {
-    testPattern?: string;
-    withCoverage?: boolean;
-    verbose?: boolean;
-    timeout?: number;
-  } = {}): Promise<TestResult> {
+  async runTests(
+    options: {
+      testPattern?: string;
+      withCoverage?: boolean;
+      verbose?: boolean;
+      timeout?: number;
+    } = {}
+  ): Promise<TestResult> {
     if (this.detectedFramework === 'unknown') {
       await this.detectFramework();
     }
@@ -305,7 +308,7 @@ export class TestFrameworkIntegration {
     } catch (error) {
       const execError = error as ExecException & { stdout?: string; stderr?: string };
       const rawOutput = (execError.stdout || '') + '\n' + (execError.stderr || '');
-      
+
       // 测试失败也会抛出错误，但我们仍然需要解析输出
       return this.parseTestOutput(rawOutput, options.withCoverage);
     }
@@ -313,7 +316,7 @@ export class TestFrameworkIntegration {
 
   /**
    * 解析测试输出
-   * 
+   *
    * @param output 原始测试输出
    * @param parseCoverage 是否解析覆盖率
    * @returns 解析后的测试结果
@@ -335,7 +338,7 @@ export class TestFrameworkIntegration {
 
   /**
    * 分析失败的测试
-   * 
+   *
    * @param result 测试结果
    * @returns 失败分析列表
    */
@@ -419,12 +422,11 @@ export class TestFrameworkIntegration {
     };
   }
 
-
   /**
    * 生成测试建议
-   * 
+   *
    * 分析源代码文件，生成测试建议
-   * 
+   *
    * @param sourceFile 源代码文件路径
    * @returns 测试建议列表
    */
@@ -458,7 +460,7 @@ export class TestFrameworkIntegration {
 
   /**
    * 格式化覆盖率报告
-   * 
+   *
    * @param coverage 覆盖率数据
    * @returns 格式化的覆盖率报告字符串
    */
@@ -489,7 +491,7 @@ export class TestFrameworkIntegration {
 
   /**
    * 格式化测试结果摘要
-   * 
+   *
    * @param result 测试结果
    * @returns 格式化的摘要字符串
    */
@@ -626,12 +628,11 @@ export class TestFrameworkIntegration {
     // 检查是否有 _test.go 文件
     try {
       const files = fs.readdirSync(this.workingDirectory);
-      return files.some(f => f.endsWith('_test.go'));
+      return files.some((f) => f.endsWith('_test.go'));
     } catch {
       return false;
     }
   }
-
 
   // ==================== 私有方法：框架配置 ====================
 
@@ -658,8 +659,9 @@ export class TestFrameworkIntegration {
   private getJUnitConfig(): TestFrameworkConfig {
     // 检测是 Maven 还是 Gradle
     const isMaven = fs.existsSync(path.join(this.workingDirectory, 'pom.xml'));
-    const isGradle = fs.existsSync(path.join(this.workingDirectory, 'build.gradle')) ||
-                     fs.existsSync(path.join(this.workingDirectory, 'build.gradle.kts'));
+    const isGradle =
+      fs.existsSync(path.join(this.workingDirectory, 'build.gradle')) ||
+      fs.existsSync(path.join(this.workingDirectory, 'build.gradle.kts'));
 
     if (isMaven) {
       return {
@@ -694,12 +696,7 @@ export class TestFrameworkIntegration {
   }
 
   private findJestConfigFile(): string | undefined {
-    const configFiles = [
-      'jest.config.js',
-      'jest.config.ts',
-      'jest.config.mjs',
-      'jest.config.cjs',
-    ];
+    const configFiles = ['jest.config.js', 'jest.config.ts', 'jest.config.mjs', 'jest.config.cjs'];
     for (const file of configFiles) {
       if (fs.existsSync(path.join(this.workingDirectory, file))) {
         return file;
@@ -787,7 +784,7 @@ export class TestFrameworkIntegration {
       const passedMatch = line.match(/(\d+)\s+passed/i);
       const failedMatch = line.match(/(\d+)\s+failed/i);
       const skippedMatch = line.match(/(\d+)\s+skipped/i);
-      
+
       result.totalPassed = passedMatch ? parseInt(passedMatch[1], 10) : 0;
       result.totalFailed = failedMatch ? parseInt(failedMatch[1], 10) : 0;
       result.totalSkipped = skippedMatch ? parseInt(skippedMatch[1], 10) : 0;
@@ -796,7 +793,7 @@ export class TestFrameworkIntegration {
       const passedMatch = output.match(/(\d+)\s+pass(?:ed|ing)?/i);
       const failedMatch = output.match(/(\d+)\s+fail(?:ed|ing)?/i);
       const skippedMatch = output.match(/(\d+)\s+skip(?:ped)?/i);
-      
+
       result.totalPassed = passedMatch ? parseInt(passedMatch[1], 10) : 0;
       result.totalFailed = failedMatch ? parseInt(failedMatch[1], 10) : 0;
       result.totalSkipped = skippedMatch ? parseInt(skippedMatch[1], 10) : 0;
@@ -813,8 +810,8 @@ export class TestFrameworkIntegration {
       if (testMatch) {
         const suiteName = testMatch[1].trim();
         const testName = testMatch[2].trim();
-        
-        let suite = result.suites.find(s => s.name === suiteName);
+
+        let suite = result.suites.find((s) => s.name === suiteName);
         if (!suite) {
           suite = this.createEmptySuite(suiteName);
           result.suites.push(suite);
@@ -843,10 +840,8 @@ export class TestFrameworkIntegration {
     result.totalPassed = json.numPassedTests || 0;
     result.totalFailed = json.numFailedTests || 0;
     result.totalSkipped = json.numPendingTests || 0;
-    result.totalDuration = json.testResults?.reduce(
-      (sum: number, r: any) => sum + (r.endTime - r.startTime),
-      0
-    ) || 0;
+    result.totalDuration =
+      json.testResults?.reduce((sum: number, r: any) => sum + (r.endTime - r.startTime), 0) || 0;
     result.success = json.success || result.totalFailed === 0;
 
     // 解析测试套件
@@ -863,10 +858,14 @@ export class TestFrameworkIntegration {
 
         if (testResult.assertionResults) {
           for (const assertion of testResult.assertionResults) {
-            const status: TestStatus = 
-              assertion.status === 'passed' ? 'passed' :
-              assertion.status === 'failed' ? 'failed' :
-              assertion.status === 'pending' ? 'skipped' : 'error';
+            const status: TestStatus =
+              assertion.status === 'passed'
+                ? 'passed'
+                : assertion.status === 'failed'
+                  ? 'failed'
+                  : assertion.status === 'pending'
+                    ? 'skipped'
+                    : 'error';
 
             suite.tests.push({
               name: assertion.title || assertion.fullName || 'Unknown Test',
@@ -892,7 +891,6 @@ export class TestFrameworkIntegration {
 
     return result;
   }
-
 
   private parsePytestOutput(output: string, parseCoverage: boolean): TestResult {
     const result = this.createEmptyResult(output);
@@ -924,7 +922,7 @@ export class TestFrameworkIntegration {
           const suiteName = parts.slice(0, -1).join('::') || 'Unknown Suite';
           const testName = parts[parts.length - 1];
 
-          let suite = result.suites.find(s => s.name === suiteName);
+          let suite = result.suites.find((s) => s.name === suiteName);
           if (!suite) {
             suite = this.createEmptySuite(suiteName);
             result.suites.push(suite);
@@ -982,7 +980,7 @@ export class TestFrameworkIntegration {
         const testName = testMatch[2];
         const lineNumber = parseInt(testMatch[3], 10);
 
-        let suite = result.suites.find(s => s.name === suiteName);
+        let suite = result.suites.find((s) => s.name === suiteName);
         if (!suite) {
           suite = this.createEmptySuite(suiteName);
           result.suites.push(suite);
@@ -1021,7 +1019,14 @@ export class TestFrameworkIntegration {
             this.addGoTestToSuite(result, json.Package, json.Test, 'passed', json.Elapsed);
           } else if (json.Action === 'fail' && json.Test) {
             result.totalFailed++;
-            this.addGoTestToSuite(result, json.Package, json.Test, 'failed', json.Elapsed, json.Output);
+            this.addGoTestToSuite(
+              result,
+              json.Package,
+              json.Test,
+              'failed',
+              json.Elapsed,
+              json.Output
+            );
           } else if (json.Action === 'skip' && json.Test) {
             result.totalSkipped++;
             this.addGoTestToSuite(result, json.Package, json.Test, 'skipped', json.Elapsed);
@@ -1036,7 +1041,7 @@ export class TestFrameworkIntegration {
     if (!hasJsonOutput) {
       const passMatch = output.match(/PASS/g);
       const failMatch = output.match(/FAIL/g);
-      
+
       result.totalPassed = passMatch ? passMatch.length : 0;
       result.totalFailed = failMatch ? failMatch.length : 0;
     }
@@ -1068,7 +1073,7 @@ export class TestFrameworkIntegration {
     elapsed?: number,
     errorOutput?: string
   ): void {
-    let suite = result.suites.find(s => s.name === packageName);
+    let suite = result.suites.find((s) => s.name === packageName);
     if (!suite) {
       suite = this.createEmptySuite(packageName);
       result.suites.push(suite);
@@ -1086,7 +1091,6 @@ export class TestFrameworkIntegration {
     else if (status === 'skipped') suite.skipped++;
   }
 
-
   // ==================== 私有方法：覆盖率解析 ====================
 
   private parseJestCoverage(output: string): CoverageReport | undefined {
@@ -1094,8 +1098,11 @@ export class TestFrameworkIntegration {
     // 格式1: "Lines : 85.5%"
     // 格式2: "% Lines | 85.5"
     // 格式3: 表格格式 "| 85.5 |"
-    
-    let lines = 0, statements = 0, branches = 0, functions = 0;
+
+    let lines = 0,
+      statements = 0,
+      branches = 0,
+      functions = 0;
     let found = false;
 
     // 尝试匹配 "Lines : XX%" 格式
@@ -1115,7 +1122,9 @@ export class TestFrameworkIntegration {
     // 尝试匹配表格格式 "| % Stmts | % Branch | % Funcs | % Lines |"
     // 然后匹配 "All files | XX | XX | XX | XX |"
     if (!found) {
-      const tableMatch = output.match(/All\s+files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)/i);
+      const tableMatch = output.match(
+        /All\s+files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)/i
+      );
       if (tableMatch) {
         statements = parseFloat(tableMatch[1]);
         branches = parseFloat(tableMatch[2]);
@@ -1127,7 +1136,9 @@ export class TestFrameworkIntegration {
 
     // 尝试匹配简化的表格格式
     if (!found) {
-      const simpleTableMatch = output.match(/\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
+      const simpleTableMatch = output.match(
+        /\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/
+      );
       if (simpleTableMatch) {
         statements = parseFloat(simpleTableMatch[1]);
         branches = parseFloat(simpleTableMatch[2]);
@@ -1157,7 +1168,7 @@ export class TestFrameworkIntegration {
 
     for (const [file, coverage] of Object.entries(coverageMap)) {
       const cov = coverage as any;
-      
+
       // 统计行覆盖率
       if (cov.l) {
         for (const [, count] of Object.entries(cov.l)) {
@@ -1225,16 +1236,11 @@ export class TestFrameworkIntegration {
 
   // ==================== 私有方法：测试建议生成 ====================
 
-  private generateJavaScriptTestSuggestions(
-    sourceFile: string,
-    content: string
-  ): TestSuggestion[] {
+  private generateJavaScriptTestSuggestions(sourceFile: string, content: string): TestSuggestion[] {
     const suggestions: TestSuggestion[] = [];
 
     // 匹配导出的函数
-    const functionMatches = content.matchAll(
-      /export\s+(?:async\s+)?function\s+(\w+)\s*\(/g
-    );
+    const functionMatches = content.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(/g);
     for (const match of functionMatches) {
       suggestions.push({
         testName: `should test ${match[1]}`,
@@ -1260,9 +1266,7 @@ export class TestFrameworkIntegration {
     }
 
     // 匹配箭头函数导出
-    const arrowFunctionMatches = content.matchAll(
-      /export\s+const\s+(\w+)\s*=\s*(?:async\s*)?\(/g
-    );
+    const arrowFunctionMatches = content.matchAll(/export\s+const\s+(\w+)\s*=\s*(?:async\s*)?\(/g);
     for (const match of arrowFunctionMatches) {
       suggestions.push({
         testName: `should test ${match[1]}`,
@@ -1277,10 +1281,7 @@ export class TestFrameworkIntegration {
     return suggestions;
   }
 
-  private generatePythonTestSuggestions(
-    sourceFile: string,
-    content: string
-  ): TestSuggestion[] {
+  private generatePythonTestSuggestions(sourceFile: string, content: string): TestSuggestion[] {
     const suggestions: TestSuggestion[] = [];
 
     // 匹配函数定义
@@ -1314,16 +1315,11 @@ export class TestFrameworkIntegration {
     return suggestions;
   }
 
-  private generateJavaTestSuggestions(
-    sourceFile: string,
-    content: string
-  ): TestSuggestion[] {
+  private generateJavaTestSuggestions(sourceFile: string, content: string): TestSuggestion[] {
     const suggestions: TestSuggestion[] = [];
 
     // 匹配公共方法
-    const methodMatches = content.matchAll(
-      /public\s+(?:static\s+)?(?:\w+\s+)?(\w+)\s*\(/g
-    );
+    const methodMatches = content.matchAll(/public\s+(?:static\s+)?(?:\w+\s+)?(\w+)\s*\(/g);
     for (const match of methodMatches) {
       if (!['main', 'toString', 'equals', 'hashCode'].includes(match[1])) {
         suggestions.push({
@@ -1340,10 +1336,7 @@ export class TestFrameworkIntegration {
     return suggestions;
   }
 
-  private generateGoTestSuggestions(
-    sourceFile: string,
-    content: string
-  ): TestSuggestion[] {
+  private generateGoTestSuggestions(sourceFile: string, content: string): TestSuggestion[] {
     const suggestions: TestSuggestion[] = [];
 
     // 匹配导出的函数（首字母大写）
@@ -1361,7 +1354,6 @@ export class TestFrameworkIntegration {
 
     return suggestions;
   }
-
 
   // ==================== 私有方法：测试模板生成 ====================
 
@@ -1469,7 +1461,7 @@ public void test${capitalizedName}() {
       /expected.*but.*got/i,
       /AssertionError/i,
     ];
-    return patterns.some(p => p.test(message));
+    return patterns.some((p) => p.test(message));
   }
 
   private isTypeError(message: string): boolean {

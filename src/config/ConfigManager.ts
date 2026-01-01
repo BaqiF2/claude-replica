@@ -107,11 +107,7 @@ export class ConfigManager {
    * @param local - 本地配置（可选）
    * @returns 合并后的配置
    */
-  mergeConfigs(
-    user: UserConfig,
-    project: ProjectConfig,
-    local?: ProjectConfig
-  ): ProjectConfig {
+  mergeConfigs(user: UserConfig, project: ProjectConfig, local?: ProjectConfig): ProjectConfig {
     // 先合并用户和项目配置
     let merged = this.loader.mergeConfigs(user, project) as ProjectConfig;
 

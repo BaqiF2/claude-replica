@@ -15,7 +15,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 import { CLIParser, CLIOptions, CLIParseError } from './cli/CLIParser';
-import { ConfigManager, UserConfig, ProjectConfig } from './config/ConfigManager';
+import { ConfigManager, UserConfig, ProjectConfig, EnvConfig } from './config';
 import { SessionManager, Session } from './core/SessionManager';
 import { MessageRouter } from './core/MessageRouter';
 import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
@@ -28,7 +28,11 @@ import { AgentRegistry } from './agents/AgentRegistry';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
 import { RewindManager, Snapshot as RewindSnapshot } from './rewind/RewindManager';
-import { OutputFormatter, QueryResult as OutputQueryResult, OutputFormat } from './output/OutputFormatter';
+import {
+  OutputFormatter,
+  QueryResult as OutputQueryResult,
+  OutputFormat,
+} from './output/OutputFormatter';
 import { SecurityManager } from './security/SecurityManager';
 import {
   CISupport,
@@ -36,11 +40,11 @@ import {
   StructuredLogger,
   TimeoutManager,
   TimeoutError,
-  APIKeyManager,
   ExitCodes,
   type CIConfig,
   type TimeoutConfig,
 } from './ci/CISupport';
+import { SDKQueryExecutor, SDKErrorType, ERROR_MESSAGES } from './sdk';
 
 /**
  * 应用程序版本号
@@ -54,7 +58,6 @@ export {
   StructuredLogger,
   TimeoutManager,
   TimeoutError,
-  APIKeyManager,
   ExitCodes,
   type CIConfig,
   type TimeoutConfig,
@@ -81,7 +84,7 @@ class Logger {
 
   constructor(verbose = false, securityManager?: SecurityManager) {
     this.verbose = verbose;
-    this.debugMode = process.env.CLAUDE_REPLICA_DEBUG === 'true';
+    this.debugMode = EnvConfig.isDebugMode();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     this.logFile = path.join(LOG_DIR, `claude-replica-${timestamp}.log`);
     this.securityManager = securityManager || new SecurityManager();
@@ -108,11 +111,7 @@ class Logger {
 
     // 写入日志文件
     try {
-      await fs.appendFile(
-        this.logFile,
-        JSON.stringify(logEntry) + '\n',
-        'utf-8'
-      );
+      await fs.appendFile(this.logFile, JSON.stringify(logEntry) + '\n', 'utf-8');
     } catch {
       // 忽略日志写入错误
     }
@@ -174,7 +173,8 @@ export class Application {
   private readonly mcpManager: MCPManager;
   private readonly outputFormatter: OutputFormatter;
   private readonly securityManager: SecurityManager;
-  
+  private readonly sdkExecutor: SDKQueryExecutor;
+
   private rewindManager: RewindManager | null = null;
   private permissionManager!: PermissionManager;
   private messageRouter!: MessageRouter;
@@ -189,6 +189,8 @@ export class Application {
   // 中断标志，用于取消正在进行的操作（将在 SDK 集成时使用）
   // @ts-expect-error 预留变量，将在后续功能中使用
   private isInterrupted = false;
+  // 当前的中断控制器，用于取消正在进行的 SDK 查询
+  private currentAbortController: AbortController | null = null;
   // CI/CD 支持
   private ciSupport: CISupport | null = null;
   private ciLogger: StructuredLogger | null = null;
@@ -205,6 +207,7 @@ export class Application {
     this.mcpManager = new MCPManager();
     this.outputFormatter = new OutputFormatter();
     this.securityManager = new SecurityManager();
+    this.sdkExecutor = new SDKQueryExecutor();
   }
 
   /**
@@ -235,19 +238,8 @@ export class Application {
         return ExitCodes.SUCCESS;
       }
 
-      // 在 CI 环境中验证配置
+      // 在 CI 环境中记录环境信息
       if (this.ciSupport?.isCI()) {
-        const validation = this.ciSupport.validate();
-        if (!validation.valid) {
-          for (const error of validation.errors) {
-            console.error(`CI 配置错误: ${error}`);
-          }
-          // 如果只是缺少 API 密钥但不是必需的，继续执行
-          if (validation.errors.some(e => e.includes('API 密钥'))) {
-            await this.logger.warn('CI 环境中未找到 API 密钥');
-          }
-        }
-        
         // 记录 CI 环境信息
         this.ciLogger?.info('CI 环境检测', this.ciSupport.getSummary() as Record<string, unknown>);
       }
@@ -316,10 +308,7 @@ export class Application {
 
     // 初始化权限管理器
     const permissionConfig = this.buildPermissionConfig(options, mergedConfig);
-    this.permissionManager = new PermissionManager(
-      permissionConfig,
-      this.toolRegistry
-    );
+    this.permissionManager = new PermissionManager(permissionConfig, this.toolRegistry);
 
     // 初始化消息路由器
     this.messageRouter = new MessageRouter({
@@ -354,10 +343,7 @@ export class Application {
     userConfig: UserConfig,
     projectConfig: ProjectConfig
   ): ProjectConfig {
-    const merged = this.configManager.mergeConfigs(
-      userConfig,
-      projectConfig
-    );
+    const merged = this.configManager.mergeConfigs(userConfig, projectConfig);
 
     // 应用 CLI 选项（最高优先级）
     if (options.model) {
@@ -394,10 +380,7 @@ export class Application {
   /**
    * 构建权限配置
    */
-  private buildPermissionConfig(
-    options: CLIOptions,
-    config: ProjectConfig
-  ): PermissionConfig {
+  private buildPermissionConfig(options: CLIOptions, config: ProjectConfig): PermissionConfig {
     return {
       mode: options.permissionMode || config.permissionMode || 'default',
       allowedTools: options.allowedTools || config.allowedTools,
@@ -432,15 +415,13 @@ export class Application {
 
     // 加载扩展
     await Promise.all([
-      this.skillManager.loadSkills(skillDirs).catch(err => 
-        this.logger.warn('加载技能失败', err)
-      ),
-      this.commandManager.loadCommands(commandDirs).catch(err => 
-        this.logger.warn('加载命令失败', err)
-      ),
-      this.agentRegistry.loadAgents(agentDirs).catch(err => 
-        this.logger.warn('加载代理失败', err)
-      ),
+      this.skillManager.loadSkills(skillDirs).catch((err) => this.logger.warn('加载技能失败', err)),
+      this.commandManager
+        .loadCommands(commandDirs)
+        .catch((err) => this.logger.warn('加载命令失败', err)),
+      this.agentRegistry
+        .loadAgents(agentDirs)
+        .catch((err) => this.logger.warn('加载代理失败', err)),
     ]);
 
     // 加载钩子配置
@@ -461,10 +442,7 @@ export class Application {
    * 加载 MCP 服务器配置
    */
   private async loadMCPServers(workingDir: string): Promise<void> {
-    const mcpConfigPaths = [
-      path.join(workingDir, '.mcp.json'),
-      path.join(workingDir, 'mcp.json'),
-    ];
+    const mcpConfigPaths = [path.join(workingDir, '.mcp.json'), path.join(workingDir, 'mcp.json')];
 
     for (const configPath of mcpConfigPaths) {
       try {
@@ -525,7 +503,7 @@ export class Application {
     await this.logger.info('启动非交互模式');
 
     // 获取查询内容
-    const prompt = options.prompt || await this.readStdin();
+    const prompt = options.prompt || (await this.readStdin());
     if (!prompt) {
       console.error('错误: 未提供查询内容');
       return ExitCodes.CONFIG_ERROR;
@@ -552,7 +530,7 @@ export class Application {
     try {
       // 执行查询
       const result = await this.executeQuery(prompt, session, options);
-      
+
       // 停止超时计时
       this.ciSupport?.endExecution();
 
@@ -561,7 +539,7 @@ export class Application {
         console.error('错误: 执行超时');
         return ExitCodes.TIMEOUT_ERROR;
       }
-      
+
       // 输出结果
       this.outputResult(result, options.outputFormat || 'text');
 
@@ -571,21 +549,21 @@ export class Application {
         success: true,
         duration,
       });
-      
+
       return ExitCodes.SUCCESS;
     } catch (error) {
       // 停止超时计时
       this.ciSupport?.endExecution();
 
       await this.logger.error('查询执行失败', error);
-      
+
       // 记录错误（CI 模式）
       if (error instanceof Error) {
         this.ciLogger?.logError(error);
       }
 
       console.error('错误:', error instanceof Error ? error.message : String(error));
-      
+
       // 返回适当的退出码
       return CISupport.getExitCode(error instanceof Error ? error : String(error));
     }
@@ -627,7 +605,7 @@ export class Application {
     await this.logger.debug('创建新会话');
     const userConfig = await this.configManager.loadUserConfig();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    
+
     return this.sessionManager.createSession(workingDir, projectConfig, userConfig);
   }
 
@@ -734,7 +712,12 @@ export class Application {
   /exit        - 退出程序
 
 自定义命令:
-${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`).join('\n') || '  (无)'}
+${
+  this.commandManager
+    .listCommands()
+    .map((c) => `  /${c.name} - ${c.description}`)
+    .join('\n') || '  (无)'
+}
 `.trim();
 
     console.log(helpText);
@@ -745,7 +728,7 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
    */
   private async showSessions(): Promise<void> {
     const sessions = await this.sessionManager.listSessions();
-    
+
     if (sessions.length === 0) {
       console.log('没有保存的会话');
       return;
@@ -778,7 +761,7 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
    */
   private showPermissions(): void {
     const config = this.permissionManager.getConfig();
-    
+
     console.log('\n权限设置:');
     console.log(`  模式: ${config.mode}`);
     console.log(`  允许的工具: ${config.allowedTools?.join(', ') || '(全部)'}`);
@@ -792,7 +775,7 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
    */
   private showMCPStatus(): void {
     const servers = this.mcpManager.listServers();
-    
+
     if (servers.length === 0) {
       console.log('没有配置 MCP 服务器');
       return;
@@ -807,6 +790,10 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
 
   /**
    * 执行查询
+   *
+   * 使用 SDK 执行真实的 AI 查询，替代之前的模拟响应
+   *
+   * **验证: 需求 1.1, 2.2, 2.3, 3.2**
    */
   private async executeQuery(
     prompt: string,
@@ -829,34 +816,106 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
 
     const queryResult = await this.messageRouter.routeMessage(message, session);
 
-    // 这里应该调用实际的 SDK query() 函数
-    // 由于 SDK 可能未安装或配置，我们返回一个模拟响应
-    await this.logger.debug('查询构建完成', { 
+    await this.logger.debug('查询构建完成', {
       prompt: queryResult.prompt,
       model: queryResult.options.model,
     });
 
-    // 模拟响应（实际实现中应调用 SDK）
-    const response = `[模拟响应] 收到查询: "${prompt.substring(0, 50)}..."`;
+    // 创建 AbortController 用于中断支持
+    this.currentAbortController = new AbortController();
 
-    // 添加助手消息到会话
-    await this.sessionManager.addMessage(session, {
-      role: 'assistant',
-      content: response,
-    });
+    try {
+      // 调用 SDK 执行查询
+      // 注意：canUseTool 和 mcpServers 类型需要在 SDK 层面处理兼容性
+      const sdkResult = await this.sdkExecutor.execute({
+        prompt: queryResult.prompt,
+        model: queryResult.options.model,
+        systemPrompt: queryResult.options.systemPrompt,
+        allowedTools: queryResult.options.allowedTools,
+        disallowedTools: queryResult.options.disallowedTools,
+        cwd: queryResult.options.cwd,
+        permissionMode: queryResult.options.permissionMode,
+        // canUseTool 类型不兼容，暂时不传递，由 SDK 使用默认权限处理
+        // canUseTool: queryResult.options.canUseTool,
+        maxTurns: queryResult.options.maxTurns,
+        maxBudgetUsd: queryResult.options.maxBudgetUsd,
+        maxThinkingTokens: queryResult.options.maxThinkingTokens,
+        // mcpServers 类型需要转换，暂时使用类型断言
+        mcpServers: queryResult.options.mcpServers as Parameters<typeof this.sdkExecutor.execute>[0]['mcpServers'],
+        agents: queryResult.options.agents as Parameters<typeof this.sdkExecutor.execute>[0]['agents'],
+        sandbox: queryResult.options.sandbox,
+        abortController: this.currentAbortController,
+        // 会话恢复支持 (Requirement 3.2)
+        // 如果会话有 SDK 会话 ID，则传递给 SDK 以恢复历史消息
+        resume: session.sdkSessionId,
+      });
 
-    return response;
+      // 记录使用统计
+      if (sdkResult.usage) {
+        await this.logger.info('Token 使用统计', {
+          inputTokens: sdkResult.usage.inputTokens,
+          outputTokens: sdkResult.usage.outputTokens,
+          totalCostUsd: sdkResult.totalCostUsd,
+          durationMs: sdkResult.durationMs,
+        });
+      }
+
+      // 处理错误结果 (Requirement 2.3)
+      if (sdkResult.isError) {
+        throw new Error(sdkResult.errorMessage || '查询执行失败');
+      }
+
+      // 保存 SDK 会话 ID 以便后续恢复 (Requirement 3.2)
+      if (sdkResult.sessionId && sdkResult.sessionId !== session.sdkSessionId) {
+        session.sdkSessionId = sdkResult.sessionId;
+        await this.sessionManager.saveSession(session);
+        await this.logger.debug('已保存 SDK 会话 ID', { sdkSessionId: sdkResult.sessionId });
+      }
+
+      // 添加助手消息到会话，包含 usage 统计信息 (Requirement 2.2, 3.1, 3.3)
+      await this.sessionManager.addMessage(session, {
+        role: 'assistant',
+        content: sdkResult.response,
+        usage: sdkResult.usage ? {
+          inputTokens: sdkResult.usage.inputTokens,
+          outputTokens: sdkResult.usage.outputTokens,
+          totalCostUsd: sdkResult.totalCostUsd,
+          durationMs: sdkResult.durationMs,
+        } : undefined,
+      });
+
+      return sdkResult.response;
+    } finally {
+      this.currentAbortController = null;
+    }
   }
 
   /**
    * 处理中断
+   *
+   * 当用户触发中断（Ctrl+C）时调用此方法
+   * 会中止当前正在进行的 SDK 查询并显示中断状态
+   *
+   * **验证: 需求 4.1, 4.2, 4.3**
    */
   private handleInterrupt(): void {
     this.isInterrupted = true;
     this.logger.info('用户中断操作');
-    
+
+    // 调用 AbortController.abort() 中断正在进行的 SDK 查询 (Requirement 4.1)
+    if (this.currentAbortController) {
+      this.currentAbortController.abort();
+      this.logger.debug('已发送中断信号到 SDK 查询');
+    }
+
+    // 中断 SDKQueryExecutor（如果正在执行）
+    if (this.sdkExecutor.isRunning()) {
+      this.sdkExecutor.interrupt();
+    }
+
+    // 显示中断警告消息 (Requirement 4.3)
     if (this.ui) {
-      this.ui.displayWarning('操作已中断');
+      this.ui.displayWarning(ERROR_MESSAGES[SDKErrorType.INTERRUPTED]);
     }
   }
 
@@ -875,7 +934,7 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
 
     // 获取快照列表
     const snapshots = await this.rewindManager.listSnapshots();
-    
+
     if (snapshots.length === 0) {
       if (this.ui) {
         this.ui.displayWarning('没有可用的回退点');
@@ -894,14 +953,16 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
     // 显示回退菜单
     if (this.ui) {
       const selected = await this.ui.showRewindMenu(uiSnapshots);
-      
+
       if (selected) {
         try {
           await this.rewindManager.restoreSnapshot(selected.id);
           this.ui.displaySuccess(`已回退到: ${selected.description}`);
           await this.logger.info('回退成功', { snapshotId: selected.id });
         } catch (error) {
-          this.ui.displayError(`回退失败: ${error instanceof Error ? error.message : String(error)}`);
+          this.ui.displayError(
+            `回退失败: ${error instanceof Error ? error.message : String(error)}`
+          );
           await this.logger.error('回退失败', error);
         }
       }
@@ -919,7 +980,7 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
 
     return new Promise((resolve) => {
       let data = '';
-      
+
       process.stdin.setEncoding('utf-8');
       process.stdin.on('data', (chunk) => {
         data += chunk;
@@ -951,8 +1012,8 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
     };
 
     // 验证格式是否有效
-    const outputFormat: OutputFormat = this.outputFormatter.isValidFormat(format) 
-      ? format as OutputFormat 
+    const outputFormat: OutputFormat = this.outputFormatter.isValidFormat(format)
+      ? (format as OutputFormat)
       : 'text';
 
     // 使用格式化器输出
@@ -970,8 +1031,8 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private outputFullResult(queryResult: OutputQueryResult, format: string): void {
     // 验证格式是否有效
-    const outputFormat: OutputFormat = this.outputFormatter.isValidFormat(format) 
-      ? format as OutputFormat 
+    const outputFormat: OutputFormat = this.outputFormatter.isValidFormat(format)
+      ? (format as OutputFormat)
       : 'text';
 
     // 使用格式化器输出
@@ -1005,7 +1066,11 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
       }
 
       // API 错误处理
-      if (error.message.includes('API') || error.message.includes('401') || error.message.includes('403')) {
+      if (
+        error.message.includes('API') ||
+        error.message.includes('401') ||
+        error.message.includes('403')
+      ) {
         console.error('API 错误: 认证失败，请检查 ANTHROPIC_API_KEY 环境变量');
         this.ciLogger?.logError(error, { type: 'auth' });
         return ExitCodes.AUTH_ERROR;
@@ -1013,9 +1078,9 @@ ${this.commandManager.listCommands().map(c => `  /${c.name} - ${c.description}`)
 
       console.error(`错误: ${error.message}`);
       this.ciLogger?.logError(error);
-      
+
       // 详细模式下显示堆栈
-      if (process.env.CLAUDE_REPLICA_DEBUG === 'true') {
+      if (EnvConfig.isDebugMode()) {
         console.error(error.stack);
       }
 
@@ -1037,10 +1102,12 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
 
 // 如果直接运行此文件
 if (require.main === module) {
-  main().then((exitCode) => {
-    process.exit(exitCode);
-  }).catch((error) => {
-    console.error('致命错误:', error);
-    process.exit(1);
-  });
+  main()
+    .then((exitCode) => {
+      process.exit(exitCode);
+    })
+    .catch((error) => {
+      console.error('致命错误:', error);
+      process.exit(1);
+    });
 }

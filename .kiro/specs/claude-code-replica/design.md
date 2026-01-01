@@ -79,12 +79,14 @@ async function buildQueryOptions(session: Session): Promise<Options> {
   
   return {
     ...baseConfig,
-    apiKey: process.env.ANTHROPIC_API_KEY!,
+    // 认证由 SDK 自动从 Claude Code 配置获取，无需手动设置 apiKey
     model: session.context.projectConfig.model || 'claude-3-5-sonnet-latest',
     systemPrompt: await buildSystemPrompt(session),
     allowedTools: getEnabledToolNames(session),
     cwd: session.workingDirectory,
     permissionMode: session.context.projectConfig.permissionMode || 'default',
+    // 使用 settingSources 让 SDK 加载 Claude Code 配置
+    settingSources: ['user', 'project'],
   };
 }
 
@@ -226,7 +228,7 @@ async function* chatWithClaude(userMessage: string, options: Options) {
 
 // Options 接口 (部分重要选项)
 interface Options {
-  apiKey?: string;                   // Anthropic API 密钥
+  // 注意: apiKey 已移除，认证由 SDK 自动从 Claude Code 配置获取
   model?: string;                    // 模型名称,默认 'claude-3-5-sonnet-latest'
   systemPrompt?: string | {          // 系统提示词或预设
     type: 'preset';
@@ -241,6 +243,7 @@ interface Options {
   };
   cwd?: string;                      // 工作目录
   permissionMode?: PermissionMode;   // 权限模式
+  settingSources?: SettingSource[];  // 配置源（'user' | 'project' | 'local'）
   canUseTool?: CanUseTool;          // 自定义权限函数
   mcpServers?: Record<string, McpServerConfig>;  // MCP 服务器配置
   agents?: Record<string, AgentDefinition>;      // 子代理定义
@@ -331,8 +334,8 @@ class MessageRouter {
     session: Session
   ): Promise<Query> {
     // 使用 query() 函数处理消息
+    // 认证由 SDK 自动从 Claude Code 配置获取
     const options: Options = {
-      apiKey: process.env.ANTHROPIC_API_KEY,
       model: session.context.projectConfig.model || 'claude-3-5-sonnet-latest',
       systemPrompt: this.buildSystemPrompt(session),
       allowedTools: this.getEnabledToolNames(session),
@@ -341,7 +344,7 @@ class MessageRouter {
       canUseTool: this.createPermissionHandler(session),
       mcpServers: session.context.projectConfig.mcpServers,
       agents: this.getAgentDefinitions(session),
-      settingSources: ['project'],  // 加载项目配置
+      settingSources: ['user', 'project'],  // 加载用户和项目配置（包含认证信息）
       hooks: session.context.projectConfig.hooks,
       // ... 其他配置
     };
@@ -1559,9 +1562,10 @@ class SDKConfigLoader {
    const configLoader = new SDKConfigLoader();
    const config = await configLoader.loadFullConfig(workingDir);
    
+   // 认证由 SDK 自动从 Claude Code 配置获取
    const options: Options = {
      ...config,
-     apiKey: process.env.ANTHROPIC_API_KEY,
+     settingSources: ['user', 'project'],  // 加载认证信息
      // ...
    };
    ```
@@ -1569,7 +1573,7 @@ class SDKConfigLoader {
 3. **混合方式**:
    ```typescript
    const options: Options = {
-     settingSources: ['project'],  // 让 SDK 加载基础配置
+     settingSources: ['user', 'project'],  // 让 SDK 加载配置和认证
      
      // 手动覆盖特定选项
      model: 'claude-3-5-sonnet-latest',
@@ -1998,8 +2002,8 @@ const options: Options = {
 
 2. **认证错误**
    - 检测 401/403 状态码
-   - 提示用户检查 API 密钥
-   - 提供配置指导链接
+   - 提示用户检查 Claude Code 配置（`claude login`）
+   - 在 CI 环境中提示检查 ANTHROPIC_API_KEY 环境变量
 
 3. **网络错误**
    - 检测连接超时和网络中断

@@ -1,14 +1,14 @@
 /**
  * 多语言支持模块
- * 
+ *
  * 提供项目语言检测、代码生成策略和最佳实践建议功能
- * 
+ *
  * 支持的编程语言:
  * - JavaScript/TypeScript
  * - Python
  * - Java
  * - Go
- * 
+ *
  * @module LanguageSupport
  */
 
@@ -18,7 +18,7 @@ import * as path from 'path';
 /**
  * 支持的编程语言类型
  */
-export type ProgrammingLanguage = 
+export type ProgrammingLanguage =
   | 'javascript'
   | 'typescript'
   | 'python'
@@ -171,7 +171,14 @@ export interface AsyncPattern {
  */
 export interface BestPractice {
   /** 建议类别 */
-  category: 'naming' | 'structure' | 'error_handling' | 'testing' | 'documentation' | 'performance' | 'security';
+  category:
+    | 'naming'
+    | 'structure'
+    | 'error_handling'
+    | 'testing'
+    | 'documentation'
+    | 'performance'
+    | 'security';
   /** 建议标题 */
   title: string;
   /** 建议描述 */
@@ -198,10 +205,9 @@ export interface LanguageSupportConfig {
   includeHidden?: boolean;
 }
 
-
 /**
  * 语言支持类
- * 
+ *
  * 提供项目语言检测、代码生成策略和最佳实践建议功能
  */
 export class LanguageSupport {
@@ -212,8 +218,19 @@ export class LanguageSupport {
   constructor(config: LanguageSupportConfig = {}) {
     this.workingDirectory = config.workingDirectory || process.cwd();
     this.config = {
-      excludeDirectories: ['node_modules', 'vendor', 'venv', '.venv', '__pycache__', 
-                          'target', 'build', 'dist', '.git', '.idea', '.vscode'],
+      excludeDirectories: [
+        'node_modules',
+        'vendor',
+        'venv',
+        '.venv',
+        '__pycache__',
+        'target',
+        'build',
+        'dist',
+        '.git',
+        '.idea',
+        '.vscode',
+      ],
       maxScanDepth: 5,
       includeHidden: false,
       ...config,
@@ -224,9 +241,9 @@ export class LanguageSupport {
 
   /**
    * 检测项目的主要编程语言
-   * 
+   *
    * 通过分析配置文件、源文件和构建工具来确定项目语言
-   * 
+   *
    * @returns 语言检测结果
    */
   async detectLanguage(): Promise<LanguageDetectionResult> {
@@ -279,7 +296,7 @@ export class LanguageSupport {
       { file: 'webpack.config.js', language: 'javascript', type: 'build_tool', weight: 0.6 },
       { file: 'vite.config.ts', language: 'typescript', type: 'build_tool', weight: 0.7 },
       { file: 'next.config.js', language: 'javascript', type: 'config_file', weight: 0.6 },
-      
+
       // Python
       { file: 'requirements.txt', language: 'python', type: 'package_manager', weight: 0.8 },
       { file: 'setup.py', language: 'python', type: 'package_manager', weight: 0.8 },
@@ -288,14 +305,14 @@ export class LanguageSupport {
       { file: 'poetry.lock', language: 'python', type: 'package_manager', weight: 0.8 },
       { file: '.python-version', language: 'python', type: 'config_file', weight: 0.6 },
       { file: 'pytest.ini', language: 'python', type: 'config_file', weight: 0.5 },
-      
+
       // Java
       { file: 'pom.xml', language: 'java', type: 'build_tool', weight: 0.9 },
       { file: 'build.gradle', language: 'java', type: 'build_tool', weight: 0.9 },
       { file: 'build.gradle.kts', language: 'java', type: 'build_tool', weight: 0.9 },
       { file: 'settings.gradle', language: 'java', type: 'build_tool', weight: 0.7 },
       { file: '.java-version', language: 'java', type: 'config_file', weight: 0.6 },
-      
+
       // Go
       { file: 'go.mod', language: 'go', type: 'package_manager', weight: 0.9 },
       { file: 'go.sum', language: 'go', type: 'package_manager', weight: 0.7 },
@@ -324,7 +341,7 @@ export class LanguageSupport {
    * 检查 package.json 中是否使用 TypeScript
    */
   private async checkPackageJsonForTypeScript(
-    filePath: string, 
+    filePath: string,
     evidence: LanguageEvidence[]
   ): Promise<void> {
     try {
@@ -369,11 +386,11 @@ export class LanguageSupport {
     };
 
     const files = await this.walkDirectory(this.workingDirectory, 0);
-    
+
     for (const file of files) {
       const ext = path.extname(file).toLowerCase();
       const language = extensionMap[ext];
-      
+
       if (language) {
         const count = languageCounts.get(language) || 0;
         languageCounts.set(language, count + 1);
@@ -402,13 +419,13 @@ export class LanguageSupport {
     }
 
     const files: string[] = [];
-    
+
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
-        
+
         // 跳过排除的目录
         if (entry.isDirectory()) {
           if (this.config.excludeDirectories?.includes(entry.name)) {
@@ -439,7 +456,7 @@ export class LanguageSupport {
     if (fs.existsSync(makefilePath)) {
       try {
         const content = fs.readFileSync(makefilePath, 'utf-8');
-        
+
         if (content.includes('go build') || content.includes('go test')) {
           evidence.push({
             type: 'build_tool',
@@ -482,7 +499,7 @@ export class LanguageSupport {
     if (fs.existsSync(dockerfilePath)) {
       try {
         const content = fs.readFileSync(dockerfilePath, 'utf-8');
-        
+
         if (content.includes('FROM node') || content.includes('FROM npm')) {
           evidence.push({
             type: 'build_tool',
@@ -507,7 +524,11 @@ export class LanguageSupport {
             weight: 0.6,
           });
         }
-        if (content.includes('FROM openjdk') || content.includes('FROM maven') || content.includes('FROM gradle')) {
+        if (
+          content.includes('FROM openjdk') ||
+          content.includes('FROM maven') ||
+          content.includes('FROM gradle')
+        ) {
           evidence.push({
             type: 'build_tool',
             source: 'Dockerfile (java base image)',
@@ -530,7 +551,7 @@ export class LanguageSupport {
   ): LanguageDetectionResult {
     // 计算每种语言的加权分数
     const scores = new Map<ProgrammingLanguage, number>();
-    
+
     for (const e of evidence) {
       const currentScore = scores.get(e.language) || 0;
       scores.set(e.language, currentScore + e.weight);
@@ -560,12 +581,11 @@ export class LanguageSupport {
     };
   }
 
-
   // ==================== 代码生成策略 ====================
 
   /**
    * 获取指定语言的代码生成策略
-   * 
+   *
    * @param language 目标语言
    * @returns 代码生成策略
    */
@@ -837,12 +857,11 @@ export class LanguageSupport {
     return this.getJavaScriptStrategy();
   }
 
-
   // ==================== 最佳实践建议 ====================
 
   /**
    * 获取指定语言的最佳实践建议
-   * 
+   *
    * @param language 目标语言
    * @returns 最佳实践建议列表
    */
@@ -888,7 +907,8 @@ export class LanguageSupport {
         category: 'error_handling',
         title: '正确处理 Promise 错误',
         description: '始终使用 try-catch 或 .catch() 处理 Promise 错误',
-        example: 'try {\n  const data = await fetchData();\n} catch (error) {\n  console.error("获取数据失败:", error);\n}',
+        example:
+          'try {\n  const data = await fetchData();\n} catch (error) {\n  console.error("获取数据失败:", error);\n}',
         antiPattern: 'const data = await fetchData(); // 未处理错误',
         priority: 'high',
       },
@@ -896,7 +916,8 @@ export class LanguageSupport {
         category: 'testing',
         title: '编写单元测试',
         description: '为关键业务逻辑编写单元测试，使用 Jest 或 Vitest',
-        example: 'describe("calculateTotal", () => {\n  it("应该正确计算总价", () => {\n    expect(calculateTotal([10, 20])).toBe(30);\n  });\n});',
+        example:
+          'describe("calculateTotal", () => {\n  it("应该正确计算总价", () => {\n    expect(calculateTotal([10, 20])).toBe(30);\n  });\n});',
         priority: 'high',
       },
       {
@@ -917,7 +938,8 @@ export class LanguageSupport {
         category: 'documentation',
         title: '使用 JSDoc 注释',
         description: '为公共 API 添加 JSDoc 注释，提高代码可读性',
-        example: '/**\n * 计算两个数的和\n * @param {number} a - 第一个数\n * @param {number} b - 第二个数\n * @returns {number} 两数之和\n */\nfunction add(a, b) {\n  return a + b;\n}',
+        example:
+          '/**\n * 计算两个数的和\n * @param {number} a - 第一个数\n * @param {number} b - 第二个数\n * @returns {number} 两数之和\n */\nfunction add(a, b) {\n  return a + b;\n}',
         priority: 'medium',
       },
     ];
@@ -956,22 +978,26 @@ export class LanguageSupport {
         category: 'error_handling',
         title: '使用类型守卫',
         description: '使用类型守卫来缩小类型范围，提高类型安全性',
-        example: 'function isString(value: unknown): value is string {\n  return typeof value === "string";\n}',
+        example:
+          'function isString(value: unknown): value is string {\n  return typeof value === "string";\n}',
         priority: 'medium',
       },
       {
         category: 'structure',
         title: '避免使用 any 类型',
         description: '尽量避免使用 any，使用 unknown 或具体类型代替',
-        example: 'function processData(data: unknown): void {\n  if (typeof data === "string") {\n    console.log(data.toUpperCase());\n  }\n}',
-        antiPattern: 'function processData(data: any): void {\n  console.log(data.toUpperCase()); // 可能运行时错误\n}',
+        example:
+          'function processData(data: unknown): void {\n  if (typeof data === "string") {\n    console.log(data.toUpperCase());\n  }\n}',
+        antiPattern:
+          'function processData(data: any): void {\n  console.log(data.toUpperCase()); // 可能运行时错误\n}',
         priority: 'high',
       },
       {
         category: 'structure',
         title: '使用枚举或联合类型',
         description: '对于固定的值集合，使用枚举或字符串联合类型',
-        example: 'type Status = "pending" | "approved" | "rejected";\n// 或\nenum Status {\n  Pending = "pending",\n  Approved = "approved",\n  Rejected = "rejected"\n}',
+        example:
+          'type Status = "pending" | "approved" | "rejected";\n// 或\nenum Status {\n  Pending = "pending",\n  Approved = "approved",\n  Rejected = "rejected"\n}',
         priority: 'medium',
       },
     ];
@@ -986,7 +1012,8 @@ export class LanguageSupport {
         category: 'naming',
         title: '遵循 PEP 8 命名规范',
         description: '函数和变量使用 snake_case，类使用 PascalCase，常量使用 UPPER_SNAKE_CASE',
-        example: 'def calculate_total(items):\n    pass\n\nclass UserAccount:\n    pass\n\nMAX_RETRY_COUNT = 3',
+        example:
+          'def calculate_total(items):\n    pass\n\nclass UserAccount:\n    pass\n\nMAX_RETRY_COUNT = 3',
         antiPattern: 'def CalculateTotal(Items):\n    pass',
         priority: 'high',
       },
@@ -1002,14 +1029,16 @@ export class LanguageSupport {
         category: 'structure',
         title: '使用 dataclass 简化数据类',
         description: '对于主要存储数据的类，使用 @dataclass 装饰器',
-        example: 'from dataclasses import dataclass\n\n@dataclass\nclass User:\n    name: str\n    age: int\n    email: str',
+        example:
+          'from dataclasses import dataclass\n\n@dataclass\nclass User:\n    name: str\n    age: int\n    email: str',
         priority: 'medium',
       },
       {
         category: 'error_handling',
         title: '使用具体的异常类型',
         description: '捕获具体的异常类型，而不是使用裸 except',
-        example: 'try:\n    value = int(user_input)\nexcept ValueError as e:\n    print(f"无效输入: {e}")',
+        example:
+          'try:\n    value = int(user_input)\nexcept ValueError as e:\n    print(f"无效输入: {e}")',
         antiPattern: 'try:\n    value = int(user_input)\nexcept:\n    print("出错了")',
         priority: 'high',
       },
@@ -1017,14 +1046,16 @@ export class LanguageSupport {
         category: 'testing',
         title: '使用 pytest 编写测试',
         description: '使用 pytest 框架编写简洁的测试代码',
-        example: 'def test_add():\n    assert add(1, 2) == 3\n\ndef test_add_negative():\n    assert add(-1, 1) == 0',
+        example:
+          'def test_add():\n    assert add(1, 2) == 3\n\ndef test_add_negative():\n    assert add(-1, 1) == 0',
         priority: 'high',
       },
       {
         category: 'documentation',
         title: '使用 docstring 文档',
         description: '为模块、类和函数添加 docstring 文档',
-        example: 'def calculate_area(radius: float) -> float:\n    """计算圆的面积。\n\n    Args:\n        radius: 圆的半径\n\n    Returns:\n        圆的面积\n    """\n    return 3.14159 * radius ** 2',
+        example:
+          'def calculate_area(radius: float) -> float:\n    """计算圆的面积。\n\n    Args:\n        radius: 圆的半径\n\n    Returns:\n        圆的面积\n    """\n    return 3.14159 * radius ** 2',
         priority: 'medium',
       },
       {
@@ -1054,29 +1085,34 @@ export class LanguageSupport {
         category: 'naming',
         title: '遵循 Java 命名规范',
         description: '类使用 PascalCase，方法和变量使用 camelCase，常量使用 UPPER_SNAKE_CASE',
-        example: 'public class UserService {\n    private static final int MAX_USERS = 100;\n    \n    public void createUser(String userName) {\n        // ...\n    }\n}',
+        example:
+          'public class UserService {\n    private static final int MAX_USERS = 100;\n    \n    public void createUser(String userName) {\n        // ...\n    }\n}',
         priority: 'high',
       },
       {
         category: 'structure',
         title: '使用 Optional 处理可空值',
         description: '使用 Optional 而不是返回 null，避免 NullPointerException',
-        example: 'public Optional<User> findUserById(Long id) {\n    return Optional.ofNullable(userRepository.findById(id));\n}',
-        antiPattern: 'public User findUserById(Long id) {\n    return userRepository.findById(id); // 可能返回 null\n}',
+        example:
+          'public Optional<User> findUserById(Long id) {\n    return Optional.ofNullable(userRepository.findById(id));\n}',
+        antiPattern:
+          'public User findUserById(Long id) {\n    return userRepository.findById(id); // 可能返回 null\n}',
         priority: 'high',
       },
       {
         category: 'structure',
         title: '使用 Stream API',
         description: '对于集合操作，使用 Stream API 提高代码可读性',
-        example: 'List<String> names = users.stream()\n    .filter(u -> u.getAge() > 18)\n    .map(User::getName)\n    .collect(Collectors.toList());',
+        example:
+          'List<String> names = users.stream()\n    .filter(u -> u.getAge() > 18)\n    .map(User::getName)\n    .collect(Collectors.toList());',
         priority: 'medium',
       },
       {
         category: 'error_handling',
         title: '使用具体的异常类型',
         description: '抛出和捕获具体的异常类型，而不是使用 Exception',
-        example: 'public void processFile(String path) throws FileNotFoundException, IOException {\n    // ...\n}',
+        example:
+          'public void processFile(String path) throws FileNotFoundException, IOException {\n    // ...\n}',
         antiPattern: 'public void processFile(String path) throws Exception {\n    // ...\n}',
         priority: 'high',
       },
@@ -1084,14 +1120,16 @@ export class LanguageSupport {
         category: 'testing',
         title: '使用 JUnit 5 编写测试',
         description: '使用 JUnit 5 和 AssertJ 编写清晰的测试代码',
-        example: '@Test\nvoid shouldCalculateTotal() {\n    assertThat(calculator.add(1, 2)).isEqualTo(3);\n}',
+        example:
+          '@Test\nvoid shouldCalculateTotal() {\n    assertThat(calculator.add(1, 2)).isEqualTo(3);\n}',
         priority: 'high',
       },
       {
         category: 'documentation',
         title: '使用 Javadoc 注释',
         description: '为公共 API 添加 Javadoc 注释',
-        example: '/**\n * 计算两个数的和。\n *\n * @param a 第一个数\n * @param b 第二个数\n * @return 两数之和\n */\npublic int add(int a, int b) {\n    return a + b;\n}',
+        example:
+          '/**\n * 计算两个数的和。\n *\n * @param a 第一个数\n * @param b 第二个数\n * @return 两数之和\n */\npublic int add(int a, int b) {\n    return a + b;\n}',
         priority: 'medium',
       },
       {
@@ -1105,8 +1143,10 @@ export class LanguageSupport {
         category: 'security',
         title: '使用参数化查询',
         description: '避免 SQL 注入，使用 PreparedStatement 或 ORM',
-        example: 'PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");\nstmt.setLong(1, userId);',
-        antiPattern: 'Statement stmt = conn.createStatement();\nstmt.executeQuery("SELECT * FROM users WHERE id = " + userId);',
+        example:
+          'PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");\nstmt.setLong(1, userId);',
+        antiPattern:
+          'Statement stmt = conn.createStatement();\nstmt.executeQuery("SELECT * FROM users WHERE id = " + userId);',
         priority: 'high',
       },
     ];
@@ -1121,14 +1161,16 @@ export class LanguageSupport {
         category: 'naming',
         title: '遵循 Go 命名规范',
         description: '导出的标识符使用 PascalCase，非导出的使用 camelCase',
-        example: 'type UserService struct {\n    db *sql.DB\n}\n\nfunc (s *UserService) CreateUser(name string) error {\n    // ...\n}',
+        example:
+          'type UserService struct {\n    db *sql.DB\n}\n\nfunc (s *UserService) CreateUser(name string) error {\n    // ...\n}',
         priority: 'high',
       },
       {
         category: 'error_handling',
         title: '显式处理错误',
         description: 'Go 使用返回值处理错误，不要忽略错误',
-        example: 'result, err := doSomething()\nif err != nil {\n    return fmt.Errorf("操作失败: %w", err)\n}',
+        example:
+          'result, err := doSomething()\nif err != nil {\n    return fmt.Errorf("操作失败: %w", err)\n}',
         antiPattern: 'result, _ := doSomething() // 忽略错误',
         priority: 'high',
       },
@@ -1143,35 +1185,40 @@ export class LanguageSupport {
         category: 'structure',
         title: '使用接口实现多态',
         description: 'Go 使用隐式接口实现，定义小而专注的接口',
-        example: 'type Reader interface {\n    Read(p []byte) (n int, err error)\n}\n\ntype Writer interface {\n    Write(p []byte) (n int, err error)\n}',
+        example:
+          'type Reader interface {\n    Read(p []byte) (n int, err error)\n}\n\ntype Writer interface {\n    Write(p []byte) (n int, err error)\n}',
         priority: 'medium',
       },
       {
         category: 'testing',
         title: '使用表驱动测试',
         description: '使用表驱动测试模式编写全面的测试',
-        example: 'func TestAdd(t *testing.T) {\n    tests := []struct {\n        a, b, want int\n    }{\n        {1, 2, 3},\n        {0, 0, 0},\n        {-1, 1, 0},\n    }\n    for _, tt := range tests {\n        got := Add(tt.a, tt.b)\n        if got != tt.want {\n            t.Errorf("Add(%d, %d) = %d; want %d", tt.a, tt.b, got, tt.want)\n        }\n    }\n}',
+        example:
+          'func TestAdd(t *testing.T) {\n    tests := []struct {\n        a, b, want int\n    }{\n        {1, 2, 3},\n        {0, 0, 0},\n        {-1, 1, 0},\n    }\n    for _, tt := range tests {\n        got := Add(tt.a, tt.b)\n        if got != tt.want {\n            t.Errorf("Add(%d, %d) = %d; want %d", tt.a, tt.b, got, tt.want)\n        }\n    }\n}',
         priority: 'high',
       },
       {
         category: 'documentation',
         title: '使用 godoc 注释',
         description: '为导出的标识符添加注释，注释以标识符名称开头',
-        example: '// UserService 提供用户相关的业务逻辑。\ntype UserService struct {\n    // ...\n}\n\n// CreateUser 创建新用户。\nfunc (s *UserService) CreateUser(name string) error {\n    // ...\n}',
+        example:
+          '// UserService 提供用户相关的业务逻辑。\ntype UserService struct {\n    // ...\n}\n\n// CreateUser 创建新用户。\nfunc (s *UserService) CreateUser(name string) error {\n    // ...\n}',
         priority: 'medium',
       },
       {
         category: 'performance',
         title: '使用 goroutine 和 channel',
         description: '利用 Go 的并发原语处理并发任务',
-        example: 'ch := make(chan Result)\ngo func() {\n    result := doWork()\n    ch <- result\n}()\nresult := <-ch',
+        example:
+          'ch := make(chan Result)\ngo func() {\n    result := doWork()\n    ch <- result\n}()\nresult := <-ch',
         priority: 'medium',
       },
       {
         category: 'structure',
         title: '使用 context 传递取消信号',
         description: '使用 context.Context 传递取消信号和超时',
-        example: 'func DoWork(ctx context.Context) error {\n    select {\n    case <-ctx.Done():\n        return ctx.Err()\n    default:\n        // 执行工作\n    }\n    return nil\n}',
+        example:
+          'func DoWork(ctx context.Context) error {\n    select {\n    case <-ctx.Done():\n        return ctx.Err()\n    default:\n        // 执行工作\n    }\n    return nil\n}',
         priority: 'high',
       },
     ];
@@ -1221,12 +1268,11 @@ export class LanguageSupport {
     ];
   }
 
-
   // ==================== 代码模板生成 ====================
 
   /**
    * 生成函数模板
-   * 
+   *
    * @param language 目标语言
    * @param name 函数名
    * @param params 参数列表
@@ -1242,9 +1288,8 @@ export class LanguageSupport {
     isAsync: boolean = false
   ): string {
     const strategy = this.getCodeGenerationStrategy(language);
-    const indent = strategy.indentation.type === 'spaces' 
-      ? ' '.repeat(strategy.indentation.size) 
-      : '\t';
+    const indent =
+      strategy.indentation.type === 'spaces' ? ' '.repeat(strategy.indentation.size) : '\t';
 
     switch (language) {
       case 'javascript':
@@ -1269,8 +1314,8 @@ export class LanguageSupport {
     indent: string
   ): string {
     const asyncPrefix = isAsync ? 'async ' : '';
-    const paramList = params.map(p => p.name).join(', ');
-    
+    const paramList = params.map((p) => p.name).join(', ');
+
     return `${asyncPrefix}function ${name}(${paramList}) {
 ${indent}// TODO: 实现函数逻辑
 ${indent}throw new Error('Not implemented');
@@ -1285,11 +1330,9 @@ ${indent}throw new Error('Not implemented');
     indent: string
   ): string {
     const asyncPrefix = isAsync ? 'async ' : '';
-    const paramList = params.map(p => `${p.name}: ${p.type}`).join(', ');
-    const returnTypeStr = returnType 
-      ? `: ${isAsync ? `Promise<${returnType}>` : returnType}` 
-      : '';
-    
+    const paramList = params.map((p) => `${p.name}: ${p.type}`).join(', ');
+    const returnTypeStr = returnType ? `: ${isAsync ? `Promise<${returnType}>` : returnType}` : '';
+
     return `${asyncPrefix}function ${name}(${paramList})${returnTypeStr} {
 ${indent}// TODO: 实现函数逻辑
 ${indent}throw new Error('Not implemented');
@@ -1304,9 +1347,9 @@ ${indent}throw new Error('Not implemented');
     indent: string
   ): string {
     const asyncPrefix = isAsync ? 'async ' : '';
-    const paramList = params.map(p => `${p.name}: ${p.type}`).join(', ');
+    const paramList = params.map((p) => `${p.name}: ${p.type}`).join(', ');
     const returnTypeStr = returnType ? ` -> ${returnType}` : '';
-    
+
     return `${asyncPrefix}def ${name}(${paramList})${returnTypeStr}:
 ${indent}"""
 ${indent}TODO: 添加函数文档
@@ -1320,8 +1363,8 @@ ${indent}raise NotImplementedError()`;
     returnType: string,
     indent: string
   ): string {
-    const paramList = params.map(p => `${p.type} ${p.name}`).join(', ');
-    
+    const paramList = params.map((p) => `${p.type} ${p.name}`).join(', ');
+
     return `public ${returnType} ${name}(${paramList}) {
 ${indent}// TODO: 实现方法逻辑
 ${indent}throw new UnsupportedOperationException("Not implemented");
@@ -1334,9 +1377,9 @@ ${indent}throw new UnsupportedOperationException("Not implemented");
     returnType: string | undefined,
     indent: string
   ): string {
-    const paramList = params.map(p => `${p.name} ${p.type}`).join(', ');
+    const paramList = params.map((p) => `${p.name} ${p.type}`).join(', ');
     const returnTypeStr = returnType ? ` ${returnType}` : '';
-    
+
     return `func ${name}(${paramList})${returnTypeStr} {
 ${indent}// TODO: 实现函数逻辑
 ${indent}panic("not implemented")
@@ -1345,7 +1388,7 @@ ${indent}panic("not implemented")
 
   /**
    * 生成类模板
-   * 
+   *
    * @param language 目标语言
    * @param name 类名
    * @param properties 属性列表
@@ -1357,9 +1400,8 @@ ${indent}panic("not implemented")
     properties: Array<{ name: string; type: string; visibility?: string }> = []
   ): string {
     const strategy = this.getCodeGenerationStrategy(language);
-    const indent = strategy.indentation.type === 'spaces' 
-      ? ' '.repeat(strategy.indentation.size) 
-      : '\t';
+    const indent =
+      strategy.indentation.type === 'spaces' ? ' '.repeat(strategy.indentation.size) : '\t';
 
     switch (language) {
       case 'javascript':
@@ -1383,10 +1425,10 @@ ${indent}panic("not implemented")
     indent: string
   ): string {
     const propAssignments = properties
-      .map(p => `${indent}${indent}this.${p.name} = ${p.name};`)
+      .map((p) => `${indent}${indent}this.${p.name} = ${p.name};`)
       .join('\n');
-    const constructorParams = properties.map(p => p.name).join(', ');
-    
+    const constructorParams = properties.map((p) => p.name).join(', ');
+
     return `class ${name} {
 ${indent}constructor(${constructorParams}) {
 ${propAssignments}
@@ -1400,15 +1442,13 @@ ${indent}}
     indent: string
   ): string {
     const propDeclarations = properties
-      .map(p => `${indent}${p.visibility || 'private'} ${p.name}: ${p.type};`)
+      .map((p) => `${indent}${p.visibility || 'private'} ${p.name}: ${p.type};`)
       .join('\n');
-    const constructorParams = properties
-      .map(p => `${p.name}: ${p.type}`)
-      .join(', ');
+    const constructorParams = properties.map((p) => `${p.name}: ${p.type}`).join(', ');
     const propAssignments = properties
-      .map(p => `${indent}${indent}this.${p.name} = ${p.name};`)
+      .map((p) => `${indent}${indent}this.${p.name} = ${p.name};`)
       .join('\n');
-    
+
     return `class ${name} {
 ${propDeclarations}
 
@@ -1423,16 +1463,14 @@ ${indent}}
     properties: Array<{ name: string; type: string; visibility?: string }>,
     indent: string
   ): string {
-    const initParams = properties
-      .map(p => `${p.name}: ${p.type}`)
-      .join(', ');
+    const initParams = properties.map((p) => `${p.name}: ${p.type}`).join(', ');
     const propAssignments = properties
-      .map(p => {
+      .map((p) => {
         const prefix = p.visibility === 'private' ? '_' : '';
         return `${indent}${indent}self.${prefix}${p.name} = ${p.name}`;
       })
       .join('\n');
-    
+
     return `class ${name}:
 ${indent}"""
 ${indent}TODO: 添加类文档
@@ -1448,15 +1486,13 @@ ${propAssignments}`;
     indent: string
   ): string {
     const propDeclarations = properties
-      .map(p => `${indent}${p.visibility || 'private'} ${p.type} ${p.name};`)
+      .map((p) => `${indent}${p.visibility || 'private'} ${p.type} ${p.name};`)
       .join('\n');
-    const constructorParams = properties
-      .map(p => `${p.type} ${p.name}`)
-      .join(', ');
+    const constructorParams = properties.map((p) => `${p.type} ${p.name}`).join(', ');
     const propAssignments = properties
-      .map(p => `${indent}${indent}this.${p.name} = ${p.name};`)
+      .map((p) => `${indent}${indent}this.${p.name} = ${p.name};`)
       .join('\n');
-    
+
     return `public class ${name} {
 ${propDeclarations}
 
@@ -1472,15 +1508,14 @@ ${indent}}
     indent: string
   ): string {
     const propDeclarations = properties
-      .map(p => {
+      .map((p) => {
         // Go 中首字母大写表示导出
-        const fieldName = p.visibility === 'public' 
-          ? p.name.charAt(0).toUpperCase() + p.name.slice(1)
-          : p.name;
+        const fieldName =
+          p.visibility === 'public' ? p.name.charAt(0).toUpperCase() + p.name.slice(1) : p.name;
         return `${indent}${fieldName} ${p.type}`;
       })
       .join('\n');
-    
+
     return `type ${name} struct {
 ${propDeclarations}
 }`;
@@ -1490,13 +1525,13 @@ ${propDeclarations}
 
   /**
    * 将字符串转换为指定的命名风格
-   * 
+   *
    * @param str 原始字符串
    * @param style 目标命名风格
    * @returns 转换后的字符串
    */
   convertNamingStyle(
-    str: string, 
+    str: string,
     style: 'camelCase' | 'snake_case' | 'PascalCase' | 'UPPER_SNAKE_CASE' | 'kebab-case'
   ): string {
     // 首先将字符串分割成单词
@@ -1505,17 +1540,13 @@ ${propDeclarations}
       .replace(/[_-]/g, ' ')
       .toLowerCase()
       .split(/\s+/)
-      .filter(w => w.length > 0);
+      .filter((w) => w.length > 0);
 
     switch (style) {
       case 'camelCase':
-        return words
-          .map((w, i) => i === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1))
-          .join('');
+        return words.map((w, i) => (i === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1))).join('');
       case 'PascalCase':
-        return words
-          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-          .join('');
+        return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
       case 'snake_case':
         return words.join('_');
       case 'UPPER_SNAKE_CASE':
@@ -1529,7 +1560,7 @@ ${propDeclarations}
 
   /**
    * 获取语言的文件扩展名
-   * 
+   *
    * @param language 编程语言
    * @returns 文件扩展名
    */
@@ -1540,7 +1571,7 @@ ${propDeclarations}
 
   /**
    * 获取语言的推荐测试框架
-   * 
+   *
    * @param language 编程语言
    * @returns 测试框架名称
    */
@@ -1551,7 +1582,7 @@ ${propDeclarations}
 
   /**
    * 获取语言的包管理器
-   * 
+   *
    * @param language 编程语言
    * @returns 包管理器名称
    */
@@ -1562,7 +1593,7 @@ ${propDeclarations}
 
   /**
    * 检查语言是否支持类型注解
-   * 
+   *
    * @param language 编程语言
    * @returns 是否支持类型注解
    */
@@ -1573,7 +1604,7 @@ ${propDeclarations}
 
   /**
    * 检查语言是否是静态类型
-   * 
+   *
    * @param language 编程语言
    * @returns 是否是静态类型
    */
@@ -1585,7 +1616,7 @@ ${propDeclarations}
 
 /**
  * 创建语言支持实例的工厂函数
- * 
+ *
  * @param config 配置选项
  * @returns LanguageSupport 实例
  */

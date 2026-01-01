@@ -285,7 +285,7 @@
 #### 验收标准
 
 1. WHEN 在 CI 环境中运行 THEN THE System SHALL 自动检测并使用非交互模式
-2. WHEN 使用 API 密钥认证 THEN THE System SHALL 支持通过环境变量 ANTHROPIC_API_KEY 配置
+2. WHEN 需要认证 THEN THE System SHALL 通过 Claude Agent SDK 自动从 Claude Code 配置获取认证信息
 3. WHEN 在 CI 中执行任务 THEN THE System SHALL 输出结构化的日志便于解析
 4. WHEN CI 任务失败 THEN THE System SHALL 返回非零退出码
 5. THE System SHALL 支持通过 stdin 接收输入便于管道集成
@@ -351,7 +351,7 @@
 
 1. WHEN 检测到敏感信息 THEN THE System SHALL 警告用户不要提交到版本控制
 2. WHEN 执行危险命令 THEN THE System SHALL 要求用户明确确认
-3. WHEN 处理 API 密钥 THEN THE System SHALL 使用环境变量而非明文存储
+3. WHEN 处理通用 API 密钥 THEN THE System SHALL 支持从环境变量安全获取
 4. WHEN 发送数据到 API THEN THE System SHALL 使用 HTTPS 加密传输
 5. THE System SHALL 支持配置敏感文件和目录的黑名单
 6. THE System SHALL 在日志中自动脱敏敏感信息
@@ -390,7 +390,7 @@
 
 1. WHEN 项目配置被提交 THEN THE System SHALL 允许团队成员共享技能、命令和钩子
 2. WHEN 使用共享配置 THEN THE System SHALL 支持本地覆盖避免冲突
-3. WHEN 团队成员使用不同的 API 密钥 THEN THE System SHALL 支持个人认证配置
+3. WHEN 团队成员需要个人配置 THEN THE System SHALL 支持本地配置文件（自动被 .gitignore 排除）
 4. THE System SHALL 在 .gitignore 中自动排除敏感的本地配置文件
 5. THE System SHALL 支持导出和导入配置模板
 6. THE System SHALL 提供配置验证工具确保团队配置的一致性

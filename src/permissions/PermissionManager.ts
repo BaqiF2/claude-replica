@@ -1,8 +1,8 @@
 /**
  * 权限管理器
- * 
+ *
  * 管理工具执行权限，支持 SDK 的权限模式和自定义权限处理
- * 
+ *
  * SDK 权限模式:
  * - default: 默认模式，危险操作需要用户确认
  * - acceptEdits: 自动接受文件编辑，其他危险操作仍需确认
@@ -83,10 +83,9 @@ export interface PermissionRecord {
   sessionId: string;
 }
 
-
 /**
  * 权限管理器类
- * 
+ *
  * 负责管理工具执行权限，创建 SDK 兼容的权限处理函数
  */
 export class PermissionManager {
@@ -113,7 +112,7 @@ export class PermissionManager {
 
   /**
    * 创建 SDK 兼容的权限处理函数
-   * 
+   *
    * @returns CanUseTool 函数
    */
   createCanUseToolHandler(): CanUseTool {
@@ -141,13 +140,13 @@ export class PermissionManager {
       // 4. 检查 Bash 命令的白名单/黑名单
       if (tool === 'Bash' && args.command) {
         const command = String(args.command);
-        
+
         // 检查命令黑名单
         if (this.isCommandDisallowed(command)) {
           this.recordPermission(tool, args, false, context.sessionId);
           return false;
         }
-        
+
         // 检查命令白名单
         if (this.isCommandAllowed(command)) {
           this.recordPermission(tool, args, true, context.sessionId);
@@ -198,7 +197,7 @@ export class PermissionManager {
 
   /**
    * 判断是否需要用户确认
-   * 
+   *
    * @param tool 工具名称
    * @returns 是否需要确认
    */
@@ -209,7 +208,7 @@ export class PermissionManager {
 
   /**
    * 请求用户确认
-   * 
+   *
    * @param tool 工具名称
    * @param args 工具参数
    * @returns 用户是否批准
@@ -228,10 +227,7 @@ export class PermissionManager {
   /**
    * 请求用户确认工具使用
    */
-  private async promptUserForTool(
-    tool: string,
-    args: Record<string, unknown>
-  ): Promise<boolean> {
+  private async promptUserForTool(tool: string, args: Record<string, unknown>): Promise<boolean> {
     return this.promptUser(tool, args);
   }
 
@@ -262,8 +258,8 @@ export class PermissionManager {
     if (!this.config.allowedCommands || this.config.allowedCommands.length === 0) {
       return false;
     }
-    
-    return this.config.allowedCommands.some(pattern => {
+
+    return this.config.allowedCommands.some((pattern) => {
       // 支持简单的通配符匹配
       if (pattern.includes('*')) {
         const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
@@ -281,8 +277,8 @@ export class PermissionManager {
     if (!this.config.disallowedCommands || this.config.disallowedCommands.length === 0) {
       return false;
     }
-    
-    return this.config.disallowedCommands.some(pattern => {
+
+    return this.config.disallowedCommands.some((pattern) => {
       // 支持简单的通配符匹配
       if (pattern.includes('*')) {
         const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
@@ -320,7 +316,7 @@ export class PermissionManager {
 
   /**
    * 运行时修改权限模式
-   * 
+   *
    * @param mode 新的权限模式
    */
   setMode(mode: PermissionMode): void {
@@ -343,7 +339,7 @@ export class PermissionManager {
 
   /**
    * 添加工具到白名单
-   * 
+   *
    * @param tool 工具名称
    */
   addToAllowedTools(tool: string): void {
@@ -357,18 +353,18 @@ export class PermissionManager {
 
   /**
    * 从白名单移除工具
-   * 
+   *
    * @param tool 工具名称
    */
   removeFromAllowedTools(tool: string): void {
     if (this.config.allowedTools) {
-      this.config.allowedTools = this.config.allowedTools.filter(t => t !== tool);
+      this.config.allowedTools = this.config.allowedTools.filter((t) => t !== tool);
     }
   }
 
   /**
    * 添加工具到黑名单
-   * 
+   *
    * @param tool 工具名称
    */
   addToDisallowedTools(tool: string): void {
@@ -382,18 +378,18 @@ export class PermissionManager {
 
   /**
    * 从黑名单移除工具
-   * 
+   *
    * @param tool 工具名称
    */
   removeFromDisallowedTools(tool: string): void {
     if (this.config.disallowedTools) {
-      this.config.disallowedTools = this.config.disallowedTools.filter(t => t !== tool);
+      this.config.disallowedTools = this.config.disallowedTools.filter((t) => t !== tool);
     }
   }
 
   /**
    * 添加命令到白名单
-   * 
+   *
    * @param command 命令或命令模式
    */
   addToAllowedCommands(command: string): void {
@@ -407,18 +403,18 @@ export class PermissionManager {
 
   /**
    * 从命令白名单移除
-   * 
+   *
    * @param command 命令或命令模式
    */
   removeFromAllowedCommands(command: string): void {
     if (this.config.allowedCommands) {
-      this.config.allowedCommands = this.config.allowedCommands.filter(c => c !== command);
+      this.config.allowedCommands = this.config.allowedCommands.filter((c) => c !== command);
     }
   }
 
   /**
    * 添加命令到黑名单
-   * 
+   *
    * @param command 命令或命令模式
    */
   addToDisallowedCommands(command: string): void {
@@ -432,18 +428,18 @@ export class PermissionManager {
 
   /**
    * 从命令黑名单移除
-   * 
+   *
    * @param command 命令或命令模式
    */
   removeFromDisallowedCommands(command: string): void {
     if (this.config.disallowedCommands) {
-      this.config.disallowedCommands = this.config.disallowedCommands.filter(c => c !== command);
+      this.config.disallowedCommands = this.config.disallowedCommands.filter((c) => c !== command);
     }
   }
 
   /**
    * 设置用户确认回调
-   * 
+   *
    * @param callback 回调函数
    */
   setPromptUserCallback(callback: PromptUserCallback): void {
@@ -452,7 +448,7 @@ export class PermissionManager {
 
   /**
    * 获取权限请求历史
-   * 
+   *
    * @param limit 返回的最大记录数
    * @returns 权限请求记录数组
    */
@@ -472,7 +468,7 @@ export class PermissionManager {
 
   /**
    * 检查工具是否被允许（不执行用户确认）
-   * 
+   *
    * @param tool 工具名称
    * @returns 是否被允许
    */
@@ -506,7 +502,7 @@ export class PermissionManager {
         'rm -rf /*',
         'dd if=/dev/zero',
         'mkfs',
-        ':(){:|:&};:',  // fork bomb
+        ':(){:|:&};:', // fork bomb
       ],
     };
   }

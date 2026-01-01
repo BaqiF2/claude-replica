@@ -5,6 +5,42 @@
  * **验证: 需求 1.1, 1.2, 1.3, 6.3, 6.4, 20.1, 20.2, 20.3, 20.4, 20.5, 20.6**
  */
 
+// 模拟 SDK 模块 - 返回正确的 AsyncGenerator
+jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
+  query: jest.fn().mockImplementation(() => {
+    // 返回一个 AsyncGenerator，模拟 SDK 的响应流
+    async function* mockGenerator() {
+      // 先返回一个助手消息
+      yield {
+        type: 'assistant',
+        session_id: 'mock-session-id',
+        message: {
+          content: [
+            {
+              type: 'text',
+              text: '这是模拟的 AI 响应',
+            },
+          ],
+        },
+      };
+      // 然后返回成功结果
+      yield {
+        type: 'result',
+        subtype: 'success',
+        session_id: 'mock-session-id',
+        result: '这是模拟的 AI 响应',
+        total_cost_usd: 0.001,
+        duration_ms: 100,
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+        },
+      };
+    }
+    return mockGenerator();
+  }),
+}));
+
 import { main, Application } from '../src/main';
 
 describe('main 函数', () => {

@@ -12,9 +12,11 @@
 import { main } from './main';
 
 // 运行主程序
-main().then((exitCode) => {
-  process.exit(exitCode);
-}).catch((error) => {
-  console.error('致命错误:', error);
-  process.exit(1);
-});
+main()
+  .then((exitCode) => {
+    process.exit(exitCode);
+  })
+  .catch((error) => {
+    console.error('致命错误:', error);
+    process.exit(1);
+  });

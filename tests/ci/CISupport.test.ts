@@ -11,7 +11,6 @@ import {
   StructuredLogger,
   TimeoutManager,
   TimeoutError,
-  APIKeyManager,
   ExitCodes,
 } from '../../src/ci/CISupport';
 
@@ -182,93 +181,6 @@ describe('CIDetector', () => {
       expect(info.job).toBe('test-job');
       expect(info.ref).toBe('main');
       expect(info.sha).toBe('abc123');
-    });
-  });
-});
-
-describe('APIKeyManager', () => {
-  const originalEnv = { ...process.env };
-
-  beforeEach(() => {
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.CLAUDE_API_KEY;
-    delete process.env.CLAUDE_REPLICA_API_KEY;
-  });
-
-  afterEach(() => {
-    process.env = { ...originalEnv };
-  });
-
-  describe('getAPIKey', () => {
-    it('没有设置环境变量时应该返回 undefined', () => {
-      expect(APIKeyManager.getAPIKey()).toBeUndefined();
-    });
-
-    it('应该从 ANTHROPIC_API_KEY 获取密钥', () => {
-      process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key-12345';
-      expect(APIKeyManager.getAPIKey()).toBe('sk-ant-test-key-12345');
-    });
-
-    it('应该从 CLAUDE_API_KEY 获取密钥', () => {
-      process.env.CLAUDE_API_KEY = 'sk-ant-test-key-67890';
-      expect(APIKeyManager.getAPIKey()).toBe('sk-ant-test-key-67890');
-    });
-
-    it('应该从 CLAUDE_REPLICA_API_KEY 获取密钥', () => {
-      process.env.CLAUDE_REPLICA_API_KEY = 'sk-ant-test-key-abcde';
-      expect(APIKeyManager.getAPIKey()).toBe('sk-ant-test-key-abcde');
-    });
-
-    it('ANTHROPIC_API_KEY 应该优先于其他环境变量', () => {
-      process.env.ANTHROPIC_API_KEY = 'sk-ant-primary';
-      process.env.CLAUDE_API_KEY = 'sk-ant-secondary';
-      expect(APIKeyManager.getAPIKey()).toBe('sk-ant-primary');
-    });
-  });
-
-  describe('hasAPIKey', () => {
-    it('没有设置环境变量时应该返回 false', () => {
-      expect(APIKeyManager.hasAPIKey()).toBe(false);
-    });
-
-    it('设置了环境变量时应该返回 true', () => {
-      process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
-      expect(APIKeyManager.hasAPIKey()).toBe(true);
-    });
-  });
-
-  describe('validateAPIKey', () => {
-    it('有效的 API 密钥应该返回 true', () => {
-      expect(APIKeyManager.validateAPIKey('sk-ant-api03-abcdefghijklmnop')).toBe(true);
-    });
-
-    it('无效的 API 密钥应该返回 false', () => {
-      expect(APIKeyManager.validateAPIKey('invalid-key')).toBe(false);
-      expect(APIKeyManager.validateAPIKey('sk-ant-')).toBe(false);
-      expect(APIKeyManager.validateAPIKey('')).toBe(false);
-    });
-  });
-
-  describe('getAPIKeySource', () => {
-    it('没有设置环境变量时应该返回 undefined', () => {
-      expect(APIKeyManager.getAPIKeySource()).toBeUndefined();
-    });
-
-    it('应该返回正确的环境变量名称', () => {
-      process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
-      expect(APIKeyManager.getAPIKeySource()).toBe('ANTHROPIC_API_KEY');
-    });
-  });
-
-  describe('maskAPIKey', () => {
-    it('应该正确脱敏 API 密钥', () => {
-      const masked = APIKeyManager.maskAPIKey('sk-ant-api03-abcdefghijklmnop');
-      expect(masked).toBe('sk-ant-...mnop');
-      expect(masked).not.toContain('abcdefghijkl');
-    });
-
-    it('短密钥应该完全脱敏', () => {
-      expect(APIKeyManager.maskAPIKey('short')).toBe('****');
     });
   });
 });
@@ -481,7 +393,6 @@ describe('CISupport', () => {
   beforeEach(() => {
     delete process.env.CI;
     delete process.env.GITHUB_ACTIONS;
-    delete process.env.ANTHROPIC_API_KEY;
   });
 
   afterEach(() => {
@@ -501,30 +412,7 @@ describe('CISupport', () => {
     expect(support.getEnvironment()).toBe('github-actions');
   });
 
-  it('应该获取 API 密钥', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key-12345678901234567890';
-    const support = new CISupport();
-    expect(support.hasAPIKey()).toBe(true);
-    expect(support.getAPIKey()).toBe('sk-ant-test-key-12345678901234567890');
-  });
-
-  it('validate 应该检测缺少的 API 密钥', () => {
-    const support = new CISupport();
-    const result = support.validate();
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain('未找到 API 密钥。请设置 ANTHROPIC_API_KEY 环境变量。');
-  });
-
-  it('validate 应该检测无效的 API 密钥格式', () => {
-    process.env.ANTHROPIC_API_KEY = 'invalid-key';
-    const support = new CISupport();
-    const result = support.validate();
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain('API 密钥格式无效。');
-  });
-
-  it('validate 应该通过有效配置', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-ant-api03-abcdefghijklmnop';
+  it('validate 应该始终返回有效（API 密钥由 SDK 自动处理）', () => {
     const support = new CISupport();
     const result = support.validate();
     expect(result.valid).toBe(true);
@@ -533,14 +421,11 @@ describe('CISupport', () => {
 
   it('getSummary 应该返回环境摘要', () => {
     process.env.GITHUB_ACTIONS = 'true';
-    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
     const support = new CISupport();
     const summary = support.getSummary();
 
     expect(summary.isCI).toBe(true);
     expect(summary.environment).toBe('github-actions');
-    expect(summary.hasAPIKey).toBe(true);
-    expect(summary.apiKeySource).toBe('ANTHROPIC_API_KEY');
   });
 
   describe('getExitCode', () => {

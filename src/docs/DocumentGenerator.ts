@@ -1,13 +1,13 @@
 /**
  * 文档生成模块
- * 
+ *
  * 提供代码变更检测、API 文档生成、README 生成、多格式输出和代码示例提取功能
- * 
+ *
  * 支持的输出格式:
  * - Markdown
  * - HTML
  * - PDF (通过 Markdown 转换)
- * 
+ *
  * @module DocumentGenerator
  */
 
@@ -250,10 +250,9 @@ export interface DocumentGeneratorConfig {
   excludePatterns?: string[];
 }
 
-
 /**
  * 文档生成器类
- * 
+ *
  * 提供代码变更检测、API 文档生成、README 生成等功能
  */
 export class DocumentGenerator {
@@ -277,9 +276,9 @@ export class DocumentGenerator {
 
   /**
    * 检测代码变更
-   * 
+   *
    * 使用 Git 检测自上次提交以来的文件变更
-   * 
+   *
    * @param since 起始提交或时间（可选）
    * @returns 文件变更列表
    */
@@ -292,13 +291,15 @@ export class DocumentGenerator {
 
       // 获取变更文件
       const sinceArg = since ? `${since}..HEAD` : 'HEAD~1..HEAD';
-      const { stdout } = await execAsync(
-        `git diff --name-status ${sinceArg}`,
-        { cwd: this.workingDirectory }
-      );
+      const { stdout } = await execAsync(`git diff --name-status ${sinceArg}`, {
+        cwd: this.workingDirectory,
+      });
 
-      const lines = stdout.trim().split('\n').filter(line => line.trim());
-      
+      const lines = stdout
+        .trim()
+        .split('\n')
+        .filter((line) => line.trim());
+
       for (const line of lines) {
         const parts = line.split('\t');
         if (parts.length < 2) continue;
@@ -362,19 +363,19 @@ export class DocumentGenerator {
 
   /**
    * 检测未提交的变更
-   * 
+   *
    * @returns 未提交的文件变更列表
    */
   async detectUncommittedChanges(): Promise<FileChange[]> {
     const changes: FileChange[] = [];
 
     try {
-      const { stdout } = await execAsync(
-        'git status --porcelain',
-        { cwd: this.workingDirectory }
-      );
+      const { stdout } = await execAsync('git status --porcelain', { cwd: this.workingDirectory });
 
-      const lines = stdout.trim().split('\n').filter(line => line.trim());
+      const lines = stdout
+        .trim()
+        .split('\n')
+        .filter((line) => line.trim());
 
       for (const line of lines) {
         const status = line.substring(0, 2).trim();
@@ -406,14 +407,14 @@ export class DocumentGenerator {
 
   /**
    * 检查文件是否需要更新文档
-   * 
+   *
    * @param filePath 文件路径
    * @returns 是否需要更新文档
    */
   async needsDocUpdate(filePath: string): Promise<boolean> {
     const ext = path.extname(filePath).toLowerCase();
     const documentableExtensions = ['.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.go'];
-    
+
     if (!documentableExtensions.includes(ext)) {
       return false;
     }
@@ -432,14 +433,14 @@ export class DocumentGenerator {
 
   /**
    * 生成 API 文档
-   * 
+   *
    * 分析源代码并生成 API 文档
-   * 
+   *
    * @param sourceFiles 源文件列表（可选，默认扫描整个项目）
    * @returns API 文档对象
    */
   async generateAPIDoc(sourceFiles?: string[]): Promise<APIDoc> {
-    const files = sourceFiles || await this.findSourceFiles();
+    const files = sourceFiles || (await this.findSourceFiles());
     const modules: ModuleDoc[] = [];
 
     for (const file of files) {
@@ -465,13 +466,13 @@ export class DocumentGenerator {
 
   /**
    * 解析源文件生成模块文档
-   * 
+   *
    * @param filePath 文件路径
    * @returns 模块文档
    */
   async parseSourceFile(filePath: string): Promise<ModuleDoc | null> {
     const fullPath = path.resolve(this.workingDirectory, filePath);
-    
+
     if (!fs.existsSync(fullPath)) {
       return null;
     }
@@ -567,12 +568,12 @@ export class DocumentGenerator {
   private parseTypeScriptClass(content: string, match: RegExpMatchArray): ClassDoc {
     const className = match[2];
     const extendsClass = match[3];
-    const implementsInterfaces = match[4]?.split(',').map(s => s.trim());
+    const implementsInterfaces = match[4]?.split(',').map((s) => s.trim());
     const startIndex = match.index || 0;
 
     // 提取类体
     const classBody = this.extractBlock(content, startIndex + match[0].length - 1);
-    
+
     const classDoc: ClassDoc = {
       name: className,
       description: this.extractJSDocDescription(content, startIndex),
@@ -629,7 +630,7 @@ export class DocumentGenerator {
    */
   private parseTypeScriptInterface(content: string, match: RegExpMatchArray): ClassDoc {
     const interfaceName = match[2];
-    const extendsInterfaces = match[3]?.split(',').map(s => s.trim());
+    const extendsInterfaces = match[3]?.split(',').map((s) => s.trim());
     const startIndex = match.index || 0;
 
     const interfaceBody = this.extractBlock(content, startIndex + match[0].length - 1);
@@ -687,7 +688,6 @@ export class DocumentGenerator {
     };
   }
 
-
   /**
    * 解析 JavaScript 文件
    */
@@ -711,9 +711,7 @@ export class DocumentGenerator {
     };
 
     // 解析类
-    const classMatches = content.matchAll(
-      /class\s+(\w+)(?:\(([^)]*)\))?\s*:/g
-    );
+    const classMatches = content.matchAll(/class\s+(\w+)(?:\(([^)]*)\))?\s*:/g);
     for (const match of classMatches) {
       const classDoc = this.parsePythonClass(content, match);
       moduleDoc.classes.push(classDoc);
@@ -740,7 +738,7 @@ export class DocumentGenerator {
    */
   private parsePythonClass(content: string, match: RegExpMatchArray): ClassDoc {
     const className = match[1];
-    const bases = match[2]?.split(',').map(s => s.trim());
+    const bases = match[2]?.split(',').map((s) => s.trim());
     const startIndex = match.index || 0;
 
     const classDoc: ClassDoc = {
@@ -761,15 +759,20 @@ export class DocumentGenerator {
     );
     for (const methodMatch of methodMatches) {
       const methodName = methodMatch[2];
-      const visibility = methodName.startsWith('_') 
-        ? (methodName.startsWith('__') && !methodName.endsWith('__') ? 'private' : 'protected')
+      const visibility = methodName.startsWith('_')
+        ? methodName.startsWith('__') && !methodName.endsWith('__')
+          ? 'private'
+          : 'protected'
         : 'public';
 
       if (visibility === 'private' && !this.config.includePrivate) continue;
 
       classDoc.methods.push({
         name: methodName,
-        description: this.extractPythonDocstring(classBody, (methodMatch.index || 0) + methodMatch[0].length),
+        description: this.extractPythonDocstring(
+          classBody,
+          (methodMatch.index || 0) + methodMatch[0].length
+        ),
         parameters: this.parsePythonParameters(methodMatch[3]),
         returns: methodMatch[4] ? { type: methodMatch[4].trim() } : undefined,
         isAsync: !!methodMatch[1],
@@ -835,7 +838,7 @@ export class DocumentGenerator {
   private parseJavaClass(content: string, match: RegExpMatchArray): ClassDoc {
     const className = match[3];
     const extendsClass = match[4];
-    const implementsInterfaces = match[5]?.split(',').map(s => s.trim());
+    const implementsInterfaces = match[5]?.split(',').map((s) => s.trim());
     const startIndex = match.index || 0;
 
     const classBody = this.extractBlock(content, startIndex + match[0].length - 1);
@@ -876,7 +879,7 @@ export class DocumentGenerator {
    */
   private parseJavaInterface(content: string, match: RegExpMatchArray): ClassDoc {
     const interfaceName = match[2];
-    const extendsInterfaces = match[3]?.split(',').map(s => s.trim());
+    const extendsInterfaces = match[3]?.split(',').map((s) => s.trim());
     const startIndex = match.index || 0;
 
     return {
@@ -905,17 +908,13 @@ export class DocumentGenerator {
     };
 
     // 解析结构体（作为类处理）
-    const structMatches = content.matchAll(
-      /(?:\/\/[^\n]*\n)*type\s+(\w+)\s+struct\s*\{/g
-    );
+    const structMatches = content.matchAll(/(?:\/\/[^\n]*\n)*type\s+(\w+)\s+struct\s*\{/g);
     for (const match of structMatches) {
       moduleDoc.classes.push(this.parseGoStruct(content, match));
     }
 
     // 解析接口
-    const interfaceMatches = content.matchAll(
-      /(?:\/\/[^\n]*\n)*type\s+(\w+)\s+interface\s*\{/g
-    );
+    const interfaceMatches = content.matchAll(/(?:\/\/[^\n]*\n)*type\s+(\w+)\s+interface\s*\{/g);
     for (const match of interfaceMatches) {
       moduleDoc.interfaces.push(this.parseGoInterface(content, match));
     }
@@ -952,9 +951,7 @@ export class DocumentGenerator {
     };
 
     // 解析字段
-    const fieldMatches = structBody.matchAll(
-      /(\w+)\s+([\w*[\]]+)(?:\s+`[^`]+`)?/g
-    );
+    const fieldMatches = structBody.matchAll(/(\w+)\s+([\w*[\]]+)(?:\s+`[^`]+`)?/g);
     for (const fieldMatch of fieldMatches) {
       classDoc.properties.push({
         name: fieldMatch[1],
@@ -965,7 +962,10 @@ export class DocumentGenerator {
 
     // 查找关联的方法
     const methodMatches = content.matchAll(
-      new RegExp(`(?:\\/\\/[^\\n]*\\n)*func\\s+\\(\\w+\\s+\\*?${structName}\\)\\s+(\\w+)\\s*\\(([^)]*)\\)(?:\\s*\\(([^)]*)\\)|\\s*(\\w+))?\\s*\\{`, 'g')
+      new RegExp(
+        `(?:\\/\\/[^\\n]*\\n)*func\\s+\\(\\w+\\s+\\*?${structName}\\)\\s+(\\w+)\\s*\\(([^)]*)\\)(?:\\s*\\(([^)]*)\\)|\\s*(\\w+))?\\s*\\{`,
+        'g'
+      )
     );
     for (const methodMatch of methodMatches) {
       if (methodMatch[1][0] === methodMatch[1][0].toUpperCase() || this.config.includePrivate) {
@@ -973,7 +973,10 @@ export class DocumentGenerator {
           name: methodMatch[1],
           description: this.extractGoDocComment(content, methodMatch.index || 0),
           parameters: this.parseGoParameters(methodMatch[2]),
-          returns: methodMatch[3] || methodMatch[4] ? { type: methodMatch[3] || methodMatch[4] } : undefined,
+          returns:
+            methodMatch[3] || methodMatch[4]
+              ? { type: methodMatch[3] || methodMatch[4] }
+              : undefined,
           visibility: methodMatch[1][0] === methodMatch[1][0].toUpperCase() ? 'public' : 'private',
         });
       }
@@ -1009,7 +1012,8 @@ export class DocumentGenerator {
         name: methodMatch[1],
         description: '',
         parameters: this.parseGoParameters(methodMatch[2]),
-        returns: methodMatch[3] || methodMatch[4] ? { type: methodMatch[3] || methodMatch[4] } : undefined,
+        returns:
+          methodMatch[3] || methodMatch[4] ? { type: methodMatch[3] || methodMatch[4] } : undefined,
       });
     }
 
@@ -1028,12 +1032,11 @@ export class DocumentGenerator {
     };
   }
 
-
   // ==================== README 生成 ====================
 
   /**
    * 生成 README 文档
-   * 
+   *
    * @param config README 配置
    * @returns README 内容
    */
@@ -1100,12 +1103,16 @@ export class DocumentGenerator {
     const projectInfo = await this.getProjectInfo();
 
     if (projectInfo.version) {
-      badges.push(`![Version](https://img.shields.io/badge/version-${projectInfo.version}-blue.svg)`);
+      badges.push(
+        `![Version](https://img.shields.io/badge/version-${projectInfo.version}-blue.svg)`
+      );
     }
 
     // 检查是否有测试
     if (fs.existsSync(path.join(this.workingDirectory, 'package.json'))) {
-      const packageJson = JSON.parse(fs.readFileSync(path.join(this.workingDirectory, 'package.json'), 'utf-8'));
+      const packageJson = JSON.parse(
+        fs.readFileSync(path.join(this.workingDirectory, 'package.json'), 'utf-8')
+      );
       if (packageJson.scripts?.test) {
         badges.push('![Tests](https://img.shields.io/badge/tests-passing-green.svg)');
       }
@@ -1170,8 +1177,10 @@ export class DocumentGenerator {
       lines.push('```bash');
       lines.push(`yarn add ${projectInfo.name}`);
       lines.push('```\n');
-    } else if (fs.existsSync(path.join(this.workingDirectory, 'setup.py')) ||
-               fs.existsSync(path.join(this.workingDirectory, 'pyproject.toml'))) {
+    } else if (
+      fs.existsSync(path.join(this.workingDirectory, 'setup.py')) ||
+      fs.existsSync(path.join(this.workingDirectory, 'pyproject.toml'))
+    ) {
       lines.push('```bash');
       lines.push(`pip install ${projectInfo.name}`);
       lines.push('```\n');
@@ -1201,7 +1210,7 @@ export class DocumentGenerator {
 
     // 尝试从代码中提取示例
     const examples = await this.extractCodeExamples();
-    
+
     if (examples.length > 0) {
       for (const example of examples.slice(0, 3)) {
         if (example.title) {
@@ -1218,7 +1227,7 @@ export class DocumentGenerator {
       // 生成基本示例
       lines.push('```javascript');
       lines.push('// 基本使用示例');
-      lines.push('const example = require(\'your-package\');');
+      lines.push("const example = require('your-package');");
       lines.push('');
       lines.push('// 使用示例代码');
       lines.push('```\n');
@@ -1236,7 +1245,7 @@ export class DocumentGenerator {
 
     for (const module of apiDoc.modules.slice(0, 5)) {
       lines.push(`### ${module.name}\n`);
-      
+
       if (module.description) {
         lines.push(`${module.description}\n`);
       }
@@ -1299,7 +1308,7 @@ export class DocumentGenerator {
 
   /**
    * 将文档转换为指定格式
-   * 
+   *
    * @param content Markdown 内容
    * @param format 目标格式
    * @returns 转换后的内容
@@ -1389,26 +1398,33 @@ ${html}
     // PDF 转换需要外部工具（如 puppeteer 或 wkhtmltopdf）
     // 这里返回适合 PDF 转换的 HTML
     const html = this.convertToHtml(markdown);
-    
+
     // 添加打印样式
-    return html.replace('</style>', `
+    return html.replace(
+      '</style>',
+      `
     @media print {
       body { max-width: none; }
       pre { white-space: pre-wrap; word-wrap: break-word; }
     }
-  </style>`);
+  </style>`
+    );
   }
 
   /**
    * 保存文档到文件
-   * 
+   *
    * @param content 文档内容
    * @param filename 文件名
    * @param format 输出格式
    */
-  async saveDocument(content: string, filename: string, format: DocumentFormat = 'markdown'): Promise<string> {
+  async saveDocument(
+    content: string,
+    filename: string,
+    format: DocumentFormat = 'markdown'
+  ): Promise<string> {
     const convertedContent = await this.convertToFormat(content, format);
-    
+
     const ext = format === 'markdown' ? '.md' : format === 'html' ? '.html' : '.html';
     const outputPath = path.join(this.outputDirectory, `${filename}${ext}`);
 
@@ -1421,18 +1437,17 @@ ${html}
     return outputPath;
   }
 
-
   // ==================== 代码示例提取 ====================
 
   /**
    * 从代码中提取示例
-   * 
+   *
    * @param sourceFiles 源文件列表（可选）
    * @returns 代码示例列表
    */
   async extractCodeExamples(sourceFiles?: string[]): Promise<CodeExample[]> {
     const examples: CodeExample[] = [];
-    const files = sourceFiles || await this.findExampleFiles();
+    const files = sourceFiles || (await this.findExampleFiles());
 
     for (const file of files) {
       const fullPath = path.resolve(this.workingDirectory, file);
@@ -1472,12 +1487,12 @@ ${html}
    */
   private extractJSDocExamples(content: string, file: string, language: string): CodeExample[] {
     const examples: CodeExample[] = [];
-    
+
     const exampleMatches = content.matchAll(/@example\s*\n([\s\S]*?)(?=\*\/|\*\s*@)/g);
     for (const match of exampleMatches) {
       const code = match[1]
         .split('\n')
-        .map(line => line.replace(/^\s*\*\s?/, ''))
+        .map((line) => line.replace(/^\s*\*\s?/, ''))
         .join('\n')
         .trim();
 
@@ -1539,11 +1554,13 @@ ${html}
    */
   private getExampleTitle(file: string): string {
     const basename = path.basename(file, path.extname(file));
-    return basename
-      .replace(/[-_]/g, ' ')
-      .replace(/example|demo/gi, '')
-      .trim()
-      .replace(/^\w/, c => c.toUpperCase()) || '示例';
+    return (
+      basename
+        .replace(/[-_]/g, ' ')
+        .replace(/example|demo/gi, '')
+        .trim()
+        .replace(/^\w/, (c) => c.toUpperCase()) || '示例'
+    );
   }
 
   /**
@@ -1570,16 +1587,16 @@ ${html}
   private extractMainCode(content: string): string {
     // 移除头部注释
     let code = content.replace(/^(?:\/\*\*[\s\S]*?\*\/\s*|(?:\/\/[^\n]*\n)+|(?:#[^\n]*\n)+)/, '');
-    
+
     // 移除导入语句后的空行
     code = code.replace(/^((?:import|from|require|const\s+\w+\s*=\s*require)[^\n]*\n)+\n*/, '');
-    
+
     // 限制代码长度
     const lines = code.split('\n');
     if (lines.length > 30) {
       return lines.slice(0, 30).join('\n') + '\n// ...';
     }
-    
+
     return code.trim();
   }
 
@@ -1594,7 +1611,7 @@ ${html}
 
     const walkDir = (dir: string, baseDir: string = '') => {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const relativePath = path.join(baseDir, entry.name);
         const fullPath = path.join(dir, entry.name);
@@ -1629,7 +1646,7 @@ ${html}
       if (fs.existsSync(dirPath)) {
         const walkDir = (currentDir: string, baseDir: string = dir) => {
           const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-          
+
           for (const entry of entries) {
             const relativePath = path.join(baseDir, entry.name);
             const fullPath = path.join(currentDir, entry.name);
@@ -1666,12 +1683,12 @@ ${html}
   private matchPattern(filePath: string, pattern: string): boolean {
     // 简单的 glob 匹配
     // 先处理 ** 模式，然后处理 * 模式
-    let regexPattern = pattern
+    const regexPattern = pattern
       .replace(/\./g, '\\.')
       .replace(/\*\*/g, '{{DOUBLE_STAR}}')
       .replace(/\*/g, '[^/]*')
       .replace(/\{\{DOUBLE_STAR\}\}/g, '.*');
-    
+
     // 如果模式以 ** 结尾，确保可以匹配任意深度
     return new RegExp(`^${regexPattern}$`).test(filePath);
   }
@@ -1679,7 +1696,11 @@ ${html}
   /**
    * 获取项目信息
    */
-  private async getProjectInfo(): Promise<{ name: string; version?: string; description?: string }> {
+  private async getProjectInfo(): Promise<{
+    name: string;
+    version?: string;
+    description?: string;
+  }> {
     // 尝试从 package.json 读取
     const packageJsonPath = path.join(this.workingDirectory, 'package.json');
     if (fs.existsSync(packageJsonPath)) {
@@ -1702,7 +1723,7 @@ ${html}
       const nameMatch = content.match(/name\s*=\s*"([^"]+)"/);
       const versionMatch = content.match(/version\s*=\s*"([^"]+)"/);
       const descMatch = content.match(/description\s*=\s*"([^"]+)"/);
-      
+
       return {
         name: nameMatch?.[1] || path.basename(this.workingDirectory),
         version: versionMatch?.[1],
@@ -1715,7 +1736,7 @@ ${html}
     if (fs.existsSync(goModPath)) {
       const content = fs.readFileSync(goModPath, 'utf-8');
       const moduleMatch = content.match(/module\s+(\S+)/);
-      
+
       return {
         name: moduleMatch?.[1] || path.basename(this.workingDirectory),
       };
@@ -1768,19 +1789,19 @@ ${html}
     // 向前查找 JSDoc 注释
     const beforeContent = content.substring(0, position);
     const jsdocMatch = beforeContent.match(/\/\*\*[\s\S]*?\*\/\s*$/);
-    
+
     if (jsdocMatch) {
       const jsdoc = jsdocMatch[0];
       // 提取描述（第一段非标签文本）
       const lines = jsdoc
         .replace(/^\/\*\*|\*\/$/g, '')
         .split('\n')
-        .map(line => line.replace(/^\s*\*\s?/, '').trim())
-        .filter(line => line && !line.startsWith('@'));
-      
+        .map((line) => line.replace(/^\s*\*\s?/, '').trim())
+        .filter((line) => line && !line.startsWith('@'));
+
       return lines.join(' ').trim();
     }
-    
+
     return '';
   }
 
@@ -1790,11 +1811,11 @@ ${html}
   private extractPythonDocstring(content: string, position: number): string {
     const afterContent = content.substring(position);
     const docstringMatch = afterContent.match(/^\s*"""([\s\S]*?)"""/);
-    
+
     if (docstringMatch) {
       return docstringMatch[1].trim().split('\n')[0];
     }
-    
+
     return '';
   }
 
@@ -1812,7 +1833,7 @@ ${html}
     const beforeContent = content.substring(0, position);
     const lines = beforeContent.split('\n');
     const commentLines: string[] = [];
-    
+
     // 从后向前查找连续的注释行
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i].trim();
@@ -1824,7 +1845,7 @@ ${html}
         break;
       }
     }
-    
+
     return commentLines.join(' ');
   }
 
@@ -1985,7 +2006,7 @@ ${html}
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
       const indent = line.match(/^(\s*)/)?.[1].length || 0;
-      
+
       if (line.trim() && indent < baseIndent) {
         break;
       }
@@ -2000,14 +2021,14 @@ ${html}
    */
   private async findLicenseFile(): Promise<string | null> {
     const licenseFiles = ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'LICENCE', 'LICENCE.md'];
-    
+
     for (const file of licenseFiles) {
       const filePath = path.join(this.workingDirectory, file);
       if (fs.existsSync(filePath)) {
         return filePath;
       }
     }
-    
+
     return null;
   }
 
@@ -2016,8 +2037,11 @@ ${html}
    */
   private async detectLicenseType(licensePath: string): Promise<string | null> {
     const content = fs.readFileSync(licensePath, 'utf-8').toLowerCase();
-    
-    if (content.includes('mit license') || content.includes('permission is hereby granted, free of charge')) {
+
+    if (
+      content.includes('mit license') ||
+      content.includes('permission is hereby granted, free of charge')
+    ) {
       return 'MIT';
     } else if (content.includes('apache license') || content.includes('version 2.0')) {
       return 'Apache-2.0';
@@ -2028,7 +2052,7 @@ ${html}
     } else if (content.includes('isc license')) {
       return 'ISC';
     }
-    
+
     return null;
   }
 
@@ -2048,7 +2072,7 @@ ${html}
 
   /**
    * 格式化 API 文档为 Markdown
-   * 
+   *
    * @param apiDoc API 文档对象
    * @returns Markdown 格式的文档
    */
@@ -2057,11 +2081,11 @@ ${html}
 
     // 标题
     lines.push(`# ${apiDoc.projectName} API 文档\n`);
-    
+
     if (apiDoc.version) {
       lines.push(`版本: ${apiDoc.version}\n`);
     }
-    
+
     if (apiDoc.description) {
       lines.push(`${apiDoc.description}\n`);
     }
@@ -2079,7 +2103,7 @@ ${html}
     // 模块文档
     for (const module of apiDoc.modules) {
       lines.push(`## ${module.name}\n`);
-      
+
       if (module.description) {
         lines.push(`${module.description}\n`);
       }
@@ -2135,7 +2159,7 @@ ${html}
     const lines: string[] = [];
 
     lines.push(`#### \`${cls.name}\`\n`);
-    
+
     if (cls.description) {
       lines.push(`${cls.description}\n`);
     }
@@ -2145,7 +2169,7 @@ ${html}
     }
 
     if (cls.implements && cls.implements.length > 0) {
-      lines.push(`实现: ${cls.implements.map(i => `\`${i}\``).join(', ')}\n`);
+      lines.push(`实现: ${cls.implements.map((i) => `\`${i}\``).join(', ')}\n`);
     }
 
     // 属性
@@ -2177,11 +2201,11 @@ ${html}
   private formatFunctionDoc(func: FunctionDoc): string {
     const lines: string[] = [];
     const asyncPrefix = func.isAsync ? 'async ' : '';
-    const params = func.parameters.map(p => `${p.name}: ${p.type}`).join(', ');
+    const params = func.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
     const returnType = func.returns?.type || 'void';
 
     lines.push(`#### \`${asyncPrefix}${func.name}(${params}): ${returnType}\`\n`);
-    
+
     if (func.description) {
       lines.push(`${func.description}\n`);
     }
@@ -2212,12 +2236,14 @@ ${html}
     const visibility = method.visibility ? `${method.visibility} ` : '';
     const staticPrefix = method.isStatic ? 'static ' : '';
     const asyncPrefix = method.isAsync ? 'async ' : '';
-    const params = method.parameters.map(p => `${p.name}: ${p.type}`).join(', ');
+    const params = method.parameters.map((p) => `${p.name}: ${p.type}`).join(', ');
     const returnType = method.returns?.type || 'void';
 
     const lines: string[] = [];
-    lines.push(`- \`${visibility}${staticPrefix}${asyncPrefix}${method.name}(${params}): ${returnType}\``);
-    
+    lines.push(
+      `- \`${visibility}${staticPrefix}${asyncPrefix}${method.name}(${params}): ${returnType}\``
+    );
+
     if (method.description) {
       lines.push(`  - ${method.description}`);
     }
@@ -2228,7 +2254,7 @@ ${html}
 
 /**
  * 创建文档生成器实例
- * 
+ *
  * @param config 配置选项
  * @returns 文档生成器实例
  */

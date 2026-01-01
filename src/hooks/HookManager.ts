@@ -16,18 +16,18 @@ const execAsync = promisify(exec);
  * SDK 支持的 12 种钩子事件类型
  */
 export type HookEvent =
-  | 'PreToolUse'           // 工具使用前
-  | 'PostToolUse'          // 工具使用后
-  | 'PostToolUseFailure'   // 工具使用失败后
-  | 'Notification'         // 通知事件
-  | 'UserPromptSubmit'     // 用户提交提示词
-  | 'SessionStart'         // 会话开始
-  | 'SessionEnd'           // 会话结束
-  | 'Stop'                 // 停止事件
-  | 'SubagentStart'        // 子代理开始
-  | 'SubagentStop'         // 子代理停止
-  | 'PreCompact'           // 压缩前
-  | 'PermissionRequest';   // 权限请求
+  | 'PreToolUse' // 工具使用前
+  | 'PostToolUse' // 工具使用后
+  | 'PostToolUseFailure' // 工具使用失败后
+  | 'Notification' // 通知事件
+  | 'UserPromptSubmit' // 用户提交提示词
+  | 'SessionStart' // 会话开始
+  | 'SessionEnd' // 会话结束
+  | 'Stop' // 停止事件
+  | 'SubagentStart' // 子代理开始
+  | 'SubagentStop' // 子代理停止
+  | 'PreCompact' // 压缩前
+  | 'PermissionRequest'; // 权限请求
 
 /**
  * 所有支持的钩子事件列表
@@ -114,7 +114,6 @@ export interface SDKHookCallbackMatcher {
  * SDK 格式的钩子配置
  */
 export type SDKHookConfig = Partial<Record<HookEvent, SDKHookCallbackMatcher[]>>;
-
 
 /**
  * 钩子执行结果
@@ -205,7 +204,7 @@ export class HookManager {
     for (const [event, matchers] of Object.entries(this.config)) {
       if (!matchers || matchers.length === 0) continue;
 
-      result[event as HookEvent] = matchers.map(m => ({
+      result[event as HookEvent] = matchers.map((m) => ({
         matcher: m.matcher,
         callback: async (context: HookContext) => {
           await this.executeHooks(m.hooks, context);
@@ -422,7 +421,7 @@ export class HookManager {
       this.config[event] = [];
     }
 
-    const existing = this.config[event]!.find(m => m.matcher === matcher);
+    const existing = this.config[event]!.find((m) => m.matcher === matcher);
     if (existing) {
       existing.hooks.push(hook);
     } else {
@@ -446,7 +445,7 @@ export class HookManager {
       delete this.config[event];
     } else {
       // 移除指定匹配器的钩子
-      this.config[event] = this.config[event]!.filter(m => m.matcher !== matcher);
+      this.config[event] = this.config[event]!.filter((m) => m.matcher !== matcher);
       if (this.config[event]!.length === 0) {
         delete this.config[event];
       }
@@ -481,7 +480,7 @@ export class HookManager {
    */
   getConfiguredEvents(): HookEvent[] {
     return Object.keys(this.config).filter(
-      event => this.config[event as HookEvent]?.length ?? 0 > 0
+      (event) => this.config[event as HookEvent]?.length ?? 0 > 0
     ) as HookEvent[];
   }
 

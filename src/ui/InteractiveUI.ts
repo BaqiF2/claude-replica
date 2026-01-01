@@ -58,7 +58,6 @@ export interface MenuItem {
   description?: string;
 }
 
-
 /**
  * ANSI 颜色代码
  */
@@ -66,7 +65,7 @@ const Colors = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
   dim: '\x1b[2m',
-  
+
   // 前景色
   red: '\x1b[31m',
   green: '\x1b[32m',
@@ -76,7 +75,7 @@ const Colors = {
   cyan: '\x1b[36m',
   white: '\x1b[37m',
   gray: '\x1b[90m',
-  
+
   // 背景色
   bgRed: '\x1b[41m',
   bgGreen: '\x1b[42m',
@@ -188,7 +187,7 @@ export class InteractiveUI extends EventEmitter {
   displayMessage(message: string, role: MessageRole): void {
     const prefix = this.getMessagePrefix(role);
     const coloredMessage = this.colorize(message, this.getRoleColor(role));
-    
+
     this.writeLine(`${prefix} ${coloredMessage}`);
   }
 
@@ -201,13 +200,16 @@ export class InteractiveUI extends EventEmitter {
   displayToolUse(tool: string, args: Record<string, unknown>): void {
     const toolIcon = '🔧';
     const toolName = this.colorize(tool, 'cyan');
-    
+
     this.writeLine('');
     this.writeLine(`${toolIcon} ${this.colorize('工具调用:', 'bold')} ${toolName}`);
-    
+
     if (Object.keys(args).length > 0) {
       const argsStr = JSON.stringify(args, null, 2);
-      const indentedArgs = argsStr.split('\n').map(line => `   ${line}`).join('\n');
+      const indentedArgs = argsStr
+        .split('\n')
+        .map((line) => `   ${line}`)
+        .join('\n');
       this.writeLine(this.colorize(indentedArgs, 'gray'));
     }
   }
@@ -251,7 +253,6 @@ export class InteractiveUI extends EventEmitter {
     }
   }
 
-
   /**
    * 请求用户确认
    *
@@ -261,12 +262,12 @@ export class InteractiveUI extends EventEmitter {
   async promptConfirmation(message: string): Promise<boolean> {
     return new Promise((resolve) => {
       const prompt = `${this.colorize('?', 'yellow')} ${message} ${this.colorize('(y/n)', 'gray')} `;
-      
+
       this.write(prompt);
 
       const handleKey = (key: Buffer) => {
         const char = key.toString().toLowerCase();
-        
+
         if (char === 'y' || char === '\r' || char === '\n') {
           this.writeLine(this.colorize('是', 'green'));
           this.input.removeListener('data', handleKey);
@@ -304,7 +305,7 @@ export class InteractiveUI extends EventEmitter {
       const timeStr = this.formatTime(snapshot.timestamp);
       const filesCount = snapshot.files.length;
       const filesInfo = filesCount > 0 ? `(${filesCount} 个文件)` : '';
-      
+
       this.writeLine(
         `  ${this.colorize(`[${index + 1}]`, 'cyan')} ${timeStr} - ${snapshot.description} ${this.colorize(filesInfo, 'gray')}`
       );
@@ -396,7 +397,7 @@ export class InteractiveUI extends EventEmitter {
    */
   displayDiff(diff: string): void {
     const lines = diff.split('\n');
-    
+
     for (const line of lines) {
       if (line.startsWith('+') && !line.startsWith('+++')) {
         this.writeLine(this.colorize(line, 'green'));
@@ -427,17 +428,14 @@ export class InteractiveUI extends EventEmitter {
 
       if (currentLine < lines.length) {
         const remaining = lines.length - currentLine;
-        const continuePrompt = await this.promptConfirmation(
-          `还有 ${remaining} 行，继续显示?`
-        );
-        
+        const continuePrompt = await this.promptConfirmation(`还有 ${remaining} 行，继续显示?`);
+
         if (!continuePrompt) {
           break;
         }
       }
     }
   }
-
 
   /**
    * 检查是否正在运行
@@ -460,12 +458,12 @@ export class InteractiveUI extends EventEmitter {
       // 检测 Esc 键
       if (keyStr === '\x1b') {
         const now = Date.now();
-        
+
         if (now - this.lastEscTime < InteractiveUI.ESC_DOUBLE_PRESS_WINDOW) {
           // 双击 Esc - 打开回退菜单
           this.lastEscTime = 0;
           this.emit('rewind');
-          this.onRewind().catch(err => {
+          this.onRewind().catch((err) => {
             this.displayError(`回退失败: ${err.message}`);
           });
         } else {
@@ -491,14 +489,14 @@ export class InteractiveUI extends EventEmitter {
     while (this.isRunning && this.rl) {
       try {
         const input = await this.prompt();
-        
+
         if (input === null) {
           // EOF 或关闭
           break;
         }
 
         const trimmedInput = input.trim();
-        
+
         if (trimmedInput.length === 0) {
           continue;
         }
@@ -530,7 +528,7 @@ export class InteractiveUI extends EventEmitter {
       }
 
       const promptStr = this.colorize('> ', 'cyan');
-      
+
       this.rl.question(promptStr, (answer) => {
         resolve(answer);
       });

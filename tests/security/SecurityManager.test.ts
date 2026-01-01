@@ -249,14 +249,6 @@ describe('SecurityManager', () => {
         });
       }).toThrow('API 密钥格式无效');
     });
-
-    it('应该获取 Anthropic API 密钥', () => {
-      process.env.ANTHROPIC_API_KEY = 'sk-ant-test123456789';
-      
-      const key = securityManager.getAnthropicAPIKey(false);
-      
-      expect(key).toBe('sk-ant-test123456789');
-    });
   });
 
   describe('HTTPS 验证', () => {

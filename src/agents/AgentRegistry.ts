@@ -168,11 +168,7 @@ export class AgentRegistry {
    */
   private isAgentFile(filename: string): boolean {
     const lowerName = filename.toLowerCase();
-    return (
-      filename === 'AGENT.md' ||
-      lowerName === 'agent.md' ||
-      lowerName.endsWith('.agent.md')
-    );
+    return filename === 'AGENT.md' || lowerName === 'agent.md' || lowerName.endsWith('.agent.md');
   }
 
   /**
@@ -315,8 +311,10 @@ export class AgentRegistry {
    */
   private parseYamlValue(value: string): string | number | boolean {
     // 去除引号
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       return value.slice(1, -1);
     }
 
@@ -419,17 +417,17 @@ export class AgentRegistry {
 
     // 提取描述中的关键词（中文字符或长度 > 2 的英文词）
     const descLower = description.toLowerCase();
-    
+
     // 分割中文和英文词
     const chineseWords = descLower.match(/[\u4e00-\u9fa5]+/g) || [];
     const englishWords = descLower
       .split(/[\s,，、]+/)
-      .filter(word => /^[a-zA-Z]+$/.test(word) && word.length > 2);
+      .filter((word) => /^[a-zA-Z]+$/.test(word) && word.length > 2);
 
     const keywords = [...chineseWords, ...englishWords];
 
     // 检查任务是否包含任一关键词
-    return keywords.some(keyword => taskLower.includes(keyword));
+    return keywords.some((keyword) => taskLower.includes(keyword));
   }
 
   /**

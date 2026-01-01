@@ -53,11 +53,25 @@ npm run build
 npm link
 ```
 
-### 配置 API 密钥
+### 配置认证
 
-Claude Replica 需要 Anthropic API 密钥才能工作。
+Claude Replica 使用 Claude Agent SDK，会自动从 Claude Code 配置中获取认证信息。
 
-#### 方式 1: 环境变量（推荐）
+#### 方式 1: 使用 Claude Code CLI 登录（推荐）
+
+```bash
+# 安装 Claude Code CLI
+npm install -g @anthropic-ai/claude-code
+
+# 登录
+claude login
+```
+
+登录后，认证信息会保存在 `~/.claude/` 目录下，Claude Replica 会自动使用。
+
+#### 方式 2: 环境变量（CI/CD 环境）
+
+在 CI/CD 环境中，可以通过环境变量覆盖认证：
 
 ```bash
 # Linux/macOS
@@ -68,18 +82,6 @@ $env:ANTHROPIC_API_KEY="your-api-key"
 
 # Windows (CMD)
 set ANTHROPIC_API_KEY=your-api-key
-```
-
-将上述命令添加到 shell 配置文件（如 `~/.bashrc`、`~/.zshrc`）以持久化。
-
-#### 方式 2: 配置文件
-
-创建 `~/.claude-replica/settings.json`：
-
-```json
-{
-  "apiKey": "your-api-key"
-}
 ```
 
 ### 第一次使用
@@ -555,11 +557,15 @@ jobs:
         with:
           node-version: '20'
       
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+      
       - name: Install Claude Replica
         run: npm install -g claude-replica
       
       - name: Run Code Review
         env:
+          # 在 CI 中通过环境变量提供认证
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           claude-replica -p "审查这个 PR 的代码变更" \
@@ -573,9 +579,11 @@ jobs:
 code-review:
   image: node:20
   script:
+    - npm install -g @anthropic-ai/claude-code
     - npm install -g claude-replica
     - claude-replica -p "分析代码质量" --output-format json
   variables:
+    # 在 CI 中通过环境变量提供认证
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
 ```
 
@@ -594,6 +602,7 @@ Claude Replica 自动检测以下 CI 环境：
 - 输出结构化日志
 - 支持超时限制
 - 返回适当的退出码
+- 通过环境变量 `ANTHROPIC_API_KEY` 提供认证
 
 ### 退出码
 
@@ -679,16 +688,16 @@ Claude Replica 自动检测以下 CI 环境：
 
 ## 故障排除
 
-### API 密钥问题
+### 认证问题
 
 ```
 错误: API 错误: 认证失败
 ```
 
 解决方案：
-1. 检查 `ANTHROPIC_API_KEY` 环境变量是否设置
-2. 确认 API 密钥有效
-3. 检查 API 密钥权限
+1. 确保 Claude Code 已正确配置：运行 `claude login`
+2. 在 CI 环境中，检查 `ANTHROPIC_API_KEY` 环境变量是否设置
+3. 确认 API 密钥有效且未过期
 
 ### 网络问题
 

@@ -20,6 +20,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:terminal": "jest --testPathPattern=tests/terminal --testTimeout=30000",
+    "test:terminal:watch": "jest --testPathPattern=tests/terminal --testTimeout=30000 --watch",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -52,7 +54,8 @@
   },
   "homepage": "https://github.com/your-username/claude-replica#readme",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.76"
+    "@anthropic-ai/claude-agent-sdk": "^0.1.76",
+    "node-pty": "^1.1.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

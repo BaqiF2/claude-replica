@@ -5,10 +5,12 @@
  * 实现不同 SDKMessage 类型的处理、文本提取和终端输出
  *
  * @module StreamingMessageProcessor
+ * **验证: 需求 2.1, 2.4**
  */
 
 /**
  * SDK 消息类型枚举
+ * 对齐 SDK 的 SDKMessage 类型定义
  */
 export type SDKMessageType =
   | 'assistant'
@@ -17,16 +19,20 @@ export type SDKMessageType =
   | 'tool_result'
   | 'result'
   | 'error'
-  | 'system';
+  | 'system'
+  | 'stream_event';  // 新增：支持流式事件
 
 /**
- * 内容块类型
+ * 内容块类型 - 文本块
  */
 export interface TextBlock {
   type: 'text';
   text: string;
 }
 
+/**
+ * 内容块类型 - 工具调用块
+ */
 export interface ToolUseBlock {
   type: 'tool_use';
   id: string;
@@ -34,6 +40,9 @@ export interface ToolUseBlock {
   input: Record<string, unknown>;
 }
 
+/**
+ * 内容块类型 - 工具结果块
+ */
 export interface ToolResultBlock {
   type: 'tool_result';
   tool_use_id: string;
@@ -41,10 +50,23 @@ export interface ToolResultBlock {
   is_error?: boolean;
 }
 
-export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
+/**
+ * 内容块类型 - 思考块（用于扩展思考功能）
+ */
+export interface ThinkingBlock {
+  type: 'thinking';
+  thinking: string;
+}
+
+/**
+ * 内容块联合类型
+ * 对齐 SDK 的 ContentBlock 类型
+ */
+export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | ThinkingBlock;
 
 /**
  * 助手消息接口
+ * 对齐 SDK 的 APIAssistantMessage 类型
  */
 export interface AssistantMessage {
   role: 'assistant';
@@ -52,21 +74,78 @@ export interface AssistantMessage {
 }
 
 /**
+ * 用户消息接口
+ * 对齐 SDK 的 APIUserMessage 类型
+ */
+export interface UserMessage {
+  role: 'user';
+  content: string | ContentBlock[];
+}
+
+/**
+ * 流式事件类型
+ * 对齐 SDK 的 RawMessageStreamEvent 类型
+ * **验证: 需求 2.4**
+ */
+export interface StreamEvent {
+  type: string;
+  index?: number;
+  delta?: {
+    type: string;
+    text?: string;
+    partial_json?: string;
+  };
+  content_block?: ContentBlock;
+}
+
+/**
  * SDK 消息接口
+ * 对齐 SDK 的 SDKMessage 联合类型
+ * **验证: 需求 2.1**
  */
 export interface SDKMessage {
+  /** 消息类型 */
   type: SDKMessageType;
+  /** 消息 UUID */
+  uuid?: string;
+  /** 会话 ID */
+  session_id?: string;
+  /** 助手消息内容 */
   message?: AssistantMessage;
-  subtype?: 'success' | 'error' | 'interrupted' | 'max_turns';
+  /** 结果子类型 */
+  subtype?: 'success' | 'error' | 'interrupted' | 'max_turns' | 'error_max_turns' | 'error_during_execution' | 'error_max_budget_usd' | 'error_max_structured_output_retries' | 'init' | 'compact_boundary';
+  /** 总花费（美元） */
   total_cost_usd?: number;
+  /** 执行时长（毫秒） */
   duration_ms?: number;
+  /** API 调用时长（毫秒） */
+  duration_api_ms?: number;
+  /** 错误信息 */
   error?: {
     message: string;
     code?: string;
   };
+  /** 错误列表（用于错误结果消息） */
+  errors?: string[];
+  /** 工具名称 */
   tool?: string;
+  /** 工具参数 */
   args?: Record<string, unknown>;
+  /** 工具结果 */
   result?: unknown;
+  /** Token 使用统计 */
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+  };
+  /** 父工具调用 ID */
+  parent_tool_use_id?: string | null;
+  /** 流式事件（用于 SDKPartialAssistantMessage） */
+  event?: StreamEvent;
+  /** 是否为错误 */
+  is_error?: boolean;
+  /** 对话轮数 */
+  num_turns?: number;
 }
 
 /**
@@ -133,6 +212,7 @@ export class TerminalOutputHandler implements OutputHandler {
 
 /**
  * 流式消息处理器选项
+ * **验证: 需求 2.4**
  */
 export interface StreamingMessageProcessorOptions {
   /** 输出处理器 */
@@ -143,6 +223,10 @@ export interface StreamingMessageProcessorOptions {
   showCostInfo?: boolean;
   /** 是否启用流式输出 */
   enableStreaming?: boolean;
+  /** 是否处理部分消息（SDKPartialAssistantMessage） */
+  includePartialMessages?: boolean;
+  /** UI 更新最小间隔（毫秒），用于优化更新频率 */
+  updateIntervalMs?: number;
 }
 
 /**
@@ -154,18 +238,30 @@ export interface StreamingMessageProcessorOptions {
  * - 显示工具调用信息
  * - 处理结果消息
  * - 流式输出到终端
+ * - 处理 SDKPartialAssistantMessage 流式事件
+ *
+ * **验证: 需求 2.1, 2.4**
  */
 export class StreamingMessageProcessor {
   private readonly outputHandler: OutputHandler;
   private readonly showToolDetails: boolean;
   private readonly showCostInfo: boolean;
   private readonly enableStreaming: boolean;
+  private readonly includePartialMessages: boolean;
+  private readonly updateIntervalMs: number;
+
+  /** 上次 UI 更新时间戳 */
+  private lastUpdateTime: number = 0;
+  /** 待输出的缓冲文本 */
+  private pendingText: string = '';
 
   constructor(options: StreamingMessageProcessorOptions = {}) {
     this.outputHandler = options.outputHandler || new TerminalOutputHandler();
     this.showToolDetails = options.showToolDetails ?? true;
     this.showCostInfo = options.showCostInfo ?? true;
     this.enableStreaming = options.enableStreaming ?? true;
+    this.includePartialMessages = options.includePartialMessages ?? false;
+    this.updateIntervalMs = options.updateIntervalMs ?? 50; // 默认 50ms 更新间隔
   }
 
   /**
@@ -183,6 +279,11 @@ export class StreamingMessageProcessor {
       case 'assistant':
         processed.text = this.extractTextFromAssistantMessage(message);
         processed.toolUse = this.extractToolUseFromAssistantMessage(message);
+        break;
+
+      case 'stream_event':
+        // 处理 SDKPartialAssistantMessage
+        processed.text = this.extractTextFromStreamEvent(message);
         break;
 
       case 'tool_use':
@@ -222,6 +323,39 @@ export class StreamingMessageProcessor {
   }
 
   /**
+   * 从流式事件中提取文本内容
+   * 处理 SDKPartialAssistantMessage 的 delta 事件
+   *
+   * @param message - SDK 消息（stream_event 类型）
+   * @returns 提取的文本增量
+   *
+   * **验证: 需求 2.4**
+   */
+  extractTextFromStreamEvent(message: SDKMessage): string | undefined {
+    if (message.type !== 'stream_event' || !message.event) {
+      return undefined;
+    }
+
+    const event = message.event;
+
+    // 处理 content_block_delta 事件
+    if (event.type === 'content_block_delta' && event.delta) {
+      if (event.delta.type === 'text_delta' && event.delta.text) {
+        return event.delta.text;
+      }
+    }
+
+    // 处理 content_block_start 事件中的初始文本
+    if (event.type === 'content_block_start' && event.content_block) {
+      if (event.content_block.type === 'text' && 'text' in event.content_block) {
+        return (event.content_block as TextBlock).text;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * 从助手消息中提取文本内容
    *
    * @param message - SDK 消息
@@ -237,9 +371,7 @@ export class StreamingMessageProcessor {
       return undefined;
     }
 
-    const textBlocks = content.filter(
-      (block): block is TextBlock => block.type === 'text'
-    );
+    const textBlocks = content.filter((block): block is TextBlock => block.type === 'text');
 
     if (textBlocks.length === 0) {
       return undefined;
@@ -254,9 +386,7 @@ export class StreamingMessageProcessor {
    * @param message - SDK 消息
    * @returns 工具调用信息
    */
-  extractToolUseFromAssistantMessage(
-    message: SDKMessage
-  ): ProcessedMessage['toolUse'] | undefined {
+  extractToolUseFromAssistantMessage(message: SDKMessage): ProcessedMessage['toolUse'] | undefined {
     if (message.type !== 'assistant' || !message.message) {
       return undefined;
     }
@@ -266,9 +396,7 @@ export class StreamingMessageProcessor {
       return undefined;
     }
 
-    const toolUseBlock = content.find(
-      (block): block is ToolUseBlock => block.type === 'tool_use'
-    );
+    const toolUseBlock = content.find((block): block is ToolUseBlock => block.type === 'tool_use');
 
     if (!toolUseBlock) {
       return undefined;
@@ -295,6 +423,62 @@ export class StreamingMessageProcessor {
         this.outputHandler.writeLine(text);
       }
     }
+  }
+
+  /**
+   * 显示流式事件消息（SDKPartialAssistantMessage）
+   * 使用节流机制优化 UI 更新频率
+   *
+   * @param message - SDK 消息（stream_event 类型）
+   * @param forceFlush - 是否强制刷新缓冲区
+   *
+   * **验证: 需求 2.4**
+   */
+  displayStreamEvent(message: SDKMessage, forceFlush: boolean = false): void {
+    if (!this.includePartialMessages || !this.enableStreaming) {
+      return;
+    }
+
+    const text = this.extractTextFromStreamEvent(message);
+    if (text) {
+      this.pendingText += text;
+    }
+
+    const now = Date.now();
+    
+    // 初始化 lastUpdateTime（如果是第一次调用）
+    if (this.lastUpdateTime === 0) {
+      this.lastUpdateTime = now;
+    }
+    
+    const timeSinceLastUpdate = now - this.lastUpdateTime;
+
+    // 使用节流机制：只有当超过更新间隔或强制刷新时才输出
+    if (forceFlush || timeSinceLastUpdate >= this.updateIntervalMs) {
+      this.flushPendingText();
+    }
+  }
+
+  /**
+   * 刷新待输出的缓冲文本
+   *
+   * **验证: 需求 2.4**
+   */
+  flushPendingText(): void {
+    if (this.pendingText.length > 0) {
+      this.outputHandler.write(this.pendingText);
+      this.pendingText = '';
+      this.lastUpdateTime = Date.now();
+    }
+  }
+
+  /**
+   * 重置流式处理状态
+   * 在开始新的流式处理前调用
+   */
+  resetStreamState(): void {
+    this.pendingText = '';
+    this.lastUpdateTime = 0;
   }
 
   /**
@@ -410,6 +594,11 @@ export class StreamingMessageProcessor {
         }
         break;
 
+      case 'stream_event':
+        // 处理 SDKPartialAssistantMessage
+        this.displayStreamEvent(message);
+        break;
+
       case 'tool_use':
         this.displayToolUse(processed.toolUse);
         break;
@@ -419,10 +608,14 @@ export class StreamingMessageProcessor {
         break;
 
       case 'result':
+        // 在结果消息前刷新所有待输出的文本
+        this.flushPendingText();
         this.displayResult(processed.result);
         break;
 
       case 'error':
+        // 在错误消息前刷新所有待输出的文本
+        this.flushPendingText();
         this.displayError(processed.error);
         break;
     }
@@ -435,13 +628,19 @@ export class StreamingMessageProcessor {
    *
    * @param messages - SDK 消息异步生成器
    * @yields 处理后的消息
+   *
+   * **验证: 需求 2.4**
    */
-  async *processStream(
-    messages: AsyncIterable<SDKMessage>
-  ): AsyncGenerator<ProcessedMessage> {
+  async *processStream(messages: AsyncIterable<SDKMessage>): AsyncGenerator<ProcessedMessage> {
+    // 重置流式处理状态
+    this.resetStreamState();
+
     for await (const message of messages) {
       yield this.processAndDisplay(message);
     }
+
+    // 流结束时刷新所有待输出的文本
+    this.flushPendingText();
   }
 
   /**

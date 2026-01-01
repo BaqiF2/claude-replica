@@ -44,6 +44,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: Install Claude Replica
         run: npm install -g claude-replica
 
@@ -54,6 +57,7 @@ jobs:
 
       - name: Run AI Code Review
         env:
+          # 在 CI 中通过环境变量提供认证
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           claude-replica -p "请审查以下文件的代码变更: ${{ steps.changed-files.outputs.files }}" \
@@ -100,11 +104,15 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: Install Claude Replica
         run: npm install -g claude-replica
 
       - name: Generate Tests
         env:
+          # 在 CI 中通过环境变量提供认证
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           claude-replica -p "请为 ${{ github.event.inputs.file }} 生成单元测试" \
@@ -173,6 +181,7 @@ pipeline {
     }
 
     environment {
+        // 在 CI 中通过环境变量提供认证
         ANTHROPIC_API_KEY = credentials('anthropic-api-key')
     }
 
@@ -241,11 +250,8 @@ pipeline {
 
 set -e
 
-# 检查 API 密钥
-if [ -z "$ANTHROPIC_API_KEY" ]; then
-    echo "错误: 未设置 ANTHROPIC_API_KEY"
-    exit 1
-fi
+# Claude Replica 使用 Claude Agent SDK，会自动从 Claude Code 配置获取认证
+# 在 CI 环境中，可以通过 ANTHROPIC_API_KEY 环境变量覆盖
 
 # 获取变更文件
 CHANGED_FILES=$(git diff --name-only HEAD~1)
@@ -327,11 +333,15 @@ else
 fi
 ```
 
-### 4. 保护 API 密钥
+### 4. 配置认证
 
-- 使用 CI 平台的密钥管理功能
+在 CI 环境中配置认证：
+
+- 使用 CI 平台的密钥管理功能存储 `ANTHROPIC_API_KEY`
 - 不要在日志中打印密钥
 - 定期轮换密钥
+
+> 注意：Claude Replica 使用 Claude Agent SDK，会自动从 Claude Code 配置获取认证。在 CI 中通过环境变量 `ANTHROPIC_API_KEY` 提供认证。
 
 ### 5. 限制并发
 
@@ -358,14 +368,15 @@ concurrency:
 
 ## 故障排除
 
-### API 密钥问题
+### 认证问题
 
 ```
 错误: API 错误: 认证失败
 ```
 
-- 检查密钥是否正确设置
+- 检查 `ANTHROPIC_API_KEY` 环境变量是否正确设置
 - 确认密钥有效且未过期
+- 在本地环境中，确保 Claude Code 已正确配置（`claude login`）
 
 ### 超时问题
 

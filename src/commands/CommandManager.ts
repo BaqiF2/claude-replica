@@ -92,7 +92,8 @@ export class CommandManager {
   private readonly userDirPrefix: string;
 
   constructor(config?: CommandManagerConfig) {
-    this.userCommandsDir = config?.userCommandsDir ?? path.join(os.homedir(), '.claude', 'commands');
+    this.userCommandsDir =
+      config?.userCommandsDir ?? path.join(os.homedir(), '.claude', 'commands');
     this.workingDir = config?.workingDir ?? process.cwd();
     this.userDirPrefix = config?.userDirPrefix ?? os.homedir();
   }
@@ -319,8 +320,10 @@ export class CommandManager {
    */
   private parseYamlValue(value: string): string | number | boolean {
     // 去除引号
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       return value.slice(1, -1);
     }
 

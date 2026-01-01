@@ -18,10 +18,16 @@ basic-usage/
 
 ## 快速开始
 
-### 1. 设置 API 密钥
+### 1. 配置认证
+
+Claude Replica 使用 Claude Agent SDK，会自动从 Claude Code 配置中获取认证信息。
 
 ```bash
-export ANTHROPIC_API_KEY="your-api-key"
+# 确保 Claude Code 已登录
+claude login
+
+# 或检查配置文件
+ls ~/.claude/settings.json
 ```
 
 ### 2. 进入示例目录

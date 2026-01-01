@@ -8,7 +8,7 @@ import * as fc from 'fast-check';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { SessionManager } from '../../src/core/SessionManager';
+import { SessionManager, UsageStats } from '../../src/core/SessionManager';
 
 // 测试用的临时目录
 let testDir: string;
@@ -423,5 +423,201 @@ describe('属性测试: 会话过期的时效性', () => {
     expect(loadedSession!.expired).toBe(true);
 
     await sessionManager.deleteSession(session.id);
+  });
+});
+
+
+/**
+ * 属性测试
+ *
+ * Feature: sdk-integration, Property 6: Session Message Persistence
+ *
+ * *For any* successful query execution, the SessionManager SHALL contain
+ * both the original user message and the assistant response in the correct order.
+ *
+ * **Validates: Requirements 3.1**
+ */
+describe('属性测试: 会话消息持久化 (Property 6)', () => {
+  /**
+   * 生成随机的 usage 统计信息
+   */
+  const arbUsageStats: fc.Arbitrary<UsageStats> = fc.record({
+    inputTokens: fc.integer({ min: 1, max: 10000 }),
+    outputTokens: fc.integer({ min: 1, max: 10000 }),
+    totalCostUsd: fc.option(fc.float({ min: Math.fround(0.001), max: Math.fround(10), noNaN: true }), { nil: undefined }),
+    durationMs: fc.option(fc.integer({ min: 100, max: 60000 }), { nil: undefined }),
+  });
+
+  it('对于任意成功的查询执行，会话应该包含用户消息和助手响应，且顺序正确', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.string({ minLength: 1, maxLength: 500 }), // 用户消息
+        fc.string({ minLength: 1, maxLength: 1000 }), // 助手响应
+        fc.option(arbUsageStats, { nil: undefined }), // 可选的 usage 统计
+        async (userMessage, assistantResponse, usage) => {
+          // 创建会话
+          const session = await sessionManager.createSession('/test/project');
+
+          // 模拟查询执行：先添加用户消息
+          await sessionManager.addMessage(session, {
+            role: 'user',
+            content: userMessage,
+          });
+
+          // 然后添加助手响应（包含 usage 统计）
+          await sessionManager.addMessage(session, {
+            role: 'assistant',
+            content: assistantResponse,
+            usage: usage,
+          });
+
+          // 重新加载会话
+          const loadedSession = await sessionManager.loadSession(session.id);
+
+          // 验证会话包含两条消息
+          expect(loadedSession).not.toBeNull();
+          expect(loadedSession!.messages.length).toBe(2);
+
+          // 验证消息顺序正确：用户消息在前，助手响应在后
+          expect(loadedSession!.messages[0].role).toBe('user');
+          expect(loadedSession!.messages[0].content).toBe(userMessage);
+
+          expect(loadedSession!.messages[1].role).toBe('assistant');
+          expect(loadedSession!.messages[1].content).toBe(assistantResponse);
+
+          // 验证 usage 统计信息被正确保存
+          if (usage) {
+            expect(loadedSession!.messages[1].usage).toBeDefined();
+            expect(loadedSession!.messages[1].usage!.inputTokens).toBe(usage.inputTokens);
+            expect(loadedSession!.messages[1].usage!.outputTokens).toBe(usage.outputTokens);
+            if (usage.totalCostUsd !== undefined) {
+              expect(loadedSession!.messages[1].usage!.totalCostUsd).toBe(usage.totalCostUsd);
+            }
+            if (usage.durationMs !== undefined) {
+              expect(loadedSession!.messages[1].usage!.durationMs).toBe(usage.durationMs);
+            }
+          } else {
+            expect(loadedSession!.messages[1].usage).toBeUndefined();
+          }
+
+          // 清理
+          await sessionManager.deleteSession(session.id);
+
+          return true;
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  it('对于多轮对话，所有消息应该按正确顺序持久化', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.array(
+          fc.tuple(
+            fc.string({ minLength: 1, maxLength: 200 }), // 用户消息
+            fc.string({ minLength: 1, maxLength: 500 }), // 助手响应
+            fc.option(arbUsageStats, { nil: undefined }) // 可选的 usage 统计
+          ),
+          { minLength: 1, maxLength: 5 }
+        ),
+        async (conversations) => {
+          // 创建会话
+          const session = await sessionManager.createSession('/test/project');
+
+          // 模拟多轮对话
+          for (const [userMsg, assistantMsg, usage] of conversations) {
+            await sessionManager.addMessage(session, {
+              role: 'user',
+              content: userMsg,
+            });
+            await sessionManager.addMessage(session, {
+              role: 'assistant',
+              content: assistantMsg,
+              usage: usage,
+            });
+          }
+
+          // 重新加载会话
+          const loadedSession = await sessionManager.loadSession(session.id);
+
+          // 验证消息数量正确（每轮对话 2 条消息）
+          expect(loadedSession).not.toBeNull();
+          expect(loadedSession!.messages.length).toBe(conversations.length * 2);
+
+          // 验证每轮对话的消息顺序和内容
+          for (let i = 0; i < conversations.length; i++) {
+            const [userMsg, assistantMsg, usage] = conversations[i];
+            const userIndex = i * 2;
+            const assistantIndex = i * 2 + 1;
+
+            // 验证用户消息
+            expect(loadedSession!.messages[userIndex].role).toBe('user');
+            expect(loadedSession!.messages[userIndex].content).toBe(userMsg);
+
+            // 验证助手响应
+            expect(loadedSession!.messages[assistantIndex].role).toBe('assistant');
+            expect(loadedSession!.messages[assistantIndex].content).toBe(assistantMsg);
+
+            // 验证 usage 统计
+            if (usage) {
+              expect(loadedSession!.messages[assistantIndex].usage).toBeDefined();
+              expect(loadedSession!.messages[assistantIndex].usage!.inputTokens).toBe(usage.inputTokens);
+              expect(loadedSession!.messages[assistantIndex].usage!.outputTokens).toBe(usage.outputTokens);
+            }
+          }
+
+          // 清理
+          await sessionManager.deleteSession(session.id);
+
+          return true;
+        }
+      ),
+      { numRuns: 100 }
+    );
+  });
+
+  it('消息时间戳应该按添加顺序递增', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.array(
+          fc.record({
+            role: fc.constantFrom('user', 'assistant') as fc.Arbitrary<'user' | 'assistant'>,
+            content: fc.string({ minLength: 1, maxLength: 200 }),
+          }),
+          { minLength: 2, maxLength: 10 }
+        ),
+        async (messages) => {
+          // 创建会话
+          const session = await sessionManager.createSession('/test/project');
+
+          // 添加消息（每条消息之间稍微延迟以确保时间戳不同）
+          for (const msg of messages) {
+            await sessionManager.addMessage(session, msg);
+            // 小延迟确保时间戳递增
+            await new Promise(resolve => setTimeout(resolve, 1));
+          }
+
+          // 重新加载会话
+          const loadedSession = await sessionManager.loadSession(session.id);
+
+          expect(loadedSession).not.toBeNull();
+          expect(loadedSession!.messages.length).toBe(messages.length);
+
+          // 验证时间戳递增
+          for (let i = 1; i < loadedSession!.messages.length; i++) {
+            const prevTimestamp = loadedSession!.messages[i - 1].timestamp.getTime();
+            const currTimestamp = loadedSession!.messages[i].timestamp.getTime();
+            expect(currTimestamp).toBeGreaterThanOrEqual(prevTimestamp);
+          }
+
+          // 清理
+          await sessionManager.deleteSession(session.id);
+
+          return true;
+        }
+      ),
+      { numRuns: 100 }
+    );
   });
 });

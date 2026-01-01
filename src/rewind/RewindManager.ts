@@ -104,8 +104,8 @@ export class RewindManager {
 
   constructor(options: RewindManagerOptions) {
     this.workingDir = options.workingDir;
-    this.snapshotsDir = options.snapshotsDir || 
-      path.join(options.workingDir, '.claude-replica', 'snapshots');
+    this.snapshotsDir =
+      options.snapshotsDir || path.join(options.workingDir, '.claude-replica', 'snapshots');
     this.maxSnapshots = options.maxSnapshots || DEFAULT_MAX_SNAPSHOTS;
     this.debug = options.debug || false;
   }
@@ -141,7 +141,6 @@ export class RewindManager {
       console.log(`[RewindManager] ${message}`, ...args);
     }
   }
-
 
   /**
    * 初始化回退管理器
@@ -342,7 +341,6 @@ export class RewindManager {
     }
   }
 
-
   /**
    * 恢复到指定快照
    *
@@ -352,7 +350,7 @@ export class RewindManager {
   async restoreSnapshot(snapshotId: string): Promise<RestoreResult> {
     await this.initialize();
 
-    const snapshot = this.snapshots.find(s => s.id === snapshotId);
+    const snapshot = this.snapshots.find((s) => s.id === snapshotId);
     if (!snapshot) {
       return {
         success: false,
@@ -400,7 +398,9 @@ export class RewindManager {
       };
     }
 
-    this.log(`已恢复快照: ${snapshotId}, 恢复 ${restoredFiles.length} 个文件, 删除 ${deletedFiles.length} 个文件`);
+    this.log(
+      `已恢复快照: ${snapshotId}, 恢复 ${restoredFiles.length} 个文件, 删除 ${deletedFiles.length} 个文件`
+    );
 
     return {
       success: true,
@@ -427,7 +427,7 @@ export class RewindManager {
    */
   async getSnapshot(snapshotId: string): Promise<Snapshot | null> {
     await this.initialize();
-    return this.snapshots.find(s => s.id === snapshotId) || null;
+    return this.snapshots.find((s) => s.id === snapshotId) || null;
   }
 
   /**
@@ -438,7 +438,7 @@ export class RewindManager {
    */
   async getSnapshotByMessageUuid(messageUuid: string): Promise<Snapshot | null> {
     await this.initialize();
-    return this.snapshots.find(s => s.messageUuid === messageUuid) || null;
+    return this.snapshots.find((s) => s.messageUuid === messageUuid) || null;
   }
 
   /**
@@ -450,7 +450,7 @@ export class RewindManager {
   async deleteSnapshot(snapshotId: string): Promise<boolean> {
     await this.initialize();
 
-    const index = this.snapshots.findIndex(s => s.id === snapshotId);
+    const index = this.snapshots.findIndex((s) => s.id === snapshotId);
     if (index === -1) {
       return false;
     }
@@ -518,7 +518,7 @@ export class RewindManager {
   } | null> {
     await this.initialize();
 
-    const snapshot = this.snapshots.find(s => s.id === snapshotId);
+    const snapshot = this.snapshots.find((s) => s.id === snapshotId);
     if (!snapshot) {
       return null;
     }
@@ -553,10 +553,14 @@ export class RewindManager {
 
   /**
    * 创建用于钩子集成的快照捕获函数
-   * 
+   *
    * @returns 快照捕获函数
    */
-  createSnapshotCapture(): (filePath: string, description: string, messageUuid?: string) => Promise<Snapshot> {
+  createSnapshotCapture(): (
+    filePath: string,
+    description: string,
+    messageUuid?: string
+  ) => Promise<Snapshot> {
     return async (filePath: string, description: string, messageUuid?: string) => {
       return this.captureSnapshot(description, [filePath], messageUuid);
     };
@@ -573,8 +577,8 @@ export class RewindManager {
     files: { path: string; description?: string }[],
     messageUuid?: string
   ): Promise<Snapshot> {
-    const filePaths = files.map(f => f.path);
-    const description = files.map(f => f.description || f.path).join(', ');
+    const filePaths = files.map((f) => f.path);
+    const description = files.map((f) => f.description || f.path).join(', ');
     return this.captureSnapshot(`修改文件: ${description}`, filePaths, messageUuid);
   }
 }

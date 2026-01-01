@@ -2,9 +2,4 @@
  * 工具模块导出
  */
 
-export {
-  ToolRegistry,
-  ToolConfig,
-  ToolCategory,
-  ToolMetadata,
-} from './ToolRegistry';
+export { ToolRegistry, ToolConfig, ToolCategory, ToolMetadata } from './ToolRegistry';

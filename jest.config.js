@@ -22,7 +22,11 @@ module.exports = {
     },
   },
   verbose: true,
+  // 默认超时时间
   testTimeout: 10000,
   // 属性测试需要更多时间
   slowTestThreshold: 5000,
+  // 终端测试需要更长的超时时间，通过 setupFilesAfterEnv 配置
+  // 限制并行数以避免资源竞争（终端测试）
+  maxWorkers: 4,
 };

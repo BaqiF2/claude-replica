@@ -151,7 +151,6 @@ export interface SandboxSettings {
  * SDK Options 接口（部分）
  */
 export interface SDKOptions {
-  apiKey?: string;
   model?: string;
   systemPrompt?: string | { type: 'preset'; preset: 'claude_code'; append?: string };
   allowedTools?: string[];
@@ -194,7 +193,6 @@ export interface UserConfig {
 export interface ProjectConfig extends UserConfig {
   projectName?: string;
 }
-
 
 /**
  * SDK 配置加载器
@@ -352,10 +350,7 @@ export class SDKConfigLoader {
       allowedTools: projectConfig.allowedTools ?? userConfig.allowedTools,
 
       // disallowedTools 合并（两者都禁用的工具）
-      disallowedTools: this.mergeArrays(
-        userConfig.disallowedTools,
-        projectConfig.disallowedTools
-      ),
+      disallowedTools: this.mergeArrays(userConfig.disallowedTools, projectConfig.disallowedTools),
 
       // 对象类型深度合并
       mcpServers: this.mergeObjects(userConfig.mcpServers, projectConfig.mcpServers),
@@ -448,10 +443,7 @@ export class SDKConfigLoader {
    * @param obj2 - 第二个对象
    * @returns 合并后的对象
    */
-  private mergeObjects<T extends Record<string, unknown>>(
-    obj1?: T,
-    obj2?: T
-  ): T | undefined {
+  private mergeObjects<T extends Record<string, unknown>>(obj1?: T, obj2?: T): T | undefined {
     if (!obj1 && !obj2) return undefined;
     return {
       ...obj1,

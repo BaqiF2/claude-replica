@@ -742,3 +742,335 @@ describe('StreamingMessageProcessor - 边界情况', () => {
     expect(mockOutputHandler.errors).toHaveLength(0);
   });
 });
+
+describe('StreamingMessageProcessor - 流式事件处理', () => {
+  let mockOutputHandler: MockOutputHandler;
+
+  beforeEach(() => {
+    mockOutputHandler = new MockOutputHandler();
+  });
+
+  /**
+   * 创建模拟的流式事件消息（SDKPartialAssistantMessage）
+   */
+  function createStreamEventMessage(
+    eventType: string,
+    deltaText?: string
+  ): SDKMessage {
+    return {
+      type: 'stream_event',
+      event: {
+        type: eventType,
+        delta: deltaText ? {
+          type: 'text_delta',
+          text: deltaText,
+        } : undefined,
+      },
+    };
+  }
+
+  /**
+   * 创建带有 content_block_start 的流式事件消息
+   */
+  function createContentBlockStartMessage(text: string): SDKMessage {
+    return {
+      type: 'stream_event',
+      event: {
+        type: 'content_block_start',
+        content_block: {
+          type: 'text',
+          text: text,
+        },
+      },
+    };
+  }
+
+  describe('extractTextFromStreamEvent', () => {
+    it('应该从 content_block_delta 事件中提取文本', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+      });
+
+      const message = createStreamEventMessage('content_block_delta', '你好');
+      const text = processor.extractTextFromStreamEvent(message);
+
+      expect(text).toBe('你好');
+    });
+
+    it('应该从 content_block_start 事件中提取初始文本', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+      });
+
+      const message = createContentBlockStartMessage('开始');
+      const text = processor.extractTextFromStreamEvent(message);
+
+      expect(text).toBe('开始');
+    });
+
+    it('应该对非 stream_event 类型返回 undefined', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+      });
+
+      const message: SDKMessage = { type: 'assistant' };
+      const text = processor.extractTextFromStreamEvent(message);
+
+      expect(text).toBeUndefined();
+    });
+
+    it('应该对没有 event 字段的消息返回 undefined', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+      });
+
+      const message: SDKMessage = { type: 'stream_event' };
+      const text = processor.extractTextFromStreamEvent(message);
+
+      expect(text).toBeUndefined();
+    });
+
+    it('应该对没有 delta 的事件返回 undefined', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+      });
+
+      const message: SDKMessage = {
+        type: 'stream_event',
+        event: {
+          type: 'content_block_delta',
+        },
+      };
+      const text = processor.extractTextFromStreamEvent(message);
+
+      expect(text).toBeUndefined();
+    });
+  });
+
+  describe('displayStreamEvent', () => {
+    it('应该在启用 includePartialMessages 时输出流式文本', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        updateIntervalMs: 0, // 禁用节流以便测试
+      });
+
+      const message = createStreamEventMessage('content_block_delta', '流式文本');
+      processor.displayStreamEvent(message, true);
+
+      expect(mockOutputHandler.getOutput()).toContain('流式文本');
+    });
+
+    it('应该在禁用 includePartialMessages 时不输出', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: false,
+      });
+
+      const message = createStreamEventMessage('content_block_delta', '不应该输出');
+      processor.displayStreamEvent(message, true);
+
+      expect(mockOutputHandler.output).toHaveLength(0);
+    });
+
+    it('应该在禁用流式输出时不输出', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        enableStreaming: false,
+      });
+
+      const message = createStreamEventMessage('content_block_delta', '不应该输出');
+      processor.displayStreamEvent(message, true);
+
+      expect(mockOutputHandler.output).toHaveLength(0);
+    });
+
+    it('应该使用节流机制优化更新频率', async () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        updateIntervalMs: 100, // 100ms 更新间隔
+      });
+
+      // 快速发送多个消息
+      processor.displayStreamEvent(createStreamEventMessage('content_block_delta', 'A'));
+      processor.displayStreamEvent(createStreamEventMessage('content_block_delta', 'B'));
+      processor.displayStreamEvent(createStreamEventMessage('content_block_delta', 'C'));
+
+      // 由于节流，可能不会立即输出所有内容
+      // 强制刷新以获取所有内容
+      processor.flushPendingText();
+
+      expect(mockOutputHandler.getOutput()).toContain('ABC');
+    });
+  });
+
+  describe('flushPendingText', () => {
+    it('应该刷新待输出的缓冲文本', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        updateIntervalMs: 1000, // 长间隔以确保文本被缓冲
+      });
+
+      processor.displayStreamEvent(createStreamEventMessage('content_block_delta', '缓冲'));
+      
+      // 此时文本应该在缓冲区中
+      expect(mockOutputHandler.output).toHaveLength(0);
+
+      // 刷新缓冲区
+      processor.flushPendingText();
+
+      expect(mockOutputHandler.getOutput()).toContain('缓冲');
+    });
+
+    it('应该在缓冲区为空时不输出', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+      });
+
+      processor.flushPendingText();
+
+      expect(mockOutputHandler.output).toHaveLength(0);
+    });
+  });
+
+  describe('resetStreamState', () => {
+    it('应该重置流式处理状态', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        updateIntervalMs: 1000,
+      });
+
+      // 添加一些待输出的文本
+      processor.displayStreamEvent(createStreamEventMessage('content_block_delta', '待清除'));
+
+      // 重置状态
+      processor.resetStreamState();
+
+      // 刷新后应该没有输出
+      processor.flushPendingText();
+
+      expect(mockOutputHandler.output).toHaveLength(0);
+    });
+  });
+
+  describe('processMessage - stream_event', () => {
+    it('应该正确处理 stream_event 类型消息', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+      });
+
+      const message = createStreamEventMessage('content_block_delta', '处理测试');
+      const processed = processor.processMessage(message);
+
+      expect(processed.type).toBe('stream_event');
+      expect(processed.text).toBe('处理测试');
+    });
+  });
+
+  describe('processAndDisplay - stream_event', () => {
+    it('应该处理并显示 stream_event 消息', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        updateIntervalMs: 0,
+      });
+
+      const message = createStreamEventMessage('content_block_delta', '显示测试');
+      const processed = processor.processAndDisplay(message);
+      processor.flushPendingText();
+
+      expect(processed.type).toBe('stream_event');
+      expect(mockOutputHandler.getOutput()).toContain('显示测试');
+    });
+
+    it('应该在结果消息前刷新缓冲区', () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        updateIntervalMs: 1000,
+      });
+
+      // 先发送流式事件
+      processor.displayStreamEvent(createStreamEventMessage('content_block_delta', '流式'));
+
+      // 然后发送结果消息
+      const resultMessage = createResultMessage('success', 0.01, 1000);
+      processor.processAndDisplay(resultMessage);
+
+      // 流式文本应该在结果消息前被刷新
+      const output = mockOutputHandler.getOutput();
+      expect(output).toContain('流式');
+      expect(output).toContain('查询完成');
+    });
+  });
+
+  describe('processStream - 流式事件', () => {
+    it('应该在流结束时刷新所有待输出的文本', async () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        updateIntervalMs: 1000, // 长间隔
+      });
+
+      async function* createStreamWithEvents(): AsyncGenerator<SDKMessage> {
+        yield createStreamEventMessage('content_block_delta', '第一');
+        yield createStreamEventMessage('content_block_delta', '第二');
+        yield createResultMessage('success');
+      }
+
+      const processedMessages: ProcessedMessage[] = [];
+      for await (const processed of processor.processStream(createStreamWithEvents())) {
+        processedMessages.push(processed);
+      }
+
+      // 流结束后所有文本应该被输出
+      const output = mockOutputHandler.getOutput();
+      expect(output).toContain('第一');
+      expect(output).toContain('第二');
+    });
+
+    it('应该在每次流开始时重置状态', async () => {
+      const processor = new StreamingMessageProcessor({
+        outputHandler: mockOutputHandler,
+        includePartialMessages: true,
+        updateIntervalMs: 0,
+      });
+
+      // 第一次流
+      async function* firstStream(): AsyncGenerator<SDKMessage> {
+        yield createStreamEventMessage('content_block_delta', '第一次');
+      }
+
+      for await (const _ of processor.processStream(firstStream())) {
+        // 处理消息
+      }
+
+      mockOutputHandler.clear();
+
+      // 第二次流
+      async function* secondStream(): AsyncGenerator<SDKMessage> {
+        yield createStreamEventMessage('content_block_delta', '第二次');
+      }
+
+      for await (const _ of processor.processStream(secondStream())) {
+        // 处理消息
+      }
+
+      // 第二次流应该只包含第二次的内容
+      const output = mockOutputHandler.getOutput();
+      expect(output).not.toContain('第一次');
+      expect(output).toContain('第二次');
+    });
+  });
+});

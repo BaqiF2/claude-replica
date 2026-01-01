@@ -147,11 +147,7 @@ export class SkillManager {
    */
   private isSkillFile(filename: string): boolean {
     const lowerName = filename.toLowerCase();
-    return (
-      filename === 'SKILL.md' ||
-      lowerName === 'skill.md' ||
-      lowerName.endsWith('.skill.md')
-    );
+    return filename === 'SKILL.md' || lowerName === 'skill.md' || lowerName.endsWith('.skill.md');
   }
 
   /**
@@ -298,8 +294,10 @@ export class SkillManager {
    */
   private parseYamlValue(value: string): string | number | boolean {
     // 去除引号
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       return value.slice(1, -1);
     }
 
@@ -432,7 +430,7 @@ export class SkillManager {
 
     for (const skill of skills) {
       if (skill.tools) {
-        skill.tools.forEach(t => tools.add(t));
+        skill.tools.forEach((t) => tools.add(t));
       }
     }
 
@@ -455,7 +453,7 @@ export class SkillManager {
    * @returns 技能对象或 undefined
    */
   getSkillByName(name: string): Skill | undefined {
-    return this.skills.find(s => s.name === name);
+    return this.skills.find((s) => s.name === name);
   }
 
   /**

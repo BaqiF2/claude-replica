@@ -160,19 +160,12 @@ describe('CollaborationManager', () => {
   });
 
   describe('个人认证配置', () => {
-    it('应该优先使用环境变量中的 API 密钥', async () => {
-      const originalEnv = process.env.ANTHROPIC_API_KEY;
-      process.env.ANTHROPIC_API_KEY = 'test-api-key-from-env';
-
-      const apiKey = await manager.getApiKey();
-      expect(apiKey).toBe('test-api-key-from-env');
-
-      // 恢复环境变量
-      if (originalEnv) {
-        process.env.ANTHROPIC_API_KEY = originalEnv;
-      } else {
-        delete process.env.ANTHROPIC_API_KEY;
-      }
+    it('应该能够保存和加载认证配置', async () => {
+      const authConfig = { customToken: 'test-token' };
+      await manager.saveAuthConfig(authConfig);
+      
+      const loaded = await manager.loadAuthConfig();
+      expect(loaded.customToken).toBe('test-token');
     });
   });
 

@@ -55,21 +55,22 @@ npm link
 
 ## 🔧 配置
 
-### API 密钥
+### 认证配置
 
-设置 Anthropic API 密钥：
+Claude Replica 使用 Claude Agent SDK，会自动从 Claude Code 配置中获取认证信息。只需确保 Claude Code 已正确配置：
 
 ```bash
-export ANTHROPIC_API_KEY="your-api-key"
+# 方式一：使用 Claude Code CLI 登录
+claude login
+
+# 方式二：检查配置文件
+ls ~/.claude/settings.json
 ```
 
-或在 `~/.claude-replica/settings.json` 中配置：
-
-```json
-{
-  "apiKey": "your-api-key"
-}
-```
+认证信息会从以下位置自动加载（按优先级）：
+- `~/.claude/settings.json` (用户级)
+- `.claude/settings.json` (项目级)
+- `.claude/settings.local.json` (本地级)
 
 ### 配置文件
 
@@ -287,12 +288,16 @@ tools:
 
 ## 🏭 CI/CD 集成
 
-Claude Replica 支持在 CI/CD 环境中使用：
+Claude Replica 支持在 CI/CD 环境中使用。认证信息由 Claude Agent SDK 自动处理，在 CI 环境中可通过环境变量覆盖：
 
 ```yaml
 # GitHub Actions 示例
+- name: Install Claude Code CLI
+  run: npm install -g @anthropic-ai/claude-code
+
 - name: Run Claude Replica
   env:
+    # 在 CI 中通过环境变量提供认证（可选）
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   run: |
     claude-replica -p "分析代码并生成测试" \

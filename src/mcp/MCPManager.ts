@@ -49,10 +49,7 @@ export interface McpHttpServerConfig {
 /**
  * 单个 MCP 服务器配置类型
  */
-export type McpServerConfig =
-  | McpStdioServerConfig
-  | McpSSEServerConfig
-  | McpHttpServerConfig;
+export type McpServerConfig = McpStdioServerConfig | McpSSEServerConfig | McpHttpServerConfig;
 
 /**
  * MCP 服务器配置集合
@@ -407,7 +404,11 @@ export class MCPManager {
     }
 
     if (config.headers !== undefined) {
-      if (typeof config.headers !== 'object' || config.headers === null || Array.isArray(config.headers)) {
+      if (
+        typeof config.headers !== 'object' ||
+        config.headers === null ||
+        Array.isArray(config.headers)
+      ) {
         errors.push('headers 必须是对象');
       } else {
         for (const [key, value] of Object.entries(config.headers)) {
@@ -438,7 +439,11 @@ export class MCPManager {
     }
 
     if (config.headers !== undefined) {
-      if (typeof config.headers !== 'object' || config.headers === null || Array.isArray(config.headers)) {
+      if (
+        typeof config.headers !== 'object' ||
+        config.headers === null ||
+        Array.isArray(config.headers)
+      ) {
         errors.push('headers 必须是对象');
       } else {
         for (const [key, value] of Object.entries(config.headers)) {
@@ -462,7 +467,7 @@ export class MCPManager {
       const result = this.validateConfig(config as McpServerConfig);
       if (!result.valid) {
         errors.push(`服务器 "${name}":`);
-        errors.push(...result.errors.map(e => `  - ${e}`));
+        errors.push(...result.errors.map((e) => `  - ${e}`));
       }
     }
 

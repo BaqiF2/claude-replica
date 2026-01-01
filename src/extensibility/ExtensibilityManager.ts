@@ -146,11 +146,11 @@ export interface CustomToolDefinition {
  * 工具钩子事件类型
  */
 export type ToolHookEvent =
-  | 'beforeExecute'    // 执行前
-  | 'afterExecute'     // 执行后
-  | 'onError'          // 错误时
-  | 'onProgress'       // 进度更新
-  | 'onStream';        // 流式输出
+  | 'beforeExecute' // 执行前
+  | 'afterExecute' // 执行后
+  | 'onError' // 错误时
+  | 'onProgress' // 进度更新
+  | 'onStream'; // 流式输出
 
 /**
  * 工具钩子上下文
@@ -219,7 +219,6 @@ export class ToolTimeoutError extends Error {
     this.name = 'ToolTimeoutError';
   }
 }
-
 
 /**
  * 扩展性架构管理器配置
@@ -596,7 +595,6 @@ export class ExtensibilityManager extends EventEmitter {
     }
   }
 
-
   // ==================== 工具钩子 ====================
 
   /**
@@ -764,12 +762,13 @@ export class ExtensibilityManager extends EventEmitter {
         reject(new ToolTimeoutError(tool.name, timeout));
       }, timeout);
 
-      tool.executor(args, context)
-        .then(result => {
+      tool
+        .executor(args, context)
+        .then((result) => {
           clearTimeout(timeoutId);
           resolve(result);
         })
-        .catch(error => {
+        .catch((error) => {
           clearTimeout(timeoutId);
           reject(error);
         });
@@ -1032,7 +1031,7 @@ export class ExtensibilityManager extends EventEmitter {
     dangerous: boolean;
     supportsStreaming: boolean;
   }> {
-    return Array.from(this.customTools.values()).map(tool => ({
+    return Array.from(this.customTools.values()).map((tool) => ({
       name: tool.name,
       description: tool.description,
       category: tool.category,

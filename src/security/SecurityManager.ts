@@ -1,6 +1,6 @@
 /**
  * 安全管理器
- * 
+ *
  * 提供安全相关功能，包括：
  * - 敏感信息检测和警告
  * - 危险命令确认
@@ -8,7 +8,7 @@
  * - HTTPS 加密传输验证
  * - 敏感文件黑名单
  * - 日志脱敏
- * 
+ *
  * @module security/SecurityManager
  * **验证: 需求 26.1, 26.2, 26.3, 26.4, 26.5, 26.6**
  */
@@ -16,7 +16,7 @@
 /**
  * 敏感信息类型
  */
-export type SensitiveInfoType = 
+export type SensitiveInfoType =
   | 'api_key'
   | 'password'
   | 'token'
@@ -49,16 +49,15 @@ export interface SensitiveInfoMatch {
   suggestion: string;
 }
 
-
 /**
  * 危险命令类型
  */
 export type DangerousCommandType =
-  | 'destructive'      // 破坏性命令（如 rm -rf）
-  | 'system_modify'    // 系统修改命令
-  | 'network'          // 网络相关命令
-  | 'privilege'        // 权限提升命令
-  | 'data_exposure';   // 数据暴露命令
+  | 'destructive' // 破坏性命令（如 rm -rf）
+  | 'system_modify' // 系统修改命令
+  | 'network' // 网络相关命令
+  | 'privilege' // 权限提升命令
+  | 'data_exposure'; // 数据暴露命令
 
 /**
  * 危险命令检测结果
@@ -113,7 +112,6 @@ export interface SecurityConfig {
   }>;
 }
 
-
 /**
  * API 密钥配置
  */
@@ -134,7 +132,10 @@ export type ConfirmationCallback = (message: string, details?: string) => Promis
 /**
  * 安全警告回调
  */
-export type WarningCallback = (message: string, severity: 'low' | 'medium' | 'high' | 'critical') => void;
+export type WarningCallback = (
+  message: string,
+  severity: 'low' | 'medium' | 'high' | 'critical'
+) => void;
 
 /**
  * 默认敏感信息检测模式
@@ -195,12 +196,12 @@ const DEFAULT_SENSITIVE_PATTERNS: Array<{
   },
   {
     type: 'credential',
-    pattern: /(?:username|user)\s*[:=]\s*['"]([^'"]+)['"]\s*[,;]?\s*(?:password|passwd|pwd)\s*[:=]\s*['"]([^'"]+)['"]/gi,
+    pattern:
+      /(?:username|user)\s*[:=]\s*['"]([^'"]+)['"]\s*[,;]?\s*(?:password|passwd|pwd)\s*[:=]\s*['"]([^'"]+)['"]/gi,
     severity: 'high',
     suggestion: '检测到用户名密码组合，请使用安全的凭据管理方式',
   },
 ];
-
 
 /**
  * 默认危险命令模式
@@ -315,7 +316,6 @@ const DEFAULT_DANGEROUS_COMMANDS: Array<{
   },
 ];
 
-
 /**
  * 默认敏感文件模式
  */
@@ -397,10 +397,9 @@ const LOG_SANITIZE_KEYS: string[] = [
   'connectionstring',
 ];
 
-
 /**
  * 安全管理器类
- * 
+ *
  * 提供全面的安全功能，包括敏感信息检测、危险命令确认、
  * API 密钥管理、HTTPS 验证、敏感文件黑名单和日志脱敏
  */
@@ -439,7 +438,7 @@ export class SecurityManager {
 
   /**
    * 检测文本中的敏感信息
-   * 
+   *
    * @param content 要检测的内容
    * @returns 检测到的敏感信息列表
    * **验证: 需求 26.1**
@@ -491,10 +490,9 @@ export class SecurityManager {
     return matches;
   }
 
-
   /**
    * 检测并警告敏感信息
-   * 
+   *
    * @param content 要检测的内容
    * @param context 上下文描述（如文件名）
    * @returns 是否检测到敏感信息
@@ -502,7 +500,7 @@ export class SecurityManager {
    */
   async detectAndWarn(content: string, context?: string): Promise<boolean> {
     const matches = this.detectSensitiveInfo(content);
-    
+
     if (matches.length === 0) {
       return false;
     }
@@ -516,11 +514,12 @@ export class SecurityManager {
     // 发出警告
     for (const match of matches) {
       const contextStr = context ? ` (在 ${context} 中)` : '';
-      const message = `检测到敏感信息${contextStr}: ${match.type}\n` +
+      const message =
+        `检测到敏感信息${contextStr}: ${match.type}\n` +
         `位置: 第 ${match.position.line || '?'} 行\n` +
         `内容: ${match.maskedContent}\n` +
         `建议: ${match.suggestion}`;
-      
+
       if (this.warningCallback) {
         this.warningCallback(message, match.severity);
       } else {
@@ -533,7 +532,7 @@ export class SecurityManager {
 
   /**
    * 检测危险命令
-   * 
+   *
    * @param command 要检测的命令
    * @returns 检测结果，如果不是危险命令则返回 null
    * **验证: 需求 26.2**
@@ -560,14 +559,14 @@ export class SecurityManager {
 
   /**
    * 检测并确认危险命令
-   * 
+   *
    * @param command 要执行的命令
    * @returns 是否允许执行
    * **验证: 需求 26.2**
    */
   async confirmDangerousCommand(command: string): Promise<boolean> {
     const match = this.detectDangerousCommand(command);
-    
+
     if (!match) {
       return true; // 不是危险命令，允许执行
     }
@@ -575,10 +574,7 @@ export class SecurityManager {
     if (!match.requiresConfirmation) {
       // 低风险命令，发出警告但允许执行
       if (this.warningCallback) {
-        this.warningCallback(
-          `低风险命令: ${match.reason}`,
-          'low'
-        );
+        this.warningCallback(`低风险命令: ${match.reason}`, 'low');
       }
       return true;
     }
@@ -590,7 +586,8 @@ export class SecurityManager {
       return false;
     }
 
-    const message = `⚠️ 检测到危险命令\n\n` +
+    const message =
+      `⚠️ 检测到危险命令\n\n` +
       `命令: ${command}\n` +
       `风险等级: ${match.riskLevel}\n` +
       `原因: ${match.reason}\n\n` +
@@ -599,56 +596,36 @@ export class SecurityManager {
     return this.confirmationCallback(message, match.reason);
   }
 
-
   /**
    * 获取 API 密钥
-   * 
+   *
    * 从环境变量中安全地获取 API 密钥
-   * 
+   *
    * @param config API 密钥配置
    * @returns API 密钥或 null
    * **验证: 需求 26.3**
    */
   getAPIKey(config: APIKeyConfig): string | null {
     const value = process.env[config.envVarName];
-    
+
     if (!value) {
       if (config.required) {
-        throw new Error(
-          `缺少必需的 API 密钥。请设置环境变量 ${config.envVarName}`
-        );
+        throw new Error(`缺少必需的 API 密钥。请设置环境变量 ${config.envVarName}`);
       }
       return null;
     }
 
     // 验证格式
     if (config.validationPattern && !config.validationPattern.test(value)) {
-      throw new Error(
-        `API 密钥格式无效。请检查环境变量 ${config.envVarName} 的值`
-      );
+      throw new Error(`API 密钥格式无效。请检查环境变量 ${config.envVarName} 的值`);
     }
 
     return value;
   }
 
   /**
-   * 获取 Anthropic API 密钥
-   * 
-   * @param required 是否必需
-   * @returns API 密钥或 null
-   * **验证: 需求 26.3**
-   */
-  getAnthropicAPIKey(required = true): string | null {
-    return this.getAPIKey({
-      envVarName: 'ANTHROPIC_API_KEY',
-      required,
-      validationPattern: /^sk-ant-[a-zA-Z0-9_-]+$/,
-    });
-  }
-
-  /**
    * 验证 URL 是否使用 HTTPS
-   * 
+   *
    * @param url 要验证的 URL
    * @returns 是否使用 HTTPS
    * **验证: 需求 26.4**
@@ -664,7 +641,7 @@ export class SecurityManager {
 
   /**
    * 确保 URL 使用 HTTPS
-   * 
+   *
    * @param url 要验证的 URL
    * @throws 如果 URL 不使用 HTTPS 且强制 HTTPS 已启用
    * **验证: 需求 26.4**
@@ -675,15 +652,13 @@ export class SecurityManager {
     }
 
     if (!this.validateHttps(url)) {
-      throw new Error(
-        `安全错误: URL 必须使用 HTTPS 协议。收到: ${url}`
-      );
+      throw new Error(`安全错误: URL 必须使用 HTTPS 协议。收到: ${url}`);
     }
   }
 
   /**
    * 检查文件是否在敏感文件黑名单中
-   * 
+   *
    * @param filePath 文件路径
    * @returns 是否为敏感文件
    * **验证: 需求 26.5**
@@ -719,10 +694,9 @@ export class SecurityManager {
     return false;
   }
 
-
   /**
    * 获取敏感文件的原因
-   * 
+   *
    * @param filePath 文件路径
    * @returns 敏感原因，如果不是敏感文件则返回 null
    * **验证: 需求 26.5**
@@ -760,7 +734,7 @@ export class SecurityManager {
 
   /**
    * 添加敏感文件模式
-   * 
+   *
    * @param pattern 文件模式
    * **验证: 需求 26.5**
    */
@@ -772,7 +746,7 @@ export class SecurityManager {
 
   /**
    * 添加敏感目录
-   * 
+   *
    * @param directory 目录名
    * **验证: 需求 26.5**
    */
@@ -784,7 +758,7 @@ export class SecurityManager {
 
   /**
    * 脱敏日志数据
-   * 
+   *
    * @param data 要脱敏的数据
    * @returns 脱敏后的数据
    * **验证: 需求 26.6**
@@ -799,7 +773,7 @@ export class SecurityManager {
 
   /**
    * 脱敏字符串
-   * 
+   *
    * @param text 要脱敏的文本
    * @returns 脱敏后的文本
    * **验证: 需求 26.6**
@@ -819,7 +793,6 @@ export class SecurityManager {
 
     return result;
   }
-
 
   /**
    * 获取当前配置
@@ -887,12 +860,12 @@ export class SecurityManager {
     if (content.length <= 8) {
       return '*'.repeat(content.length);
     }
-    
+
     // 保留前 4 个和后 4 个字符
     const prefix = content.substring(0, 4);
     const suffix = content.substring(content.length - 4);
     const masked = '*'.repeat(Math.min(content.length - 8, 20));
-    
+
     return `${prefix}${masked}${suffix}`;
   }
 
@@ -901,11 +874,8 @@ export class SecurityManager {
    */
   private matchPattern(fileName: string, pattern: string): boolean {
     // 转换 glob 模式为正则表达式
-    const regexPattern = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
-    
+    const regexPattern = pattern.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.');
+
     const regex = new RegExp(`^${regexPattern}$`, 'i');
     return regex.test(fileName);
   }
@@ -923,16 +893,16 @@ export class SecurityManager {
     }
 
     if (Array.isArray(value)) {
-      return value.map(item => this.sanitizeValue(item));
+      return value.map((item) => this.sanitizeValue(item));
     }
 
     if (typeof value === 'object') {
       const sanitized: Record<string, unknown> = {};
-      
+
       for (const [key, val] of Object.entries(value)) {
         // 检查键名是否包含敏感关键字
-        const isSensitiveKey = LOG_SANITIZE_KEYS.some(
-          sensitiveKey => key.toLowerCase().includes(sensitiveKey.toLowerCase())
+        const isSensitiveKey = LOG_SANITIZE_KEYS.some((sensitiveKey) =>
+          key.toLowerCase().includes(sensitiveKey.toLowerCase())
         );
 
         if (isSensitiveKey && typeof val === 'string') {
@@ -947,7 +917,6 @@ export class SecurityManager {
 
     return value;
   }
-
 
   /**
    * 创建默认配置
