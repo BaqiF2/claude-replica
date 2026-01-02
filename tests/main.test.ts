@@ -97,12 +97,12 @@ describe('main 函数', () => {
   });
 
   describe('无效参数处理', () => {
-    it('应该对无效选项返回错误码 CONFIG_ERROR (5)', async () => {
+    it('应该对无效选项返回错误码 CONFIG_ERROR (2)', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       
       const exitCode = await main(['--invalid-option']);
       
-      expect(exitCode).toBe(5); // CONFIG_ERROR
+      expect(exitCode).toBe(2); // CONFIG_ERROR (无效参数)
       expect(consoleErrorSpy).toHaveBeenCalled();
       
       consoleErrorSpy.mockRestore();
@@ -121,7 +121,7 @@ describe('main 函数', () => {
       consoleSpy.mockRestore();
     });
 
-    it('没有查询内容时应该返回错误 CONFIG_ERROR (5)', async () => {
+    it('没有查询内容时应该返回错误 CONFIG_ERROR (2)', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       
       // 模拟 stdin 不是 TTY（没有管道输入）
@@ -130,7 +130,7 @@ describe('main 函数', () => {
       
       const exitCode = await main(['-p']);
       
-      expect(exitCode).toBe(5); // CONFIG_ERROR
+      expect(exitCode).toBe(2); // CONFIG_ERROR (缺少查询内容)
       
       Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true });
       consoleErrorSpy.mockRestore();
@@ -184,12 +184,12 @@ describe('Application 类', () => {
 
 describe('错误处理', () => {
   describe('CLI 解析错误', () => {
-    it('应该正确处理 CLI 解析错误并返回 CONFIG_ERROR (5)', async () => {
+    it('应该正确处理 CLI 解析错误并返回 CONFIG_ERROR (2)', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       
       const exitCode = await main(['--unknown-option']);
       
-      expect(exitCode).toBe(5); // CONFIG_ERROR
+      expect(exitCode).toBe(2); // CONFIG_ERROR (无效参数)
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('参数错误')
       );
@@ -272,7 +272,7 @@ describe('输出格式', () => {
     consoleSpy.mockRestore();
   });
 
-  it('无效格式应该被 CLI 解析器拒绝并返回 CONFIG_ERROR (5)', async () => {
+  it('无效格式应该被 CLI 解析器拒绝并返回 CONFIG_ERROR (2)', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
     
@@ -280,7 +280,7 @@ describe('输出格式', () => {
     const exitCode = await main(['-p', '测试', '--output-format', 'invalid']);
     
     // CLI 解析器应该拒绝无效格式
-    expect(exitCode).toBe(5); // CONFIG_ERROR
+    expect(exitCode).toBe(2); // CONFIG_ERROR (无效参数)
     
     consoleSpy.mockRestore();
     consoleErrorSpy.mockRestore();
@@ -374,12 +374,12 @@ describe('退出码处理', () => {
     consoleSpy.mockRestore();
   });
 
-  it('参数错误应该返回退出码 5 (CONFIG_ERROR)', async () => {
+  it('参数错误应该返回退出码 2 (CONFIG_ERROR)', async () => {
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
     
     const exitCode = await main(['--unknown-option']);
     
-    expect(exitCode).toBe(5); // CONFIG_ERROR
+    expect(exitCode).toBe(2); // CONFIG_ERROR (无效参数)
     
     consoleErrorSpy.mockRestore();
   });
@@ -474,7 +474,7 @@ describe('管道输入支持', () => {
     Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true });
     
     // 由于没有输入，应该返回 CONFIG_ERROR
-    expect(exitCode).toBe(5); // CONFIG_ERROR
+    expect(exitCode).toBe(2); // CONFIG_ERROR (缺少查询内容)
     
     consoleSpy.mockRestore();
     consoleErrorSpy.mockRestore();

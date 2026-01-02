@@ -339,7 +339,7 @@ describe('端到端集成测试', () => {
       
       const exitCode = await main(['--invalid-option']);
       
-      expect(exitCode).toBe(5); // CONFIG_ERROR
+      expect(exitCode).toBe(2); // CONFIG_ERROR (无效参数)
       expect(consoleErrorSpy).toHaveBeenCalled();
       
       consoleErrorSpy.mockRestore();
@@ -350,7 +350,7 @@ describe('端到端集成测试', () => {
       
       const exitCode = await main(['-p', '测试', '--output-format', 'invalid']);
       
-      expect(exitCode).toBe(5); // CONFIG_ERROR
+      expect(exitCode).toBe(2); // CONFIG_ERROR (无效参数)
       
       consoleErrorSpy.mockRestore();
     });
@@ -360,7 +360,7 @@ describe('端到端集成测试', () => {
       
       const exitCode = await main(['-p', '测试', '--permission-mode', 'invalid']);
       
-      expect(exitCode).toBe(5); // CONFIG_ERROR
+      expect(exitCode).toBe(2); // CONFIG_ERROR (无效参数)
       
       consoleErrorSpy.mockRestore();
     });
@@ -374,7 +374,7 @@ describe('端到端集成测试', () => {
       
       const exitCode = await main(['-p']);
       
-      expect(exitCode).toBe(5); // CONFIG_ERROR
+      expect(exitCode).toBe(2); // CONFIG_ERROR (缺少查询内容)
       
       Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true });
       consoleErrorSpy.mockRestore();

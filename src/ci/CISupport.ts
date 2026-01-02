@@ -83,20 +83,27 @@ export interface CIConfig {
 
 /**
  * 退出码定义
+ * 
+ * 根据 Requirements 8.1-8.5:
+ * - 无效参数错误：退出码 2
+ * - 认证错误：退出码 3
+ * - 网络错误：退出码 4
+ * - 超时错误：退出码 5
+ * - 未知错误：退出码 1
  */
 export const ExitCodes = {
   /** 成功 */
   SUCCESS: 0,
-  /** 一般错误 */
+  /** 一般错误/未知错误 */
   ERROR: 1,
-  /** 网络错误 */
-  NETWORK_ERROR: 2,
+  /** 配置错误（无效参数） */
+  CONFIG_ERROR: 2,
   /** API 认证错误 */
   AUTH_ERROR: 3,
+  /** 网络错误 */
+  NETWORK_ERROR: 4,
   /** 超时错误 */
-  TIMEOUT_ERROR: 4,
-  /** 配置错误 */
-  CONFIG_ERROR: 5,
+  TIMEOUT_ERROR: 5,
   /** 权限错误 */
   PERMISSION_ERROR: 6,
   /** 工具执行错误 */

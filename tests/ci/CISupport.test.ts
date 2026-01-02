@@ -465,12 +465,18 @@ describe('CISupport', () => {
 
 describe('ExitCodes', () => {
   it('应该定义所有退出码', () => {
+    // 根据 Requirements 8.1-8.5:
+    // - 无效参数错误：退出码 2 (CONFIG_ERROR)
+    // - 认证错误：退出码 3 (AUTH_ERROR)
+    // - 网络错误：退出码 4 (NETWORK_ERROR)
+    // - 超时错误：退出码 5 (TIMEOUT_ERROR)
+    // - 未知错误：退出码 1 (ERROR)
     expect(ExitCodes.SUCCESS).toBe(0);
     expect(ExitCodes.ERROR).toBe(1);
-    expect(ExitCodes.NETWORK_ERROR).toBe(2);
+    expect(ExitCodes.CONFIG_ERROR).toBe(2);
     expect(ExitCodes.AUTH_ERROR).toBe(3);
-    expect(ExitCodes.TIMEOUT_ERROR).toBe(4);
-    expect(ExitCodes.CONFIG_ERROR).toBe(5);
+    expect(ExitCodes.NETWORK_ERROR).toBe(4);
+    expect(ExitCodes.TIMEOUT_ERROR).toBe(5);
     expect(ExitCodes.PERMISSION_ERROR).toBe(6);
     expect(ExitCodes.TOOL_ERROR).toBe(7);
   });

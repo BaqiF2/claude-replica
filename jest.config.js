@@ -12,7 +12,7 @@ module.exports = {
     '!src/cli.ts',
   ],
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
+  coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
   coverageThreshold: {
     global: {
       branches: 75,
@@ -26,6 +26,21 @@ module.exports = {
   testTimeout: 10000,
   // 属性测试需要更多时间
   slowTestThreshold: 5000,
+  // 测试报告输出目录
+  reporters: [
+    'default',
+    [
+      'jest-junit',
+      {
+        outputDirectory: 'test-reports',
+        outputName: 'junit.xml',
+        classNameTemplate: '{classname}',
+        titleTemplate: '{title}',
+        ancestorSeparator: ' › ',
+        usePathForSuiteName: true,
+      },
+    ],
+  ],
   // 终端测试配置
   projects: [
     {
@@ -34,8 +49,16 @@ module.exports = {
       preset: 'ts-jest',
       testEnvironment: 'node',
       testMatch: ['<rootDir>/tests/**/*.test.ts', '<rootDir>/tests/**/*.spec.ts'],
-      testPathIgnorePatterns: ['<rootDir>/tests/terminal/'],
-      testTimeout: 10000,
+      testPathIgnorePatterns: ['<rootDir>/tests/terminal/', '<rootDir>/tests/testing/'],
+    },
+    {
+      // 测试框架组件测试 - 需要更长超时时间
+      displayName: 'testing',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/tests/testing/**/*.test.ts'],
+      // 测试框架组件测试可以并行
+      maxWorkers: 2,
     },
     {
       // 终端测试项目 - 需要更长超时时间
@@ -44,7 +67,6 @@ module.exports = {
       testEnvironment: 'node',
       testMatch: ['<rootDir>/tests/terminal/**/*.test.ts'],
       setupFilesAfterEnv: ['<rootDir>/tests/terminal/setup.ts'],
-      testTimeout: 30000,
       // 终端测试串行执行以避免资源竞争
       maxWorkers: 1,
     },

@@ -402,9 +402,9 @@ describe('RewindManager', () => {
         fc.asyncProperty(
           fc.array(arbFileInfo, { minLength: 1, maxLength: 5 }),
           async (files) => {
-            // 确保文件名唯一
+            // 确保文件名唯一（忽略大小写，因为 macOS 文件系统默认大小写不敏感）
             const uniqueFiles = files.filter((f, i, arr) => 
-              arr.findIndex(x => x.name === f.name) === i
+              arr.findIndex(x => x.name.toLowerCase() === f.name.toLowerCase()) === i
             );
             
             if (uniqueFiles.length === 0) return;

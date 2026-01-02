@@ -209,7 +209,7 @@ export {
   TestStatus,
   TestCase,
   TestSuite,
-  TestResult,
+  FrameworkTestResult as TestResult,
   CoverageReport,
   FailureAnalysis,
   TestSuggestion,

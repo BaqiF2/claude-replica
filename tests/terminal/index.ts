@@ -12,3 +12,23 @@ export {
   unregisterProcess,
   cleanupAllProcesses,
 } from './setup';
+
+// 导出测试辅助函数
+export {
+  createTestTerminal,
+  createTestTerminalWithCleanup,
+  runCLI,
+  expectOutput,
+  expectOutputExact,
+  expectExitCode,
+  expectValidJSON,
+  expectValidStreamJSON,
+  expectJSONSchema,
+  waitForOutput,
+  ExitCodes,
+  OutputFormats,
+  type CLIRunOptions,
+  type CLIRunResult,
+  type TestTerminalOptions,
+  type OutputExpectOptions,
+} from './helpers';
