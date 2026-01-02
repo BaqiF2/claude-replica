@@ -1055,8 +1055,8 @@ ${
    */
   private handleError(error: unknown): number {
     if (error instanceof CLIParseError) {
-      console.error(`参数错误: ${error.message}`);
-      console.error('使用 --help 查看帮助信息');
+      console.error(`Argument error: ${error.message}`);
+      console.error('Use --help for help information');
       return ExitCodes.CONFIG_ERROR;
     }
 
