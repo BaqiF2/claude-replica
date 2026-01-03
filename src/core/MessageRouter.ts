@@ -172,7 +172,7 @@ export class MessageRouter {
 
     const parts: string[] = [];
 
-    // 1. 加载 CLAUDE.md 内容
+    // 1. 加载 CLAUDE.md 内容：工作目录的长期记忆
     const claudeMd = await this.configManager.loadClaudeMd(session.workingDirectory);
     if (claudeMd) {
       parts.push(claudeMd);
@@ -229,7 +229,7 @@ export class MessageRouter {
       }
     }
 
-    // 确保不包含禁用的工具
+    // 移除禁用的工具
     if (mergedConfig.disallowedTools && mergedConfig.disallowedTools.length > 0) {
       const disallowedSet = new Set(mergedConfig.disallowedTools);
       tools = tools.filter((tool) => !disallowedSet.has(tool));
@@ -273,7 +273,7 @@ export class MessageRouter {
    * @param session - 当前会话
    * @returns 子代理定义映射
    */
-  getAgentDefinitions(session: Session): Record<string, AgentDefinition> {
+   getAgentDefinitions(session: Session): Record<string, AgentDefinition> {
     const { activeAgents, projectConfig } = session.context;
     const result: Record<string, AgentDefinition> = {};
 
@@ -310,7 +310,7 @@ export class MessageRouter {
   async buildQueryOptions(session: Session): Promise<QueryOptions> {
     const { projectConfig, userConfig } = session.context;
 
-    // 合并配置
+    // 合并用户和项目配置
     const mergedConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
 
     // 构建系统提示词
@@ -361,7 +361,7 @@ export class MessageRouter {
       return message.content;
     }
 
-    // 处理 ContentBlock 数组
+    // 处理 ContentBlock 数组 处理可能包含多种类型内容块的消息（如文本、图片等），只提取其中的文本内容并合并返回
     const textBlocks = message.content.filter(
       (block): block is ContentBlock & { type: 'text'; text: string } =>
         block.type === 'text' && typeof block.text === 'string'

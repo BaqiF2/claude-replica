@@ -68,15 +68,19 @@ Configuration loads from three levels (priority: Local > Project > User):
 
 Configs deep-merge through `ConfigManager.mergeConfigs()`. All SDK options are configurable: model, tools, permissions, MCP servers, hooks, agents, sandbox settings.
 
+### Environment Variables
+
+Configuration via `.env` file in project root. All configurable parameters read from environment variables with defaults: `const PARAM = parseInt(process.env.ENV_VAR || 'default', 10);`
+
 ### Session Persistence
 
 Sessions stored in `~/.claude-replica/sessions/session-{timestamp}-{id}/`:
-- `metadata.json` - id, timestamps, expiry (5 hours), sdkSessionId
+- `metadata.json` - id, timestamps, expiry (configurable via `SESSION_EXPIRY_HOURS`), sdkSessionId
 - `messages.json` - conversation history
 - `context.json` - loaded skills, agents, configs
 - `snapshots/` - rewind system snapshots
 
-Sessions auto-save after each operation. Expired sessions (>5h) are cleaned up automatically.
+Sessions auto-save after each operation. Expired sessions are cleaned up automatically based on `SESSION_EXPIRY_HOURS` (default: 5 hours).
 
 ## Extension Systems
 

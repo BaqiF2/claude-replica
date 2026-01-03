@@ -19,7 +19,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
-import { UserConfig, ProjectConfig } from '../config/SDKConfigLoader';
+import {ProjectConfig, UserConfig} from '../config/SDKConfigLoader';
 
 /**
  * 消息内容块类型
@@ -122,9 +122,10 @@ export interface SessionMetadata {
 }
 
 /**
- * 会话过期时间（5 小时，单位毫秒）
+ * 会话过期时间（默认 5 小时，单位毫秒）
+ * 可通过环境变量 SESSION_EXPIRY_HOURS 配置（单位：小时）
  */
-const SESSION_EXPIRY_MS = 5 * 60 * 60 * 1000;
+const SESSION_EXPIRY_MS = (parseInt(process.env.SESSION_EXPIRY_HOURS || '5', 10) * 60 * 60 * 1000);
 
 /**
  * 会话管理器
@@ -166,7 +167,7 @@ export class SessionManager {
    * 检查会话是否过期
    *
    * @param createdAt - 会话创建时间
-   * @returns 是否过期（>= 5 小时为过期）
+   * @returns 是否过期（>= 配置的过期时间为过期）
    */
   private isSessionExpired(createdAt: Date): boolean {
     const now = Date.now();
@@ -321,7 +322,7 @@ export class SessionManager {
       // 如果已经被标记为过期，保持过期状态；否则根据时间计算
       const expired = metadata.expired || this.isSessionExpired(createdAt);
 
-      const session: Session = {
+      return {
         id: metadata.id,
         createdAt,
         lastAccessedAt: new Date(metadata.lastAccessedAt),
@@ -332,8 +333,6 @@ export class SessionManager {
         // 加载 SDK 会话 ID（用于会话恢复）
         sdkSessionId: metadata.sdkSessionId,
       };
-
-      return session;
     } catch (error) {
       console.warn(`Warning: Unable to load session ${sessionId}:`, error);
       return null;

@@ -476,7 +476,7 @@ export class StreamingMessageProcessor {
 
   /**
    * 重置流式处理状态
-   * 在开始新的流式处理前调用
+   * 在开始新地流式处理前调用
    */
   resetStreamState(): void {
     this.pendingText = '';

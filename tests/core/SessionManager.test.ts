@@ -10,6 +10,9 @@ import * as path from 'path';
 import * as os from 'os';
 import { SessionManager, UsageStats } from '../../src/core/SessionManager';
 
+// 会话过期时间（从环境变量读取，与 SessionManager 保持一致）
+const SESSION_EXPIRY_MS = (parseInt(process.env.SESSION_EXPIRY_HOURS || '5', 10) * 60 * 60 * 1000);
+
 // 测试用的临时目录
 let testDir: string;
 let sessionManager: SessionManager;
@@ -344,14 +347,11 @@ describe('属性测试: 会话恢复的完整性', () => {
  * 验证: 需求 6.5
  */
 describe('属性测试: 会话过期的时效性', () => {
-  it('对于任意会话，如果从创建时间起超过 5 小时，则该会话应该被标记为过期', async () => {
-    // 会话过期时间为 5 小时
-    const SESSION_EXPIRY_MS = 5 * 60 * 60 * 1000;
-
+  it('对于任意会话，如果从创建时间起超过配置的过期时间，则该会话应该被标记为过期', async () => {
     await fc.assert(
       fc.asyncProperty(
-        // 生成 0 到 10 小时之间的时间偏移（毫秒）
-        fc.integer({ min: 0, max: 10 * 60 * 60 * 1000 }),
+        // 生成 0 到 (过期时间 * 2) 之间的时间偏移（毫秒）
+        fc.integer({ min: 0, max: SESSION_EXPIRY_MS * 2 }),
         fc.string({ minLength: 1, maxLength: 50 }),
         async (timeOffsetMs, workingDir) => {
           // 创建会话
@@ -367,7 +367,7 @@ describe('属性测试: 会话过期的时效性', () => {
 
           expect(loadedSession).not.toBeNull();
 
-          // 验证过期状态（>= 5 小时为过期）
+          // 验证过期状态（>= 配置的过期时间为过期）
           const shouldBeExpired = timeOffsetMs >= SESSION_EXPIRY_MS;
           expect(loadedSession!.expired).toBe(shouldBeExpired);
 
@@ -392,12 +392,12 @@ describe('属性测试: 会话过期的时效性', () => {
     await sessionManager.deleteSession(session.id);
   });
 
-  it('超过 5 小时的会话应该被标记为过期', async () => {
+  it('超过配置的过期时间的会话应该被标记为过期', async () => {
     const session = await sessionManager.createSession('/test/project');
 
-    // 将创建时间设置为 6 小时前
-    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-    session.createdAt = sixHoursAgo;
+    // 将创建时间设置为过期时间 + 1 小时前
+    const pastExpiry = new Date(Date.now() - SESSION_EXPIRY_MS - 60 * 60 * 1000);
+    session.createdAt = pastExpiry;
     await sessionManager.saveSession(session);
 
     // 重新加载会话
@@ -408,18 +408,18 @@ describe('属性测试: 会话过期的时效性', () => {
     await sessionManager.deleteSession(session.id);
   });
 
-  it('正好 5 小时的会话应该过期（边界情况）', async () => {
+  it('正好达到过期时间的会话应该过期（边界情况）', async () => {
     const session = await sessionManager.createSession('/test/project');
 
-    // 将创建时间设置为正好 5 小时前
-    const fiveHoursAgo = new Date(Date.now() - 5 * 60 * 60 * 1000);
-    session.createdAt = fiveHoursAgo;
+    // 将创建时间设置为正好等于过期时间
+    const exactlyExpired = new Date(Date.now() - SESSION_EXPIRY_MS);
+    session.createdAt = exactlyExpired;
     await sessionManager.saveSession(session);
 
     // 重新加载会话
     const loadedSession = await sessionManager.loadSession(session.id);
 
-    // 正好 5 小时应该过期（>= 5 小时）
+    // 正好达到过期时间应该过期（>= 过期时间）
     expect(loadedSession!.expired).toBe(true);
 
     await sessionManager.deleteSession(session.id);
