@@ -267,7 +267,7 @@ describe('SecurityManager', () => {
     it('强制 HTTPS 时应该抛出错误', () => {
       expect(() => {
         securityManager.ensureHttps('http://api.anthropic.com');
-      }).toThrow('"Security error: URL must use HTTPS protocol');
+      }).toThrow('Security error: URL must use HTTPS protocol');
     });
 
     it('禁用强制 HTTPS 时不应该抛出错误', () => {

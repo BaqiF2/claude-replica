@@ -436,7 +436,7 @@ describe('HookManager', () => {
       const result = HookManager.validateConfig(config);
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('未知的钩子事件类型'))).toBe(true);
+      expect(result.errors.some(e => e.includes('Unknown hook event type'))).toBe(true);
     });
 
     it('缺少 command 字段应报错', () => {
@@ -452,7 +452,7 @@ describe('HookManager', () => {
       const result = HookManager.validateConfig(config);
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('缺少 command 字段'))).toBe(true);
+      expect(result.errors.some(e => e.includes("missing 'command' field"))).toBe(true);
     });
 
     it('缺少 prompt 字段应报错', () => {
@@ -468,7 +468,7 @@ describe('HookManager', () => {
       const result = HookManager.validateConfig(config);
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('缺少 prompt 字段'))).toBe(true);
+      expect(result.errors.some(e => e.includes("missing 'prompt' field"))).toBe(true);
     });
   });
 

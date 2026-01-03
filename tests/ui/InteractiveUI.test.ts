@@ -99,7 +99,7 @@ describe('InteractiveUI', () => {
       ui.displayMessage('Hello, Claude!', 'user');
 
       const outputText = output.getOutput();
-      expect(outputText).toContain('你:');
+      expect(outputText).toContain('You:');
       expect(outputText).toContain('Hello, Claude!');
     });
 
@@ -119,7 +119,7 @@ describe('InteractiveUI', () => {
       ui.displayMessage('System notification', 'system');
 
       const outputText = output.getOutput();
-      expect(outputText).toContain('系统:');
+      expect(outputText).toContain('System:');
       expect(outputText).toContain('System notification');
     });
 

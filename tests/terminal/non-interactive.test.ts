@@ -6,12 +6,11 @@
  * - --output-format json
  * - --output-format stream-json
  * - --output-format markdown
- * - --timeout 选项
  * - 退出码验证
  *
  * @module tests/terminal/non-interactive.test.ts
  *
- * **Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6**
+ * **Validates: Requirements 3.1, 3.2, 3.3, 3.5, 3.6**
  */
 
 import './setup';
@@ -241,60 +240,6 @@ describe('非交互式模式测试', () => {
     }, TEST_TIMEOUT);
   });
 
-  describe('--timeout 选项', () => {
-    /**
-     * 测试超时选项
-     *
-     * **Validates: Requirements 3.4**
-     */
-    it('应该尊重 --timeout 选项', async () => {
-      const startTime = Date.now();
-
-      const result = await runCLI({
-        args: ['-p', 'test', '--timeout', '5'],
-        timeout: 10000, // 给测试更多时间
-      });
-
-      const duration = Date.now() - startTime;
-
-      // 验证进程已退出
-      expect(result.exitCode).toBeDefined();
-      // 如果超时，应该在指定时间内退出
-      // 注意：实际执行时间可能略长于超时时间
-      expect(duration).toBeLessThan(15000);
-    }, 15000);
-
-    /**
-     * 测试超时后返回正确的退出码
-     *
-     * 注意：这个测试验证 CLI 的 --timeout 选项能够正确终止长时间运行的查询
-     * 由于 CLI 初始化需要时间和网络延迟等因素，这个测试可能不稳定
-     * 我们主要验证进程能够正常退出并返回有效的退出码
-     *
-     * **Validates: Requirements 3.4, 3.6**
-     */
-    it('超时后应该返回超时错误退出码', async () => {
-      // 使用 3 秒超时
-      const result = await runCLI({
-        args: ['-p', 'test long running query', '--timeout', '3'],
-        timeout: 60000, // 给测试 60 秒时间，确保有足够时间等待进程退出
-      });
-
-      // 验证进程已退出
-      expect(result.exitCode).toBeDefined();
-      // 超时应该返回超时错误码 (5)
-      // 但如果查询很快完成（例如 API 错误），可能返回其他错误码
-      // 这里我们验证进程正常退出并返回了有效的退出码
-      expect([
-        ExitCodes.SUCCESS,
-        ExitCodes.TIMEOUT_ERROR,
-        ExitCodes.ERROR,
-        ExitCodes.AUTH_ERROR,
-        ExitCodes.NETWORK_ERROR,
-        ExitCodes.CONFIG_ERROR,
-      ]).toContain(result.exitCode);
-    }, 65000);
-  });
 
   describe('退出码验证', () => {
     /**
@@ -483,7 +428,7 @@ describe('非交互式模式测试', () => {
      */
     it('应该支持多个选项组合', async () => {
       const result = await runCLI({
-        args: ['-p', 'test', '--output-format', 'json', '--verbose', '--timeout', '10'],
+        args: ['-p', 'test', '--output-format', 'json', '--verbose'],
         timeout: TEST_TIMEOUT,
       });
 

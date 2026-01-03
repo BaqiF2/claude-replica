@@ -402,9 +402,9 @@ describe('ReportGenerator', () => {
 
       const output = consoleSpy.mock.calls.map((call) => call[0]).join('\n');
 
-      expect(output).toContain('Total:: 2');
-      expect(output).toContain('Passed:: 1');
-      expect(output).toContain('Failed:: 1');
+      expect(output).toContain('Total: 2');
+      expect(output).toContain('Passed: 1');
+      expect(output).toContain('Failed: 1');
     });
   });
 

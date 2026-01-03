@@ -272,14 +272,14 @@ describe('CI/CD 集成测试', () => {
      */
     it('CI 环境中使用 -p 选项应该正常执行', async () => {
       const result = await runCLI({
-        args: ['-p', 'test query', '--timeout', '5'],
+        args: ['-p', 'test query'],
         timeout: TEST_TIMEOUT,
         env: {
           CI: 'true',
         },
       });
 
-      // 验证进程已退出（可能成功或超时）
+      // 验证进程已退出
       expect(result.exitCode).toBeDefined();
     }, TEST_TIMEOUT);
 

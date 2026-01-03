@@ -179,7 +179,7 @@ describe('MCPManager', () => {
 
       expect(() => {
         strictManager.addServer('invalid', {} as McpServerConfig);
-      }).toThrow('Server \\"invalid\\" configuration invalid');
+      }).toThrow(/Server "invalid" configuration invalid/);
     });
   });
 
@@ -409,7 +409,7 @@ describe('MCPManager', () => {
         const result = mcpManager.validateConfig(config);
 
         expect(result.valid).toBe(false);
-        expect(result.errors.some(e => e.includes('传输类型'))).toBe(true);
+        expect(result.errors.some(e => e.includes('Unknown transport type'))).toBe(true);
       });
 
       it('null 应失败', () => {

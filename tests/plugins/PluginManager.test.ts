@@ -488,6 +488,10 @@ describe('PluginManager', () => {
         hooks?: Record<string, unknown>;
       }
     ): Promise<void> {
+      // 清理目录以避免残留文件
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.mkdir(dir, { recursive: true });
+
       await fs.writeFile(
         path.join(dir, 'plugin.json'),
         JSON.stringify({ name: config.name, version: config.version, description: config.description }, null, 2)
@@ -550,9 +554,6 @@ describe('PluginManager', () => {
               expect(loadedCmd!.template).toBe(expectedCmd.template);
             }
 
-            await fs.rm(testPluginDir, { recursive: true, force: true });
-            await fs.mkdir(testPluginDir, { recursive: true });
-
             return true;
           }
         ),
@@ -582,9 +583,6 @@ describe('PluginManager', () => {
               expect(loadedAgent!.prompt).toBe(expectedAgent.prompt);
               expect(loadedAgent!.model).toBe(expectedAgent.model);
             }
-
-            await fs.rm(testPluginDir, { recursive: true, force: true });
-            await fs.mkdir(testPluginDir, { recursive: true });
 
             return true;
           }
@@ -616,9 +614,6 @@ describe('PluginManager', () => {
               expect(loadedSkill!.content).toBe(expectedSkill.content);
             }
 
-            await fs.rm(testPluginDir, { recursive: true, force: true });
-            await fs.mkdir(testPluginDir, { recursive: true });
-
             return true;
           }
         ),
@@ -649,9 +644,6 @@ describe('PluginManager', () => {
                 expect(loadedHook.hooks.length).toBe(expectedHook.hooks.length);
               }
             }
-
-            await fs.rm(testPluginDir, { recursive: true, force: true });
-            await fs.mkdir(testPluginDir, { recursive: true });
 
             return true;
           }
@@ -703,8 +695,6 @@ describe('PluginManager', () => {
             // 清理：卸载插件并清理目录
             await pluginManager.uninstallPlugin(name);
             pluginManager.clear();
-            await fs.rm(testPluginDir, { recursive: true, force: true });
-            await fs.mkdir(testPluginDir, { recursive: true });
             // 清理 pluginsDir 中可能残留的插件目录
             const pluginsDir = pluginManager.getPluginsDir();
             const installedPluginDir = path.join(pluginsDir, name);

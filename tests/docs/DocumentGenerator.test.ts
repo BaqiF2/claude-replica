@@ -133,20 +133,20 @@ describe('DocumentGenerator', () => {
       
       expect(readme).toContain('# Test Project');
       expect(readme).toContain('A test project');
-      expect(readme).toContain('## 安装');
-      expect(readme).toContain('## 使用方法');
-      expect(readme).toContain('## 贡献');
-      expect(readme).toContain('## 许可证');
+      expect(readme).toContain('## Installation');
+      expect(readme).toContain('## Usage');
+      expect(readme).toContain('## Contributing');
+      expect(readme).toContain('## License');
     });
 
     it('generateReadme 应该包含目录', async () => {
       const readme = await generator.generateReadme({
         projectName: 'Test Project',
       });
-      
-      expect(readme).toContain('## 目录');
-      expect(readme).toContain('- [安装]');
-      expect(readme).toContain('- [使用方法]');
+
+      expect(readme).toContain('## Table of Contents');
+      expect(readme).toContain('- [Installation](#installation)');
+      expect(readme).toContain('- [Usage](#usage)');
     });
 
     it('generateReadme 应该支持自定义章节', async () => {

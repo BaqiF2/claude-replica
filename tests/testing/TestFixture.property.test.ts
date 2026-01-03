@@ -315,7 +315,10 @@ describe('TestFixture Property Tests', () => {
               // 验证文件内容包含代理信息
               const content = await fs.promises.readFile(agentPath, 'utf-8');
               expect(content).toContain(agent.description);
-              expect(content).toContain(agent.prompt);
+              // 只在prompt非空时验证包含prompt
+              if (agent.prompt) {
+                expect(content).toContain(agent.prompt);
+              }
             }
           } finally {
             await fixture.teardown();

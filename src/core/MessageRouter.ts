@@ -96,8 +96,10 @@ export interface MessageRouterOptions {
 
 /**
  * 默认模型名称
+ *
+ * 可以通过环境变量 CLAUDE_REPLICA_DEFAULT_MODEL 进行配置
  */
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+const DEFAULT_MODEL = process.env.CLAUDE_REPLICA_DEFAULT_MODEL || 'claude-sonnet-4-5-20250929';
 
 /**
  * 消息路由器类

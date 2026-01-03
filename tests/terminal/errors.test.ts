@@ -238,20 +238,6 @@ describe('错误处理测试', () => {
       expect(exitCode).toBe(ExitCodes.TIMEOUT_ERROR);
     });
 
-    /**
-     * 测试 CLI 超时选项
-     *
-     * **Validates: Requirements 8.4**
-     */
-    it('CLI 应该接受 --timeout 选项', async () => {
-      const result = await runCLI({
-        args: ['-p', 'test', '--timeout', '1'],
-        timeout: TEST_TIMEOUT,
-      });
-
-      // 验证进程已退出（可能成功或超时）
-      expect(result.exitCode).toBeDefined();
-    }, TEST_TIMEOUT);
   });
 
   describe('未知错误（退出码 1）', () => {

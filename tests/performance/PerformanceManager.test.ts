@@ -389,8 +389,8 @@ describe('PerformanceManager', () => {
       const exceeded = performanceManager.checkTokenUsage(90000);
 
       expect(lowUsage.recommendation).toContain('Token usage is sufficient');
-      expect(highUsage.recommendation).toContain('接近');
-      expect(exceeded.recommendation).toContain('超出');
+      expect(highUsage.recommendation).toContain('Approaching');
+      expect(exceeded.recommendation).toContain('exceeded');
     });
   });
 
