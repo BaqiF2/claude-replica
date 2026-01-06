@@ -484,12 +484,6 @@ export class Application {
     // 创建或恢复会话
     const session = await this.getOrCreateSession(options);
 
-    // 启动流式查询会话
-    if (this.streamingQueryManager) {
-      this.streamingQueryManager.startSession(session);
-      await this.logger.debug('Started streaming query session');
-    }
-
     // 设置用户确认回调
     this.permissionManager.setPromptUserCallback(async (message: string) => {
       if (this.ui) {
@@ -498,10 +492,20 @@ export class Application {
       return false;
     });
 
-    // 创建交互式 UI
+    // 创建交互式 UI（包含非阻塞输入支持）
     this.ui = new InteractiveUI({
       onMessage: async (message: string) => {
-        await this.handleUserMessage(message, session);
+        // 设置 UI 的处理状态
+        if (this.ui) {
+          this.ui.setProcessingState(true);
+        }
+        try {
+          await this.handleUserMessage(message, session);
+        } finally {
+          if (this.ui) {
+            this.ui.setProcessingState(false);
+          }
+        }
       },
       onInterrupt: () => {
         this.handleInterrupt();
@@ -513,7 +517,55 @@ export class Application {
         // 更新权限模式
         this.permissionManager.setMode(mode);
       },
+      // 消息队列回调 - 在实时注入模式下，新消息会被直接注入到 agent loop
+      onQueueMessage: (message: string) => {
+        if (this.streamingQueryManager) {
+          // 消息会被实时注入到 agent loop，不需要显示队列提示
+          this.streamingQueryManager.queueMessage(message);
+        }
+      },
     });
+
+    // 重新创建 StreamingQueryManager（带有完整回调配置）
+    // 这些回调需要访问 UI，所以必须在 UI 创建后设置
+    this.streamingQueryManager = new StreamingQueryManager({
+      messageRouter: this.messageRouter,
+      sdkExecutor: this.sdkExecutor,
+      // Thinking 回调 - 显示思考状态
+      onThinking: (content) => {
+        if (this.ui) {
+          // 收到响应，停止 Computing 状态
+          this.ui.stopComputing();
+          this.ui.displayThinking(content);
+        }
+      },
+      // 工具调用回调 - 实时显示工具调用信息
+      onToolUse: (info) => {
+        if (this.ui) {
+          // 收到响应，停止 Computing 状态
+          this.ui.stopComputing();
+          this.ui.displayToolUse(info.name, info.input);
+        }
+      },
+      // 工具结果回调 - 实时显示工具执行结果
+      onToolResult: (info) => {
+        if (this.ui) {
+          this.ui.displayToolResult(info.name || 'unknown', info.content, info.isError);
+        }
+      },
+      // 文本响应回调 - 实时显示 assistant 的文本响应
+      onAssistantText: (text) => {
+        if (this.ui && text.trim()) {
+          // 收到响应，停止 Computing 状态
+          this.ui.stopComputing();
+          this.ui.displayMessage(text, 'assistant');
+        }
+      },
+    });
+
+    // 启动流式查询会话
+    this.streamingQueryManager.startSession(session);
+    await this.logger.debug('Started streaming query session with tool callbacks');
 
     // 初始化 UI 的权限模式显示
     this.ui.setInitialPermissionMode(this.permissionManager.getMode());
@@ -644,6 +696,7 @@ export class Application {
    * 处理用户消息
    *
    * 在交互模式下，使用 StreamingQueryManager 进行流式输入处理
+   * 消息会被实时注入到 agent loop 中，响应通过回调显示
    * 支持图像引用（@./image.png 语法）
    */
   private async handleUserMessage(message: string, session: Session): Promise<void> {
@@ -660,20 +713,15 @@ export class Application {
         this.ui.displayInfo('正在处理图像引用...');
       }
 
-      // 显示处理中状态
+      // 显示 Computing 状态，让用户知道 agent 正在处理
       if (this.ui) {
-        this.ui.displayProgress('Processing...', 'running');
+        this.ui.displayComputing();
       }
 
       // 在交互模式下优先使用 StreamingQueryManager
-      let result: string;
+      // 任务的输出（工具调用、结果）会在光标上方显示
       if (this.streamingQueryManager && this.streamingQueryManager.getActiveSession()) {
         const processResult = await this.streamingQueryManager.sendMessage(message);
-
-        // 清除进度指示器
-        if (this.ui) {
-          this.ui.clearProgress();
-        }
 
         // 处理图像错误提示
         if (processResult.imageErrors && processResult.imageErrors.length > 0) {
@@ -686,47 +734,49 @@ export class Application {
 
         if (!processResult.success) {
           if (this.ui) {
+            this.ui.stopComputing();
             this.ui.displayError(processResult.error || '消息处理失败');
           }
           return;
         }
 
-        result = processResult.result?.response || '';
-
-        // 保存 SDK 会话 ID 以便后续恢复
-        if (processResult.result?.sessionId && processResult.result.sessionId !== session.sdkSessionId) {
-          session.sdkSessionId = processResult.result.sessionId;
-          await this.sessionManager.saveSession(session);
-        }
-      } else {
-        // 回退到传统执行方式
-        result = await this.executeQuery(message, session);
-
-        // 清除进度指示器
-        if (this.ui) {
-          this.ui.clearProgress();
-        }
-      }
-
-      // 显示结果
-      if (this.ui && result) {
-        this.ui.displayMessage(result, 'assistant');
-      }
-
-      // 添加消息到会话历史
-      await this.sessionManager.addMessage(session, {
-        role: 'user',
-        content: message,
-      });
-      if (result) {
+        // 添加用户消息到会话历史
         await this.sessionManager.addMessage(session, {
-          role: 'assistant',
-          content: result,
+          role: 'user',
+          content: message,
         });
+
+        // 注意：assistant 的响应现在通过 onAssistantText 回调实时显示
+        // 会话历史中的 assistant 消息会在收到完整响应后添加
+      } else {
+        // 回退到传统执行方式（非流式模式）
+        const result = await this.executeQuery(message, session);
+
+        // 停止 Computing 状态
+        if (this.ui) {
+          this.ui.stopComputing();
+        }
+
+        // 显示结果
+        if (this.ui && result) {
+          this.ui.displayMessage(result, 'assistant');
+        }
+
+        // 添加消息到会话历史
+        await this.sessionManager.addMessage(session, {
+          role: 'user',
+          content: message,
+        });
+        if (result) {
+          await this.sessionManager.addMessage(session, {
+            role: 'assistant',
+            content: result,
+          });
+        }
       }
     } catch (error) {
       if (this.ui) {
-        this.ui.clearProgress();
+        this.ui.stopComputing();
         this.ui.displayError(error instanceof Error ? error.message : String(error));
       }
       await this.logger.error('Message processing failed', error);

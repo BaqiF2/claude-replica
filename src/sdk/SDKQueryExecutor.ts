@@ -94,6 +94,13 @@ export interface SDKStreamMessage {
 export type StreamMessageGenerator = AsyncGenerator<StreamMessage, void, unknown>;
 
 /**
+ * SDK 消息回调类型
+ *
+ * 用于在消息处理过程中接收每个 SDK 消息的回调函数
+ */
+export type SDKMessageCallback = (message: SDKMessage) => void;
+
+/**
  * SDK 查询选项接口
  *
  * 定义调用 SDK query() 函数所需的所有配置选项
@@ -139,6 +146,8 @@ export interface SDKQueryOptions {
   resumeSessionAt?: string;
   /** 恢复会话时是否 fork 到新会话 */
   forkSession?: boolean;
+  /** 消息回调 - 用于实时接收 SDK 消息（工具调用、结果等） */
+  onMessage?: SDKMessageCallback;
 }
 
 /**
@@ -450,6 +459,10 @@ export class SDKQueryExecutor {
     let totalCostUsd: number | undefined;
     let durationMs: number | undefined;
     let usage: { inputTokens: number; outputTokens: number } | undefined;
+    // 保存最后一个成功的结果（用于流式输入模式的多轮对话）
+    let lastSuccessResult: SDKQueryResult | null = null;
+    // 保存最后一个错误结果
+    let lastErrorResult: SDKQueryResult | null = null;
 
     try {
       // 在开始前检查是否已被中断
@@ -471,6 +484,8 @@ export class SDKQueryExecutor {
       });
 
       // 迭代处理消息流
+      // 关键修复：在流式输入模式下，不在收到 result 后立即 return
+      // 而是保存结果并继续循环，让 SDK 有机会处理更多消息
       for await (const message of queryGenerator) {
         // 检查是否被中断
         if (this.abortController.signal.aborted) {
@@ -480,6 +495,11 @@ export class SDKQueryExecutor {
             errorMessage: ERROR_MESSAGES[SDKErrorType.INTERRUPTED],
             sessionId,
           };
+        }
+
+        // 调用消息回调（如果提供），用于实时显示工具调用等信息
+        if (options.onMessage) {
+          options.onMessage(message);
         }
 
         // 处理消息
@@ -492,6 +512,8 @@ export class SDKQueryExecutor {
         }
 
         // 处理结果消息
+        // 关键修复：不在 result 后立即 return，而是保存结果并继续循环
+        // 这样 SDK 可以继续从 messageGenerator 获取更多消息并处理
         if (message.type === 'result') {
           const resultMessage = message as SDKResultMessage;
 
@@ -503,7 +525,9 @@ export class SDKQueryExecutor {
               outputTokens: resultMessage.usage.output_tokens,
             };
 
-            return {
+            // 保存成功结果，但不 return
+            // 如果 messageGenerator 还有更多消息，SDK 会继续处理
+            lastSuccessResult = {
               response: accumulatedResponse || resultMessage.result,
               totalCostUsd,
               durationMs,
@@ -511,10 +535,12 @@ export class SDKQueryExecutor {
               isError: false,
               sessionId,
             };
+            // 为下一个 turn 重置累积响应
+            accumulatedResponse = '';
           } else {
-            // 错误结果
+            // 错误结果：保存但不 return
             const errorMessages = 'errors' in resultMessage ? resultMessage.errors : [];
-            return {
+            lastErrorResult = {
               response: accumulatedResponse,
               totalCostUsd: resultMessage.total_cost_usd,
               durationMs: resultMessage.duration_ms,
@@ -530,7 +556,15 @@ export class SDKQueryExecutor {
         }
       }
 
-      // 如果没有收到结果消息，返回累积的响应
+      // for-await 循环结束（generator 停止或没有更多消息）
+      // 返回最后保存的结果
+      if (lastErrorResult) {
+        return lastErrorResult;
+      }
+      if (lastSuccessResult) {
+        return lastSuccessResult;
+      }
+      // 如果没有收到任何结果消息，返回累积的响应
       return {
         response: accumulatedResponse,
         isError: false,

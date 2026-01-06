@@ -19,6 +19,8 @@ export {
   StreamContentBlock,
   StreamMessage,
   StreamMessageGenerator,
+  // 消息回调类型
+  SDKMessageCallback,
 } from './SDKQueryExecutor';
 
 // 流式查询管理器
@@ -29,6 +31,11 @@ export {
   StreamingSessionState,
   QueuedMessage,
   MessageProcessResult,
+  // 工具回调相关类型
+  ToolUseInfo,
+  ToolResultInfo,
+  // 活跃消息生成器
+  LiveMessageGenerator,
 } from './StreamingQueryManager';
 
 // 重新导出 SDK 类型以便其他模块使用
@@ -40,4 +47,6 @@ export type {
   HookEvent,
   HookCallbackMatcher,
   CanUseTool,
+  SDKMessage,
+  SDKAssistantMessage,
 } from '@anthropic-ai/claude-agent-sdk';

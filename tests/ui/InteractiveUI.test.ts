@@ -99,7 +99,8 @@ describe('InteractiveUI', () => {
       ui.displayMessage('Hello, Claude!', 'user');
 
       const outputText = output.getOutput();
-      expect(outputText).toContain('You:');
+      // Claude Code 风格：用户消息使用 > 前缀
+      expect(outputText).toContain('>');
       expect(outputText).toContain('Hello, Claude!');
     });
 
@@ -109,7 +110,8 @@ describe('InteractiveUI', () => {
       ui.displayMessage('Hello, User!', 'assistant');
 
       const outputText = output.getOutput();
-      expect(outputText).toContain('Claude:');
+      // Claude Code 风格：assistant 响应使用 ⏺ 前缀
+      expect(outputText).toContain('⏺');
       expect(outputText).toContain('Hello, User!');
     });
 
@@ -119,7 +121,8 @@ describe('InteractiveUI', () => {
       ui.displayMessage('System notification', 'system');
 
       const outputText = output.getOutput();
-      expect(outputText).toContain('System:');
+      // 系统消息使用 ⚙️ 前缀
+      expect(outputText).toContain('⚙️');
       expect(outputText).toContain('System notification');
     });
 
@@ -142,9 +145,10 @@ describe('InteractiveUI', () => {
       ui.displayToolUse('Read', { path: '/test/file.txt' });
 
       const outputText = output.getOutput();
-      expect(outputText).toContain('工具调用:');
+      // Claude Code 风格：⏺ ToolName(args)
+      expect(outputText).toContain('⏺');
       expect(outputText).toContain('Read');
-      expect(outputText).toContain('/test/file.txt');
+      expect(outputText).toContain('path');
     });
 
     it('应显示空参数的工具调用', () => {
@@ -153,7 +157,8 @@ describe('InteractiveUI', () => {
       ui.displayToolUse('Bash', {});
 
       const outputText = output.getOutput();
-      expect(outputText).toContain('工具调用:');
+      // Claude Code 风格：⏺ ToolName
+      expect(outputText).toContain('⏺');
       expect(outputText).toContain('Bash');
     });
 

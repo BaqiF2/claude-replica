@@ -43,6 +43,8 @@ export interface InteractiveUIOptions {
   onRewind: () => Promise<void>;
   /** 权限模式变更回调 */
   onPermissionModeChange?: (mode: PermissionMode) => void;
+  /** 消息队列回调 - 当正在处理消息时，新消息通过此回调进入队列 */
+  onQueueMessage?: (message: string) => void;
   /** 输入流（默认 stdin） */
   input?: NodeJS.ReadableStream;
   /** 输出流（默认 stdout） */
@@ -134,12 +136,15 @@ export class InteractiveUI extends EventEmitter {
   private readonly onInterrupt: () => void;
   private readonly onRewind: () => Promise<void>;
   private readonly onPermissionModeChange?: (mode: PermissionMode) => void;
+  private readonly onQueueMessage?: (message: string) => void;
   private readonly input: NodeJS.ReadableStream;
   private readonly output: NodeJS.WritableStream;
   private readonly enableColors: boolean;
 
   private rl: readline.Interface | null = null;
   private isRunning = false;
+  /** 标识是否正在处理消息（用于非阻塞输入） */
+  private isProcessingMessage = false;
   private lastEscTime = 0;
   private progressInterval: NodeJS.Timeout | null = null;
   private currentPermissionMode: PermissionMode = 'default';
@@ -156,6 +161,7 @@ export class InteractiveUI extends EventEmitter {
     this.onInterrupt = options.onInterrupt;
     this.onRewind = options.onRewind;
     this.onPermissionModeChange = options.onPermissionModeChange;
+    this.onQueueMessage = options.onQueueMessage;
     this.input = options.input || process.stdin;
     this.output = options.output || process.stdout;
     this.enableColors = options.enableColors ?? true;
@@ -234,24 +240,155 @@ export class InteractiveUI extends EventEmitter {
   /**
    * 显示工具调用信息
    *
+   * Claude Code 风格：⏺ ToolName(key: value, ...)
+   *
    * @param tool - 工具名称
    * @param args - 工具参数
    */
   displayToolUse(tool: string, args: Record<string, unknown>): void {
-    const toolIcon = '🔧';
-    const toolName = this.colorize(tool, 'cyan');
+    const icon = this.colorize('⏺', 'cyan');
+    const toolName = this.colorize(tool, 'bold');
 
-    this.writeLine('');
-    this.writeLine(`${toolIcon} ${this.colorize('工具调用:', 'bold')} ${toolName}`);
+    // 格式化参数为简洁的 key: value 形式
+    const argPairs = Object.entries(args)
+      .map(([key, value]) => {
+        const displayValue = typeof value === 'string'
+          ? `"${value.length > 30 ? value.slice(0, 30) + '...' : value}"`
+          : JSON.stringify(value);
+        return `${key}: ${displayValue}`;
+      })
+      .join(', ');
 
-    if (Object.keys(args).length > 0) {
-      const argsStr = JSON.stringify(args, null, 2);
-      const indentedArgs = argsStr
-        .split('\n')
-        .map((line) => `   ${line}`)
-        .join('\n');
-      this.writeLine(this.colorize(indentedArgs, 'gray'));
+    const argsDisplay = argPairs ? `(${argPairs})` : '';
+    this.writeLine(`${icon} ${toolName}${this.colorize(argsDisplay, 'gray')}`);
+  }
+
+  /**
+   * 显示工具执行结果
+   *
+   * Claude Code 风格：  ⎿  结果摘要
+   *
+   * @param tool - 工具名称（用于日志，不显示）
+   * @param result - 执行结果（截取前 200 字符）
+   * @param isError - 是否为错误结果
+   */
+  displayToolResult(tool: string, result: string, isError = false): void {
+    const resultIcon = isError ? '⎿' : '⎿';
+    const color = isError ? 'red' : 'gray';
+
+    // 截取结果显示（简洁摘要）
+    const maxLength = 200;
+    const firstLine = result.split('\n')[0];
+    const displayResult = firstLine.length > maxLength
+      ? firstLine.slice(0, maxLength) + '...'
+      : firstLine;
+
+    if (displayResult.trim()) {
+      this.writeLine(`  ${resultIcon}  ${this.colorize(displayResult.trim(), color)}`);
     }
+
+    // 记录完整结果供调试（不显示）
+    void tool; // 避免未使用警告
+  }
+
+  /**
+   * 显示 Thinking 状态
+   *
+   * Claude Code 风格：∴ Thinking…
+   * 可选显示思考内容摘要
+   *
+   * @param content - 可选的思考内容摘要
+   */
+  displayThinking(content?: string): void {
+    const icon = this.colorize('∴', 'magenta');
+    const label = this.colorize('Thinking…', 'magenta');
+
+    this.writeLine(`${icon} ${label}`);
+
+    if (content && content.trim()) {
+      // 显示思考内容摘要（缩进，最多 3 行）
+      const lines = content.trim().split('\n').slice(0, 3);
+      for (const line of lines) {
+        const displayLine = line.length > 100 ? line.slice(0, 100) + '...' : line;
+        this.writeLine(`  ${this.colorize(displayLine, 'gray')}`);
+      }
+    }
+  }
+
+  /**
+   * 显示 Brewing 状态
+   *
+   * Claude Code 风格：✻ Brewing… (信息)
+   * 表示 agent 正在等待或处理中
+   *
+   * @param info - 可选的附加信息
+   */
+  displayBrewing(info?: string): void {
+    const icon = this.colorize('✻', 'yellow');
+    const label = this.colorize('Brewing…', 'yellow');
+    const infoText = info ? this.colorize(` (${info})`, 'gray') : '';
+
+    this.writeLine(`${icon} ${label}${infoText}`);
+  }
+
+  /**
+   * 显示 Computing 状态（带动画）
+   *
+   * Claude Code 风格：● Computing… (esc to interrupt)
+   * 表示 agent 正在处理用户请求
+   */
+  displayComputing(): void {
+    // 清除之前的进度
+    this.clearProgress();
+
+    const frames = ['●', '○'];
+    let frameIndex = 0;
+
+    // 首先显示初始状态
+    const initialIcon = this.colorize(frames[0], 'green');
+    const label = this.colorize('Computing…', 'green');
+    const hint = this.colorize(' (esc to interrupt)', 'gray');
+    this.write(`${initialIcon} ${label}${hint}`);
+
+    this.progressInterval = setInterval(() => {
+      frameIndex++;
+      const frame = frames[frameIndex % frames.length];
+      this.clearLine();
+      const icon = this.colorize(frame, 'green');
+      this.write(`\r${icon} ${label}${hint}`);
+    }, 500);
+  }
+
+  /**
+   * 停止 Computing 状态显示
+   */
+  stopComputing(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+      this.clearLine();
+      this.write('\r'); // 清除 Computing 文本
+    }
+  }
+
+  /**
+   * 设置消息处理状态
+   *
+   * 供外部（如 Application）在使用 StreamingQueryManager 时同步状态
+   *
+   * @param processing - 是否正在处理消息
+   */
+  setProcessingState(processing: boolean): void {
+    this.isProcessingMessage = processing;
+  }
+
+  /**
+   * 获取当前是否正在处理消息
+   *
+   * @returns 是否正在处理
+   */
+  isProcessing(): boolean {
+    return this.isProcessingMessage;
   }
 
   /**
@@ -556,6 +693,8 @@ export class InteractiveUI extends EventEmitter {
 
   /**
    * 输入循环
+   *
+   * 支持非阻塞消息处理：当正在处理消息时，新输入通过 onQueueMessage 回调进入队列
    */
   private async inputLoop(): Promise<void> {
     while (this.isRunning && this.rl) {
@@ -570,17 +709,33 @@ export class InteractiveUI extends EventEmitter {
         const trimmedInput = input.trim();
 
         if (trimmedInput.length === 0) {
+          // 空输入，直接继续等待
           continue;
         }
 
-        // 处理特殊命令
+        // 处理特殊命令（命令总是立即处理，不进入队列）
         if (trimmedInput.startsWith('/')) {
           this.emit('command', trimmedInput);
           continue;
         }
 
-        // 发送消息
-        await this.onMessage(trimmedInput);
+        // 非阻塞消息处理
+        if (this.isProcessingMessage && this.onQueueMessage) {
+          // 正在处理中，新消息加入队列
+          this.onQueueMessage(trimmedInput);
+        } else {
+          // 开始处理新消息（非阻塞调用）
+          this.isProcessingMessage = true;
+          this.onMessage(trimmedInput)
+            .catch((error) => {
+              if (error instanceof Error) {
+                this.displayError(error.message);
+              }
+            })
+            .finally(() => {
+              this.isProcessingMessage = false;
+            });
+        }
       } catch (error) {
         if (error instanceof Error) {
           this.displayError(error.message);
@@ -590,7 +745,21 @@ export class InteractiveUI extends EventEmitter {
   }
 
   /**
+   * 绘制输入框分隔线
+   *
+   * Claude Code 风格的输入框边框，只显示一条分隔线
+   */
+  drawInputBoxBorder(): void {
+    const terminalWidth = process.stdout.columns || 80;
+    const borderChar = '─';
+    const border = borderChar.repeat(Math.min(terminalWidth, 120));
+    this.writeLine(this.colorize(border, 'gray'));
+  }
+
+  /**
    * 获取用户输入
+   *
+   * 简洁的输入提示，分隔线由外部控制显示
    */
   private prompt(): Promise<string | null> {
     return new Promise((resolve) => {
@@ -599,17 +768,19 @@ export class InteractiveUI extends EventEmitter {
         return;
       }
 
-      // 显示权限模式状态
-      this.displayPermissionStatus(this.currentPermissionMode);
-
       const promptStr = this.colorize('> ', 'cyan');
 
-      this.rl.question(promptStr, (answer) => {
-        resolve(answer);
-      });
-
-      this.rl.once('close', () => {
+      // 使用一次性监听器，避免内存泄漏
+      const closeHandler = () => {
         resolve(null);
+      };
+
+      this.rl.once('close', closeHandler);
+
+      this.rl.question(promptStr, (answer) => {
+        // 移除 close 监听器，避免累积
+        this.rl?.removeListener('close', closeHandler);
+        resolve(answer);
       });
     });
   }
@@ -699,15 +870,20 @@ export class InteractiveUI extends EventEmitter {
 
   /**
    * 获取消息前缀
+   *
+   * 使用 Claude Code 风格的符号：
+   * - 用户: >
+   * - Assistant: ⏺
+   * - 系统: ⚙️
    */
   private getMessagePrefix(role: MessageRole): string {
     switch (role) {
       case 'user':
-        return this.colorize('👤 You:', 'green');
+        return this.colorize('>', 'cyan');
       case 'assistant':
-        return this.colorize('🤖 Claude:', 'blue');
+        return this.colorize('⏺', 'blue');
       case 'system':
-        return this.colorize('⚙️ System:', 'gray');
+        return this.colorize('⚙️', 'gray');
       default:
         return '';
     }
