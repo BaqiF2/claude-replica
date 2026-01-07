@@ -88,7 +88,7 @@ describe('InteractiveUI', () => {
     it('应使用默认选项', () => {
       const { ui } = createTestUI();
 
-      expect(ui.isActive()).toBe(false);
+      expect(ui).toBeDefined();
     });
   });
 
@@ -178,57 +178,6 @@ describe('InteractiveUI', () => {
     });
   });
 
-  describe('displayProgress', () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    it('应显示成功状态', () => {
-      const { ui, output } = createTestUI();
-
-      ui.displayProgress('操作完成', 'success');
-
-      const outputText = output.getOutput();
-      expect(outputText).toContain('操作完成');
-      expect(outputText).toContain('✅');
-    });
-
-    it('应显示错误状态', () => {
-      const { ui, output } = createTestUI();
-
-      ui.displayProgress('操作失败', 'error');
-
-      const outputText = output.getOutput();
-      expect(outputText).toContain('操作失败');
-      expect(outputText).toContain('❌');
-    });
-
-    it('应显示警告状态', () => {
-      const { ui, output } = createTestUI();
-
-      ui.displayProgress('请注意', 'warning');
-
-      const outputText = output.getOutput();
-      expect(outputText).toContain('请注意');
-      expect(outputText).toContain('⚠️');
-    });
-
-    it('应能清除进度指示器', () => {
-      const { ui } = createTestUI();
-
-      ui.displayProgress('加载中...', 'running');
-      ui.clearProgress();
-
-      // 验证没有抛出错误
-      expect(true).toBe(true);
-    });
-  });
-
-
   describe('displayError/displayWarning/displaySuccess/displayInfo', () => {
     it('应显示错误信息', () => {
       const { ui, output } = createTestUI();
@@ -268,50 +217,6 @@ describe('InteractiveUI', () => {
       const outputText = output.getOutput();
       expect(outputText).toContain('信息:');
       expect(outputText).toContain('提示信息');
-    });
-  });
-
-  describe('displayDiff', () => {
-    it('应正确显示添加的行', () => {
-      const { ui, output } = createTestUI();
-
-      ui.displayDiff('+added line');
-
-      expect(output.getOutput()).toContain('+added line');
-    });
-
-    it('应正确显示删除的行', () => {
-      const { ui, output } = createTestUI();
-
-      ui.displayDiff('-removed line');
-
-      expect(output.getOutput()).toContain('-removed line');
-    });
-
-    it('应正确显示位置标记', () => {
-      const { ui, output } = createTestUI();
-
-      ui.displayDiff('@@ -1,3 +1,4 @@');
-
-      expect(output.getOutput()).toContain('@@ -1,3 +1,4 @@');
-    });
-
-    it('应正确显示完整的 diff', () => {
-      const { ui, output } = createTestUI();
-      const diff = `--- a/file.txt
-+++ b/file.txt
-@@ -1,3 +1,4 @@
- unchanged line
--removed line
-+added line
- another unchanged`;
-
-      ui.displayDiff(diff);
-
-      const outputText = output.getOutput();
-      expect(outputText).toContain('unchanged line');
-      expect(outputText).toContain('-removed line');
-      expect(outputText).toContain('+added line');
     });
   });
 
@@ -384,60 +289,14 @@ describe('InteractiveUI', () => {
     });
   });
 
-  describe('showSelectMenu', () => {
-    it('应显示选择菜单', async () => {
-      const { ui, output, input } = createTestUI();
-      const items = [
-        { label: '选项 A', value: 'a', description: '第一个选项' },
-        { label: '选项 B', value: 'b', description: '第二个选项' },
-      ];
-
-      const resultPromise = ui.showSelectMenu('请选择:', items);
-
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      input.emit('data', Buffer.from('1'));
-
-      const result = await resultPromise;
-
-      expect(result).toBe('a');
-      const outputText = output.getOutput();
-      expect(outputText).toContain('请选择:');
-      expect(outputText).toContain('选项 A');
-      expect(outputText).toContain('选项 B');
-    });
-
-    it('应支持取消选择', async () => {
-      const { ui, input } = createTestUI();
-      const items = [{ label: '选项', value: 'test' }];
-
-      const resultPromise = ui.showSelectMenu('标题', items);
-
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      input.emit('data', Buffer.from('0'));
-
-      const result = await resultPromise;
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('isActive', () => {
-    it('初始状态应为 false', () => {
-      const { ui } = createTestUI();
-
-      expect(ui.isActive()).toBe(false);
-    });
-  });
-
   describe('stop', () => {
     it('应能停止 UI', () => {
       const { ui } = createTestUI();
 
       ui.stop();
 
-      expect(ui.isActive()).toBe(false);
+      // UI 已停止，验证不会抛出错误
+      expect(ui).toBeDefined();
     });
 
     it('应触发 stop 事件', () => {

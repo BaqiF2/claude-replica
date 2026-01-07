@@ -146,12 +146,15 @@ describe('流式输入集成测试', () => {
       // 发送消息
       const result = await streamingQueryManager.sendMessage('Hello, Claude!');
 
-      // 验证结果
+      // 验证结果 - sendMessage 立即返回
       expect(result.success).toBe(true);
-      expect(result.result).toBeDefined();
-      expect(result.result?.response).toBe('Hello! I am Claude.');
-      expect(result.result?.isError).toBe(false);
-      expect(result.result?.sessionId).toBe('test-sdk-session');
+
+      // 需要等待执行完成才能获取 SDK 结果
+      const sdkResult = await streamingQueryManager.waitForResult();
+      expect(sdkResult).toBeDefined();
+      expect(sdkResult?.response).toBe('Hello! I am Claude.');
+      expect(sdkResult?.isError).toBe(false);
+      expect(sdkResult?.sessionId).toBe('test-sdk-session');
     });
 
     it('应该正确处理包含图像的流式查询', async () => {
@@ -185,9 +188,12 @@ describe('流式输入集成测试', () => {
         `What's in this image? @${imagePath}`
       );
 
-      // 验证结果
+      // 验证结果 - sendMessage 立即返回
       expect(result.success).toBe(true);
-      expect(result.result?.response).toContain('PNG image');
+
+      // 需要等待执行完成才能获取 SDK 结果
+      const sdkResult = await streamingQueryManager.waitForResult();
+      expect(sdkResult?.response).toContain('PNG image');
     });
 
     it('应该正确处理会话中断', async () => {
@@ -218,7 +224,8 @@ describe('流式输入集成测试', () => {
 
       // 中断会话
       const interrupted = streamingQueryManager.interruptSession();
-      expect(interrupted).toBe(true);
+      expect(interrupted.success).toBe(true);
+      expect(interrupted.clearedMessages).toBe(1);
 
       // 验证中断状态
       const activeSession = streamingQueryManager.getActiveSession();
@@ -236,33 +243,47 @@ describe('流式输入集成测试', () => {
         const prompt = args.prompt;
 
         return (async function* () {
-          // 尝试从生成器获取第一条消息
-          const { value } = await prompt.next();
-          if (value?.message?.content) {
-            const content = value.message.content;
-            if (Array.isArray(content)) {
-              const textBlock = content.find((b: any) => b.type === 'text');
-              if (textBlock) {
-                processedOrder.push(textBlock.text);
-              }
-            } else if (typeof content === 'string') {
-              processedOrder.push(content);
-            }
-          }
+          // 持续从生成器中获取消息
+          while (true) {
+            const { value, done } = await prompt.next();
 
-          yield {
-            type: 'result',
-            subtype: 'success',
-            uuid: 'result-uuid',
-            session_id: 'test-session',
-            duration_ms: 100,
-            duration_api_ms: 80,
-            is_error: false,
-            num_turns: 1,
-            result: 'Done',
-            total_cost_usd: 0.001,
-            usage: { input_tokens: 10, output_tokens: 5 },
-          };
+            if (done || !value) {
+              break;
+            }
+
+            if (value?.message?.content) {
+              const content = value.message.content;
+              if (Array.isArray(content)) {
+                const textBlock = content.find((b: any) => b.type === 'text');
+                if (textBlock) {
+                  processedOrder.push(textBlock.text);
+                }
+              } else if (typeof content === 'string') {
+                processedOrder.push(content);
+              }
+            }
+
+            // 等待一小段时间模拟处理
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            // 生成结果消息
+            yield {
+              type: 'result',
+              subtype: 'success',
+              uuid: `result-uuid-${processedOrder.length}`,
+              session_id: 'test-session',
+              duration_ms: 100,
+              duration_api_ms: 80,
+              is_error: false,
+              num_turns: 1,
+              result: 'Done',
+              total_cost_usd: 0.001,
+              usage: { input_tokens: 10, output_tokens: 5 },
+            };
+
+            // 短暂暂停，让后续消息可以进入队列
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
         })();
       });
 
@@ -272,8 +293,13 @@ describe('流式输入集成测试', () => {
 
       // 发送多条消息
       await streamingQueryManager.sendMessage('Message 1');
+      await new Promise(resolve => setTimeout(resolve, 20));
       await streamingQueryManager.sendMessage('Message 2');
+      await new Promise(resolve => setTimeout(resolve, 20));
       await streamingQueryManager.sendMessage('Message 3');
+
+      // 等待所有消息处理完成
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // 验证处理顺序
       expect(processedOrder).toEqual(['Message 1', 'Message 2', 'Message 3']);
@@ -332,10 +358,13 @@ describe('流式输入集成测试', () => {
       // 发送消息
       const result = await streamingQueryManager.sendMessage('Error query');
 
-      // 验证错误被正确传递
-      expect(result.success).toBe(false);
-      expect(result.result?.isError).toBe(true);
-      expect(result.result?.errorMessage).toContain('Something went wrong');
+      // 验证错误被正确传递 - sendMessage 立即返回
+      expect(result.success).toBe(true); // 消息发送成功
+
+      // 需要等待执行完成才能获取错误结果
+      const sdkResult = await streamingQueryManager.waitForResult();
+      expect(sdkResult?.isError).toBe(true);
+      expect(sdkResult?.errorMessage).toContain('Something went wrong');
     });
 
     it('应该正确处理无效的图像引用', async () => {

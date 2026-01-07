@@ -228,25 +228,30 @@ describe('StreamingQueryManager', () => {
   });
 
   describe('interruptSession', () => {
-    it('应该在没有活跃会话时返回 false', () => {
-      expect(manager.interruptSession()).toBe(false);
+    it('应该在没有活跃会话时返回 success: false', () => {
+      const result = manager.interruptSession();
+      expect(result.success).toBe(false);
+      expect(result.clearedMessages).toBe(0);
     });
 
-    it('应该在不处理消息时返回 false', () => {
+    it('应该在不处理消息时返回 success: false', () => {
       const session = createMockSession(tempDir);
       manager.startSession(session);
 
-      expect(manager.interruptSession()).toBe(false);
+      const result = manager.interruptSession();
+      expect(result.success).toBe(false);
+      expect(result.clearedMessages).toBe(0);
     });
 
-    it('应该在处理消息时成功中断', () => {
+    it('应该在处理消息时成功中断并返回清空的消息数量', () => {
       const session = createMockSession(tempDir);
       const streamingSession = manager.startSession(session);
       streamingSession.state = 'processing';
 
       const result = manager.interruptSession();
 
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
+      expect(result.clearedMessages).toBeGreaterThanOrEqual(0);
       expect(streamingSession.state).toBe('interrupted');
     });
 
@@ -256,9 +261,38 @@ describe('StreamingQueryManager', () => {
       streamingSession.state = 'processing';
 
       const oldController = streamingSession.abortController;
-      manager.interruptSession();
+      const result = manager.interruptSession();
 
+      expect(result.success).toBe(true);
       expect(streamingSession.abortController).not.toBe(oldController);
+    });
+
+    it('应该在中断时清空队列中的消息', async () => {
+      const session = createMockSession(tempDir);
+      manager.startSession(session);
+
+      // 模拟添加消息到队列（通过 queueMessage）
+      manager.queueMessage('Test message 1');
+      manager.queueMessage('Test message 2');
+
+      // 等待消息进入队列
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // 获取队列长度
+      const queueLengthBefore = manager.getQueueLength();
+
+      // 模拟处理状态
+      const streamingSession = manager.getActiveSession();
+      if (streamingSession) {
+        streamingSession.state = 'processing';
+      }
+
+      // 中断并验证清空了消息
+      const result = manager.interruptSession();
+
+      expect(result.success).toBe(true);
+      expect(result.clearedMessages).toBe(queueLengthBefore);
+      expect(manager.getQueueLength()).toBe(0);
     });
   });
 

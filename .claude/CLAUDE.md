@@ -196,12 +196,6 @@ JSON output structure:
 }
 ```
 
-### CI/CD Support (`src/ci/`)
-- Auto-detects CI environments (GitHub Actions, GitLab, Jenkins, etc.)
-- Structured logging for CI systems
-- Timeout and exit code management
-- No interactive prompts in CI mode
-
 ## Testing Architecture
 
 ### Test Organization
@@ -280,4 +274,4 @@ Claude Replica uses Claude Agent SDK authentication from:
 2. `.claude/settings.json` (project-level)
 3. `.claude/settings.local.json` (local-level)
 
-In CI: Set `ANTHROPIC_API_KEY` environment variable.
+Set `ANTHROPIC_API_KEY` environment variable if needed.

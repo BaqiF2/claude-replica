@@ -7,6 +7,5 @@ export {
   InteractiveUIOptions,
   Snapshot,
   MessageRole,
-  ProgressStatus,
   MenuItem,
 } from './InteractiveUI';

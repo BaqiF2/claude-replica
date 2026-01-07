@@ -26,4 +26,4 @@ export {
 
 export { ConfigManager } from './ConfigManager';
 
-export { EnvConfig, EnvConfiguration, CIEnvironmentInfo, ENV_KEYS } from './EnvConfig';
+export { EnvConfig, EnvConfiguration, ENV_KEYS } from './EnvConfig';

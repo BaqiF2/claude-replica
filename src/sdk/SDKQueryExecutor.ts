@@ -394,17 +394,17 @@ export class SDKQueryExecutor {
    * 此方法将应用内部的简化消息格式转换为完整的 SDK 格式
    *
    * @param messageGenerator - 内部消息生成器
-   * @param sessionId - 当前会话 ID（可选）
+   * @param getSessionId - 获取当前会话 ID 的函数（支持动态更新）
    * @returns 适配后的 SDK 消息生成器
    */
   private async *adaptMessageGenerator(
     messageGenerator: StreamMessageGenerator,
-    sessionId?: string
+    getSessionId: () => string | undefined
   ): AsyncGenerator<SDKStreamMessage, void, unknown> {
     for await (const message of messageGenerator) {
       yield {
         type: 'user',
-        session_id: sessionId || '',
+        session_id: getSessionId() || '',
         message: message.message,
         parent_tool_use_id: null,
       };
@@ -475,7 +475,8 @@ export class SDKQueryExecutor {
       }
 
       // 创建适配器生成器，将内部 StreamMessage 转换为 SDK 期望的格式
-      const sdkMessageGenerator = this.adaptMessageGenerator(messageGenerator, sessionId);
+      // 使用函数闭包，让生成器能够访问动态更新的 sessionId
+      const sdkMessageGenerator = this.adaptMessageGenerator(messageGenerator, () => sessionId);
 
       // 调用 SDK query() 函数，使用流式输入模式
       const queryGenerator = query({

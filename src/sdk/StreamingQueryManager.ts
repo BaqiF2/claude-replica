@@ -127,7 +127,7 @@ export class LiveMessageGenerator {
       return;
     }
 
-    // 始终将消息放入队列（关键修复：确保消息不会丢失）
+    // 始终将消息放入队列
     this.pendingMessages.push(message);
 
     // 如果有等待者，通知它有新消息了
@@ -167,10 +167,16 @@ export class LiveMessageGenerator {
   }
 
   /**
-   * 检查是否已停止
+   * 清空待处理的消息队列
+   *
+   * 用于会话结束时清理未处理的消息，避免消息在会话间泄漏
+   *
+   * @returns 被清空的消息数量
    */
-  isStopped(): boolean {
-    return this.stopped;
+  clearQueue(): number {
+    const count = this.pendingMessages.length;
+    this.pendingMessages = [];
+    return count;
   }
 
   /**
@@ -406,38 +412,37 @@ export class StreamingQueryManager {
   }
 
   /**
-   * 获取最新的查询结果（不等待）
-   *
-   * @returns 最新的 SDK 查询结果，如果没有则返回 null
-   */
-  getLastResult(): SDKQueryResult | null {
-    return this.lastResult;
-  }
-
-  /**
    * 中断当前会话
    *
    * 调用 AbortController.abort() 停止当前正在进行的消息处理
-   * 生成器中待处理的消息会被保留，可以在恢复后继续处理
+   * 队列中待处理的消息会被清空，避免消息在会话间泄漏
    *
-   * @returns 是否成功发送中断信号
+   * @returns 中断结果 { success: boolean, clearedMessages: number }
    */
-  interruptSession(): boolean {
+  interruptSession(): { success: boolean; clearedMessages: number } {
     if (!this.activeSession) {
-      return false;
+      return { success: false, clearedMessages: 0 };
     }
 
     if (this.activeSession.state === 'processing') {
       this.activeSession.abortController.abort();
       this.activeSession.state = 'interrupted';
+
+      // 清空消息队列
+      let clearedMessages = 0;
+      if (this.liveGenerator) {
+        clearedMessages = this.liveGenerator.clearQueue();
+      }
+
       // 创建新的 AbortController 供后续消息使用
       this.activeSession.abortController = new AbortController();
       // 重置执行状态，允许重新启动
       this.executionPromise = null;
-      return true;
+
+      return { success: true, clearedMessages };
     }
 
-    return false;
+    return { success: false, clearedMessages: 0 };
   }
 
   /**
@@ -447,6 +452,11 @@ export class StreamingQueryManager {
    */
   endSession(): void {
     if (this.liveGenerator) {
+      // 清空队列并记录警告（如果有未处理消息）
+      const clearedCount = this.liveGenerator.clearQueue();
+      if (clearedCount > 0) {
+        console.warn(`Session ended with ${clearedCount} unprocessed message(s) in queue`);
+      }
       this.liveGenerator.stop();
       this.liveGenerator = null;
     }
@@ -545,6 +555,17 @@ export class StreamingQueryManager {
       // 3. generator 主动停止（stop()）
       if (this.liveGenerator) {
         this.liveGenerator.reset();
+
+        // 验证队列是否已清空（防御性编程）
+        const remainingCount = this.liveGenerator.getPendingCount();
+        if (remainingCount > 0) {
+          console.warn(
+            `Execution finished but ${remainingCount} message(s) remain in queue. ` +
+              `This may indicate an unexpected termination.`
+          );
+          // 清空剩余消息，避免泄漏到下一次执行
+          this.liveGenerator.clearQueue();
+        }
       }
     }
   }

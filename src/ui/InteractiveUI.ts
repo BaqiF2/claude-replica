@@ -8,7 +8,6 @@
  * - start(): 启动交互式 UI
  * - stop(): 停止交互式 UI
  * - displayMessage(): 显示消息到终端
- * - displayProgress(): 显示进度指示器
  * - promptConfirmation(): 提示用户确认
  * - showRewindMenu(): 显示回退菜单
  */
@@ -57,11 +56,6 @@ export interface InteractiveUIOptions {
  * 消息角色类型
  */
 export type MessageRole = 'user' | 'assistant' | 'system';
-
-/**
- * 进度状态类型
- */
-export type ProgressStatus = 'running' | 'success' | 'error' | 'warning';
 
 /**
  * 选择菜单项
@@ -367,33 +361,6 @@ export class InteractiveUI extends EventEmitter {
   }
 
   /**
-   * 显示进度指示器
-   *
-   * @param message - 进度消息
-   * @param status - 进度状态
-   */
-  displayProgress(message: string, status: ProgressStatus = 'running'): void {
-    // 清除之前的进度
-    this.clearProgress();
-
-    if (status === 'running') {
-      const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-      let frameIndex = 0;
-
-      this.progressInterval = setInterval(() => {
-        const frame = frames[frameIndex % frames.length];
-        this.clearLine();
-        this.write(`\r${this.colorize(frame, 'cyan')} ${message}`);
-        frameIndex++;
-      }, 80);
-    } else {
-      const icon = this.getStatusIcon(status);
-      const color = this.getStatusColor(status);
-      this.writeLine(`${icon} ${this.colorize(message, color)}`);
-    }
-  }
-
-  /**
    * 清除进度指示器
    */
   clearProgress(): void {
@@ -494,81 +461,6 @@ export class InteractiveUI extends EventEmitter {
     });
   }
 
-  /**
-   * 显示选择菜单
-   *
-   * @param title - 菜单标题
-   * @param items - 菜单项
-   * @returns 选中的值，如果取消则返回 null
-   */
-  async showSelectMenu(title: string, items: MenuItem[]): Promise<string | null> {
-    this.writeLine('');
-    this.writeLine(this.colorize(title, 'bold'));
-    this.writeLine('');
-
-    items.forEach((item, index) => {
-      const desc = item.description ? ` - ${this.colorize(item.description, 'gray')}` : '';
-      this.writeLine(`  ${this.colorize(`[${index + 1}]`, 'cyan')} ${item.label}${desc}`);
-    });
-
-    this.writeLine('');
-    this.writeLine(this.colorize('  [0] 取消', 'gray'));
-    this.writeLine('');
-
-    return new Promise((resolve) => {
-      const prompt = `${this.colorize('?', 'yellow')} 请选择 (0-${items.length}): `;
-      this.write(prompt);
-
-      const handleInput = (data: Buffer) => {
-        const input = data.toString().trim();
-        const num = parseInt(input, 10);
-
-        if (input === '0' || input === '\x1b') {
-          this.writeLine(this.colorize('已取消', 'gray'));
-          this.input.removeListener('data', handleInput);
-          resolve(null);
-        } else if (!isNaN(num) && num >= 1 && num <= items.length) {
-          const selected = items[num - 1];
-          this.writeLine(this.colorize(`已选择: ${selected.label}`, 'green'));
-          this.input.removeListener('data', handleInput);
-          resolve(selected.value);
-        } else {
-          this.writeLine(this.colorize('无效选择，请重试', 'red'));
-          this.write(prompt);
-        }
-      };
-
-      this.input.on('data', handleInput);
-    });
-  }
-
-  /**
-   * 显示代码差异
-   *
-   * @param diff - 差异内容
-   */
-  displayDiff(diff: string): void {
-    const lines = diff.split('\n');
-
-    for (const line of lines) {
-      if (line.startsWith('+') && !line.startsWith('+++')) {
-        this.writeLine(this.colorize(line, 'green'));
-      } else if (line.startsWith('-') && !line.startsWith('---')) {
-        this.writeLine(this.colorize(line, 'red'));
-      } else if (line.startsWith('@@')) {
-        this.writeLine(this.colorize(line, 'cyan'));
-      } else {
-        this.writeLine(line);
-      }
-    }
-  }
-
-  /**
-   * 检查是否正在运行
-   */
-  isActive(): boolean {
-    return this.isRunning;
-  }
 
   /**
    * 设置初始权限模式
@@ -691,18 +583,6 @@ export class InteractiveUI extends EventEmitter {
         }
       }
     }
-  }
-
-  /**
-   * 绘制输入框分隔线
-   *
-   * Claude Code 风格的输入框边框，只显示一条分隔线
-   */
-  drawInputBoxBorder(): void {
-    const terminalWidth = process.stdout.columns || 80;
-    const borderChar = '─';
-    const border = borderChar.repeat(Math.min(terminalWidth, 120));
-    this.writeLine(this.colorize(border, 'gray'));
   }
 
   /**
@@ -849,42 +729,6 @@ export class InteractiveUI extends EventEmitter {
         return 'white';
       case 'system':
         return 'gray';
-      default:
-        return 'white';
-    }
-  }
-
-  /**
-   * 获取状态图标
-   */
-  private getStatusIcon(status: ProgressStatus): string {
-    switch (status) {
-      case 'running':
-        return '⏳';
-      case 'success':
-        return '✅';
-      case 'error':
-        return '❌';
-      case 'warning':
-        return '⚠️';
-      default:
-        return '•';
-    }
-  }
-
-  /**
-   * 获取状态颜色
-   */
-  private getStatusColor(status: ProgressStatus): keyof typeof Colors {
-    switch (status) {
-      case 'running':
-        return 'cyan';
-      case 'success':
-        return 'green';
-      case 'error':
-        return 'red';
-      case 'warning':
-        return 'yellow';
       default:
         return 'white';
     }

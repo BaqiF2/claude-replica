@@ -137,7 +137,6 @@ export {
   InteractiveUIOptions,
   Snapshot as UISnapshot,
   MessageRole,
-  ProgressStatus,
   MenuItem,
 } from './ui';
 
@@ -208,21 +207,6 @@ export {
   TokenUsageStatus,
   PerformanceSummary,
 } from './performance';
-
-// 测试框架集成组件
-export {
-  TestFrameworkIntegration,
-  createTestFrameworkIntegration,
-  TestFramework,
-  TestStatus,
-  TestCase,
-  TestSuite,
-  FrameworkTestResult as TestResult,
-  CoverageReport,
-  FailureAnalysis,
-  TestSuggestion,
-  TestFrameworkConfig,
-} from './testing';
 
 // 文档生成组件
 export {

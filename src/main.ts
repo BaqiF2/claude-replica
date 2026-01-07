@@ -3,16 +3,7 @@
 /**
  * 文件功能：主程序入口，负责初始化应用程序、解析命令行参数、管理会话和执行查询
  *
- * 核心类：
- * - Logger: 应用程序日志记录器，提供分级日志记录功能
- * - Application: 应用程序主类，协调所有子系统
- *
- * 核心方法：
- * - main(): 主程序入口函数
- * - Application.run(): 运行应用程序主循环
- * - Application.runInteractive(): 运行交互式模式
- * - Application.runNonInteractive(): 运行非交互式模式
- * - Application.executeQuery(): 执行 SDK 查询
+ * 核心类：Logger、Application
  */
 
 import * as dotenv from 'dotenv';
@@ -24,12 +15,12 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 
-import { CLIParser, CLIOptions, CLIParseError } from './cli/CLIParser';
-import { ConfigManager, UserConfig, ProjectConfig, EnvConfig } from './config';
+import { CLIParser, CLIOptions } from './cli/CLIParser';
+import { ConfigManager } from './config';
 import { SessionManager, Session } from './core/SessionManager';
 import { MessageRouter } from './core/MessageRouter';
 import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
-import { PermissionManager, PermissionConfig } from './permissions/PermissionManager';
+import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
 import { SkillManager } from './skills/SkillManager';
@@ -44,136 +35,19 @@ import {
   OutputFormat,
 } from './output/OutputFormatter';
 import { SecurityManager } from './security/SecurityManager';
-import {
-  CISupport,
-  CIDetector,
-  StructuredLogger,
-  TimeoutManager,
-  TimeoutError,
-  ExitCodes,
-  type CIConfig,
-  type TimeoutConfig,
-} from './ci/CISupport';
 import { SDKQueryExecutor, SDKErrorType, ERROR_MESSAGES, StreamingQueryManager } from './sdk';
+import { Logger } from './logging/Logger';
+import { ConfigBuilder } from './config/ConfigBuilder';
+import { ErrorHandler } from './errors/ErrorHandler';
 
-/**
- * 应用程序版本号（从环境变量读取，默认 0.1.0）
- */
 const VERSION = process.env.VERSION || '0.1.0';
 
-// 导出 CI 相关类型和类，供外部使用
-export {
-  CISupport,
-  CIDetector,
-  StructuredLogger,
-  TimeoutManager,
-  TimeoutError,
-  ExitCodes,
-  type CIConfig,
-  type TimeoutConfig,
-};
 
-/**
- * 日志目录路径
- */
-const LOG_DIR = path.join(os.homedir(), '.claude-replica', 'logs');
-
-/**
- * 日志级别
- */
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-/**
- * 日志记录器类
- */
-class Logger {
-  private readonly logFile: string;
-  private readonly verbose: boolean;
-  private readonly debugMode: boolean;
-  private readonly securityManager: SecurityManager;
-
-  constructor(verbose = false, securityManager?: SecurityManager) {
-    this.verbose = verbose;
-    this.debugMode = EnvConfig.isDebugMode();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    this.logFile = path.join(LOG_DIR, `claude-replica-${timestamp}.log`);
-    this.securityManager = securityManager || new SecurityManager();
-  }
-
-  /**
-   * 初始化日志目录
-   */
-  async init(): Promise<void> {
-    await fs.mkdir(LOG_DIR, { recursive: true });
-  }
-
-  /**
-   * 记录日志
-   */
-  async log(level: LogLevel, message: string, data?: unknown): Promise<void> {
-    const timestamp = new Date().toISOString();
-    const logEntry = {
-      timestamp,
-      level,
-      message,
-      data: data ? this.securityManager.sanitizeLogData(data) : undefined,
-    };
-
-    // 写入日志文件
-    try {
-      await fs.appendFile(this.logFile, JSON.stringify(logEntry) + '\n', 'utf-8');
-    } catch {
-      // 忽略日志写入错误
-    }
-
-    // 控制台输出
-    if (this.verbose || this.debugMode || level === 'error') {
-      const prefix = this.getLogPrefix(level);
-      if (level === 'error') {
-        console.error(`${prefix} ${message}`);
-      } else if (this.verbose || this.debugMode) {
-        console.log(`${prefix} ${message}`);
-      }
-    }
-  }
-
-  debug(message: string, data?: unknown): Promise<void> {
-    return this.log('debug', message, data);
-  }
-
-  info(message: string, data?: unknown): Promise<void> {
-    return this.log('info', message, data);
-  }
-
-  warn(message: string, data?: unknown): Promise<void> {
-    return this.log('warn', message, data);
-  }
-
-  error(message: string, data?: unknown): Promise<void> {
-    return this.log('error', message, data);
-  }
-
-  /**
-   * 获取日志前缀
-   */
-  private getLogPrefix(level: LogLevel): string {
-    const colors: Record<LogLevel, string> = {
-      debug: '\x1b[90m',
-      info: '\x1b[36m',
-      warn: '\x1b[33m',
-      error: '\x1b[31m',
-    };
-    const reset = '\x1b[0m';
-    return `${colors[level]}[${level.toUpperCase()}]${reset}`;
-  }
-}
-
-/**
- * 应用程序类
- */
 export class Application {
   private readonly cliParser: CLIParser;
   private readonly configManager: ConfigManager;
+  private readonly configBuilder: ConfigBuilder;
+  private readonly errorHandler: ErrorHandler;
   private readonly sessionManager: SessionManager;
   private readonly toolRegistry: ToolRegistry;
   private readonly skillManager: SkillManager;
@@ -190,19 +64,16 @@ export class Application {
   private messageRouter!: MessageRouter;
   // @ts-expect-error 流式消息处理器，用于处理 SDK 返回的流式消息（保留引用以便未来扩展）
   private streamingProcessor: StreamingMessageProcessor | null = null;
-  // 流式查询管理器，用于交互模式下的流式输入
   private streamingQueryManager: StreamingQueryManager | null = null;
   private logger!: Logger;
   private ui: InteractiveUI | null = null;
-  // 当前的中断控制器，用于取消正在进行的 SDK 查询
   private currentAbortController: AbortController | null = null;
-  // CI/CD 支持
-  private ciSupport: CISupport | null = null;
-  private ciLogger: StructuredLogger | null = null;
 
   constructor() {
     this.cliParser = new CLIParser();
     this.configManager = new ConfigManager();
+    this.configBuilder = new ConfigBuilder();
+    this.errorHandler = new ErrorHandler();
     this.sessionManager = new SessionManager();
     this.toolRegistry = new ToolRegistry();
     this.skillManager = new SkillManager();
@@ -215,223 +86,81 @@ export class Application {
     this.sdkExecutor = new SDKQueryExecutor();
   }
 
-  /**
-   * 运行应用程序
-   */
   async run(args: string[]): Promise<number> {
     try {
-      // 解析命令行参数
       const options = this.cliParser.parse(args);
-
-      // 初始化日志记录器（使用安全管理器进行日志脱敏）
       this.logger = new Logger(options.verbose, this.securityManager);
       await this.logger.init();
       await this.logger.info('Application started', { args });
 
-      // 初始化 CI/CD 支持
-      this.initializeCISupport(options);
-
-      // 处理 --help 选项
       if (options.help) {
         console.log(this.cliParser.getHelpText());
-        return ExitCodes.SUCCESS;
+        return 0;
       }
 
-      // 处理 --version 选项
       if (options.version) {
         console.log(`claude-replica v${VERSION}`);
-        return ExitCodes.SUCCESS;
+        return 0;
       }
 
-      // 在 CI 环境中记录环境信息
-      if (this.ciSupport?.isCI()) {
-        // 记录 CI 环境信息
-        this.ciLogger?.info(
-          'CI environment detected',
-          this.ciSupport.getSummary() as Record<string, unknown>
-        );
-      }
-
-      // 初始化应用程序
       await this.initialize(options);
 
-      // 根据模式执行
       if (options.print || options.prompt) {
-        // 非交互模式
         return await this.runNonInteractive(options);
-      } else {
-        // 在 CI 环境中，如果没有提供查询内容，自动使用非交互模式
-        if (this.ciSupport?.isCI()) {
-          console.error('Error: Must use -p option to provide query content in CI environment');
-          return ExitCodes.CONFIG_ERROR;
-        }
-        // 交互模式
-        return await this.runInteractive(options);
       }
+
+      return await this.runInteractive(options);
     } catch (error) {
-      return this.handleError(error);
+      return this.errorHandler.handle(error);
     }
   }
 
-  /**
-   * 初始化 CI/CD 支持
-   */
-  private initializeCISupport(options: CLIOptions): void {
-    // 构建超时配置
-    let timeoutConfig: TimeoutConfig | undefined;
-    if (options.timeout) {
-      timeoutConfig = {
-        totalMs: options.timeout * 1000, // 转换为毫秒
-      };
-    }
-
-    // 创建 CI 支持实例
-    this.ciSupport = new CISupport({
-      timeout: timeoutConfig,
-      structuredLogs: CIDetector.isCI() || options.verbose,
-    });
-
-    // 创建结构化日志记录器
-    if (this.ciSupport.isCI()) {
-      this.ciLogger = this.ciSupport.getLogger();
-    }
-  }
-
-  /**
-   * 初始化应用程序
-   */
   private async initialize(options: CLIOptions): Promise<void> {
     await this.logger.debug('Initializing application...');
-
-    // 确保配置目录存在
     await this.configManager.ensureUserConfigDir();
 
-    // 加载配置
     const workingDir = process.cwd();
     const userConfig = await this.configManager.loadUserConfig();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
+    const baseConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
+    const mergedConfig = this.configBuilder.build(options, baseConfig);
 
-    // 合并 CLI 选项到配置
-    const mergedConfig = this.mergeOptionsToConfig(options, userConfig, projectConfig);
-
-    // 初始化权限管理器
-    const permissionConfig = this.buildPermissionConfig(options, mergedConfig);
+    const permissionConfig = this.configBuilder.buildPermissionConfig(options, mergedConfig);
     this.permissionManager = new PermissionManager(permissionConfig, this.toolRegistry);
 
-    // 初始化消息路由器
     this.messageRouter = new MessageRouter({
       configManager: this.configManager,
       toolRegistry: this.toolRegistry,
       permissionManager: this.permissionManager,
     });
-
-    // 设置消息路由器的工作目录
     this.messageRouter.setWorkingDirectory(workingDir);
 
-    // 初始化流式消息处理器
     this.streamingProcessor = new StreamingMessageProcessor();
 
-    // 初始化流式查询管理器（用于交互模式）
-    // 注意：图像处理由 MessageRouter 内部管理，不需要单独的 workingDirectory
-    this.streamingQueryManager = new StreamingQueryManager({
-      messageRouter: this.messageRouter,
-      sdkExecutor: this.sdkExecutor,
-    });
-
-    // 初始化回退管理器
-    this.rewindManager = new RewindManager({
-      workingDir,
-    });
+    this.rewindManager = new RewindManager({ workingDir });
     await this.rewindManager.initialize();
 
-    // 加载扩展
     await this.loadExtensions(workingDir);
-
-    // 加载 MCP 服务器配置
     await this.loadMCPServers(workingDir);
 
     await this.logger.debug('Application initialized');
   }
 
-  /**
-   * 合并 CLI 选项到配置
-   */
-  private mergeOptionsToConfig(
-    options: CLIOptions,
-    userConfig: UserConfig,
-    projectConfig: ProjectConfig
-  ): ProjectConfig {
-    const merged = this.configManager.mergeConfigs(userConfig, projectConfig);
-
-    // 应用 CLI 选项（最高优先级）
-    if (options.model) {
-      merged.model = options.model;
-    }
-    if (options.allowedTools) {
-      merged.allowedTools = options.allowedTools;
-    }
-    if (options.disallowedTools) {
-      merged.disallowedTools = options.disallowedTools;
-    }
-    if (options.permissionMode) {
-      merged.permissionMode = options.permissionMode;
-    }
-    if (options.maxTurns !== undefined) {
-      merged.maxTurns = options.maxTurns;
-    }
-    if (options.maxBudgetUsd !== undefined) {
-      merged.maxBudgetUsd = options.maxBudgetUsd;
-    }
-    if (options.maxThinkingTokens !== undefined) {
-      merged.maxThinkingTokens = options.maxThinkingTokens;
-    }
-    if (options.enableFileCheckpointing) {
-      merged.enableFileCheckpointing = options.enableFileCheckpointing;
-    }
-    if (options.sandbox) {
-      merged.sandbox = { enabled: true };
-    }
-
-    return merged;
-  }
-
-  /**
-   * 构建权限配置
-   */
-  private buildPermissionConfig(options: CLIOptions, config: ProjectConfig): PermissionConfig {
-    return {
-      mode: options.permissionMode || config.permissionMode || 'default',
-      allowedTools: options.allowedTools || config.allowedTools,
-      disallowedTools: options.disallowedTools || config.disallowedTools,
-      allowDangerouslySkipPermissions: options.allowDangerouslySkipPermissions || false,
-    };
-  }
-
-  /**
-   * 加载扩展（技能、命令、代理、钩子）
-   */
   private async loadExtensions(workingDir: string): Promise<void> {
     await this.logger.debug('Loading extensions...');
-
-    // 技能目录
     const skillDirs = [
       path.join(os.homedir(), '.claude-replica', 'skills'),
       path.join(workingDir, '.claude-replica', 'skills'),
     ];
-
-    // 命令目录
     const commandDirs = [
       path.join(os.homedir(), '.claude-replica', 'commands'),
       path.join(workingDir, '.claude-replica', 'commands'),
     ];
-
-    // 代理目录
     const agentDirs = [
       path.join(os.homedir(), '.claude-replica', 'agents'),
       path.join(workingDir, '.claude-replica', 'agents'),
     ];
 
-    // 加载扩展
     await Promise.all([
       this.skillManager
         .loadSkills(skillDirs)
@@ -444,13 +173,11 @@ export class Application {
         .catch((err) => this.logger.warn('Failed to load agents', err)),
     ]);
 
-    // 加载钩子配置
     const hooksConfigPath = path.join(workingDir, '.claude-replica', 'hooks.json');
     try {
       await fs.access(hooksConfigPath);
       const hooksContent = await fs.readFile(hooksConfigPath, 'utf-8');
-      const hooksConfig = JSON.parse(hooksContent);
-      this.hookManager.loadHooks(hooksConfig);
+      this.hookManager.loadHooks(JSON.parse(hooksContent));
     } catch {
       // 钩子配置文件不存在，忽略
     }
@@ -458,12 +185,8 @@ export class Application {
     await this.logger.debug('Extensions loaded');
   }
 
-  /**
-   * 加载 MCP 服务器配置
-   */
   private async loadMCPServers(workingDir: string): Promise<void> {
     const mcpConfigPaths = [path.join(workingDir, '.mcp.json'), path.join(workingDir, 'mcp.json')];
-
     for (const configPath of mcpConfigPaths) {
       try {
         await this.mcpManager.loadServersFromConfig(configPath);
@@ -475,102 +198,66 @@ export class Application {
     }
   }
 
-  /**
-   * 运行交互模式
-   */
   private async runInteractive(options: CLIOptions): Promise<number> {
     await this.logger.info('Starting interactive mode');
-
-    // 创建或恢复会话
     const session = await this.getOrCreateSession(options);
 
-    // 设置用户确认回调
     this.permissionManager.setPromptUserCallback(async (message: string) => {
-      if (this.ui) {
-        return this.ui.promptConfirmation(message);
-      }
-      return false;
+      return this.ui ? this.ui.promptConfirmation(message) : false;
     });
 
-    // 创建交互式 UI（包含非阻塞输入支持）
     this.ui = new InteractiveUI({
       onMessage: async (message: string) => {
-        // 设置 UI 的处理状态
-        if (this.ui) {
-          this.ui.setProcessingState(true);
-        }
+        this.ui!.setProcessingState(true);
         try {
           await this.handleUserMessage(message, session);
         } finally {
-          if (this.ui) {
-            this.ui.setProcessingState(false);
-          }
+          this.ui!.setProcessingState(false);
         }
       },
-      onInterrupt: () => {
-        this.handleInterrupt();
-      },
-      onRewind: async () => {
-        await this.handleRewind(session);
-      },
-      onPermissionModeChange: (mode: PermissionMode) => {
-        // 更新权限模式
-        this.permissionManager.setMode(mode);
-      },
-      // 消息队列回调 - 在实时注入模式下，新消息会被直接注入到 agent loop
+      onInterrupt: () => this.handleInterrupt(),
+      onRewind: async () => await this.handleRewind(session),
+      onPermissionModeChange: (mode: PermissionMode) => this.permissionManager.setMode(mode),
       onQueueMessage: (message: string) => {
         if (this.streamingQueryManager) {
-          // 消息会被实时注入到 agent loop，不需要显示队列提示
           this.streamingQueryManager.queueMessage(message);
         }
       },
     });
 
-    // 重新创建 StreamingQueryManager（带有完整回调配置）
-    // 这些回调需要访问 UI，所以必须在 UI 创建后设置
     this.streamingQueryManager = new StreamingQueryManager({
       messageRouter: this.messageRouter,
       sdkExecutor: this.sdkExecutor,
-      // Thinking 回调 - 显示思考状态
       onThinking: (content) => {
         if (this.ui) {
-          // 收到响应，停止 Computing 状态
           this.ui.stopComputing();
           this.ui.displayThinking(content);
         }
       },
-      // 工具调用回调 - 实时显示工具调用信息
       onToolUse: (info) => {
         if (this.ui) {
-          // 收到响应，停止 Computing 状态
           this.ui.stopComputing();
           this.ui.displayToolUse(info.name, info.input);
         }
       },
-      // 工具结果回调 - 实时显示工具执行结果
       onToolResult: (info) => {
         if (this.ui) {
           this.ui.displayToolResult(info.name || 'unknown', info.content, info.isError);
         }
       },
-      // 文本响应回调 - 实时显示 assistant 的文本响应
       onAssistantText: (text) => {
         if (this.ui && text.trim()) {
-          // 收到响应，停止 Computing 状态
           this.ui.stopComputing();
           this.ui.displayMessage(text, 'assistant');
         }
       },
     });
 
-    // 启动流式查询会话
     this.streamingQueryManager.startSession(session);
     await this.logger.debug('Started streaming query session with tool callbacks');
 
-    // 初始化 UI 的权限模式显示
     this.ui.setInitialPermissionMode(this.permissionManager.getMode());
 
-    // 启动 UI
     try {
       await this.ui.start();
       return 0;
@@ -580,85 +267,33 @@ export class Application {
     }
   }
 
-  /**
-   * 运行非交互模式
-   */
   private async runNonInteractive(options: CLIOptions): Promise<number> {
     await this.logger.info('Starting non-interactive mode');
-
-    // 获取查询内容，如果 options.prompt 不存在或为空，则调用 this.readStdin() 方法从标准输入读取内容
     const prompt = options.prompt || (await this.readStdin());
     if (!prompt) {
       console.error('Error: No query content provided');
-      return ExitCodes.CONFIG_ERROR;
+      return 2;
     }
 
-    // 创建或恢复会话
     const session = await this.getOrCreateSession(options);
 
-    // 记录执行开始（CI 模式）
-    const startTime = Date.now();
-    this.ciLogger?.logStart(prompt, {
-      model: options.model,
-      sessionId: session.id,
-    });
-
-    // 启动超时计时
-    if (this.ciSupport) {
-      this.ciSupport.startExecution(() => {
-        this.ciLogger?.error('Error: Execution timeout');
-      });
-    }
-
     try {
-      // 执行查询
       const result = await this.executeQuery(prompt, session, options);
 
-      // 停止超时计时
-      this.ciSupport?.endExecution();
-
-      // 检查是否超时
-      if (this.ciSupport?.hasTimedOut()) {
-        console.error('Error: Execution timeout');
-        return ExitCodes.TIMEOUT_ERROR;
-      }
-
-      // 输出结果
       this.outputResult(result, options.outputFormat || 'text');
 
-      // 记录执行完成（CI 模式）
-      const duration = Date.now() - startTime;
-      this.ciLogger?.logComplete({
-        success: true,
-        duration,
-      });
-
-      return ExitCodes.SUCCESS;
+      return 0;
     } catch (error) {
-      // 停止超时计时
-      this.ciSupport?.endExecution();
-
       await this.logger.error('Query execution failed', error);
 
-      // 记录错误（CI 模式）
-      if (error instanceof Error) {
-        this.ciLogger?.logError(error);
-      }
-
       console.error('Error:', error instanceof Error ? error.message : String(error));
-
-      // 返回适当的退出码
-      return CISupport.getExitCode(error instanceof Error ? error : String(error));
+      return 1;
     }
   }
 
-  /**
-   * 获取或创建会话
-   */
   private async getOrCreateSession(options: CLIOptions): Promise<Session> {
     const workingDir = process.cwd();
 
-    // 恢复指定会话
     if (options.resume) {
       await this.logger.debug('resume session', { sessionId: options.resume });
       const session = await this.sessionManager.loadSession(options.resume);
@@ -673,7 +308,6 @@ export class Application {
       return session;
     }
 
-    // 继续最近的会话
     if (options.continue) {
       await this.logger.debug('continue recent session');
       const recentSession = await this.sessionManager.getRecentSession();
@@ -684,96 +318,42 @@ export class Application {
       await this.logger.info('No recent session available, creating new session');
     }
 
-    // 创建新会话
     await this.logger.debug('create new session');
     const userConfig = await this.configManager.loadUserConfig();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-
     return this.sessionManager.createSession(workingDir, projectConfig, userConfig);
   }
 
-  /**
-   * 处理用户消息
-   *
-   * 在交互模式下，使用 StreamingQueryManager 进行流式输入处理
-   * 消息会被实时注入到 agent loop 中，响应通过回调显示
-   * 支持图像引用（@./image.png 语法）
-   */
   private async handleUserMessage(message: string, session: Session): Promise<void> {
-    // 检查是否是命令
     if (message.startsWith('/')) {
       await this.handleCommand(message, session);
       return;
     }
 
     try {
-      // 检查消息是否包含图像引用
       const hasImages = this.messageRouter.hasImageReferences(message);
       if (hasImages && this.ui) {
         this.ui.displayInfo('正在处理图像引用...');
       }
 
-      // 显示 Computing 状态，让用户知道 agent 正在处理
       if (this.ui) {
         this.ui.displayComputing();
       }
 
-      // 在交互模式下优先使用 StreamingQueryManager
-      // 任务的输出（工具调用、结果）会在光标上方显示
-      if (this.streamingQueryManager && this.streamingQueryManager.getActiveSession()) {
-        const processResult = await this.streamingQueryManager.sendMessage(message);
-
-        // 处理图像错误提示
-        if (processResult.imageErrors && processResult.imageErrors.length > 0) {
-          for (const err of processResult.imageErrors) {
-            if (this.ui) {
-              this.ui.displayWarning(`图像加载失败: ${err.reference} - ${err.error}`);
-            }
-          }
-        }
-
-        if (!processResult.success) {
-          if (this.ui) {
-            this.ui.stopComputing();
-            this.ui.displayError(processResult.error || '消息处理失败');
-          }
-          return;
-        }
-
-        // 添加用户消息到会话历史
-        await this.sessionManager.addMessage(session, {
-          role: 'user',
-          content: message,
-        });
-
-        // 注意：assistant 的响应现在通过 onAssistantText 回调实时显示
-        // 会话历史中的 assistant 消息会在收到完整响应后添加
-      } else {
-        // 回退到传统执行方式（非流式模式）
-        const result = await this.executeQuery(message, session);
-
-        // 停止 Computing 状态
+      // 交互模式下总是使用流式查询管理器
+      const processResult = await this.streamingQueryManager!.sendMessage(message);
+      if (!processResult.success) {
         if (this.ui) {
           this.ui.stopComputing();
+          this.ui.displayError(processResult.error || '消息处理失败');
         }
-
-        // 显示结果
-        if (this.ui && result) {
-          this.ui.displayMessage(result, 'assistant');
-        }
-
-        // 添加消息到会话历史
-        await this.sessionManager.addMessage(session, {
-          role: 'user',
-          content: message,
-        });
-        if (result) {
-          await this.sessionManager.addMessage(session, {
-            role: 'assistant',
-            content: result,
-          });
-        }
+        return;
       }
+
+      await this.sessionManager.addMessage(session, {
+        role: 'user',
+        content: message,
+      });
     } catch (error) {
       if (this.ui) {
         this.ui.stopComputing();
@@ -783,9 +363,6 @@ export class Application {
     }
   }
 
-  /**
-   * 处理命令
-   */
   private async handleCommand(command: string, _session: Session): Promise<void> {
     const parts = command.slice(1).split(/\s+/);
     const cmdName = parts[0].toLowerCase();
@@ -795,36 +372,28 @@ export class Application {
       case 'help':
         this.showCommandHelp();
         break;
-
       case 'sessions':
         await this.showSessions();
         break;
-
       case 'config':
         await this.showConfig();
         break;
-
       case 'permissions':
         this.showPermissions();
         break;
-
       case 'mcp':
         this.showMCPStatus();
         break;
-
       case 'clear':
         console.clear();
         break;
-
       case 'exit':
       case 'quit':
         if (this.ui) {
           this.ui.stop();
         }
         break;
-
       default: {
-        // 尝试执行自定义命令
         const customCmd = this.commandManager.getCommand(cmdName);
         if (customCmd) {
           await this.commandManager.executeCommand(cmdName, cmdArgs);
@@ -835,9 +404,6 @@ export class Application {
     }
   }
 
-  /**
-   * 显示命令帮助
-   */
   private showCommandHelp(): void {
     const helpText = `
 Available commands:
@@ -861,12 +427,8 @@ ${
     console.log(helpText);
   }
 
-  /**
-   * 显示会话列表
-   */
   private async showSessions(): Promise<void> {
     const sessions = await this.sessionManager.listSessions();
-
     if (sessions.length === 0) {
       console.log('No saved sessions');
       return;
@@ -881,9 +443,6 @@ ${
     console.log('');
   }
 
-  /**
-   * 显示当前配置
-   */
   private async showConfig(): Promise<void> {
     const userConfig = await this.configManager.loadUserConfig();
     const projectConfig = await this.configManager.loadProjectConfig(process.cwd());
@@ -894,9 +453,6 @@ ${
     console.log('');
   }
 
-  /**
-   * 显示权限设置
-   */
   private showPermissions(): void {
     const config = this.permissionManager.getConfig();
 
@@ -910,9 +466,6 @@ ${
     console.log('');
   }
 
-  /**
-   * 显示 MCP 服务器状态
-   */
   private showMCPStatus(): void {
     const servers = this.mcpManager.listServers();
 
@@ -928,25 +481,16 @@ ${
     console.log('');
   }
 
-  /**
-   * 执行查询
-   *
-   * 使用 SDK 执行真实的 AI 查询，替代之前的模拟响应
-   *
-   * **验证: 需求 1.1, 2.2, 2.3, 3.2**
-   */
   private async executeQuery(
     prompt: string,
     session: Session,
     _options?: CLIOptions
   ): Promise<string> {
-    // 添加用户消息到会话
     await this.sessionManager.addMessage(session, {
       role: 'user',
       content: prompt,
     });
 
-    // 构建查询
     const message = {
       id: '',
       role: 'user' as const,
@@ -961,12 +505,9 @@ ${
       model: queryResult.options.model,
     });
 
-    // 创建 AbortController 用于中断支持
     this.currentAbortController = new AbortController();
 
     try {
-      // 调用 SDK 执行查询
-      // 注意：canUseTool 和 mcpServers 类型需要在 SDK 层面处理兼容性
       const sdkResult = await this.sdkExecutor.execute({
         prompt: queryResult.prompt,
         model: queryResult.options.model,
@@ -975,12 +516,9 @@ ${
         disallowedTools: queryResult.options.disallowedTools,
         cwd: queryResult.options.cwd,
         permissionMode: queryResult.options.permissionMode,
-        // canUseTool 类型不兼容，暂时不传递，由 SDK 使用默认权限处理
-        // canUseTool: queryResult.options.canUseTool,
         maxTurns: queryResult.options.maxTurns,
         maxBudgetUsd: queryResult.options.maxBudgetUsd,
         maxThinkingTokens: queryResult.options.maxThinkingTokens,
-        // mcpServers 类型需要转换，暂时使用类型断言
         mcpServers: queryResult.options.mcpServers as Parameters<
           typeof this.sdkExecutor.execute
         >[0]['mcpServers'],
@@ -989,12 +527,9 @@ ${
         >[0]['agents'],
         sandbox: queryResult.options.sandbox,
         abortController: this.currentAbortController,
-        // 会话恢复支持 (Requirement 3.2)
-        // 如果会话有 SDK 会话 ID，则传递给 SDK 以恢复历史消息
         resume: session.sdkSessionId,
       });
 
-      // 记录使用统计
       if (sdkResult.usage) {
         await this.logger.info('Token usage statistics', {
           inputTokens: sdkResult.usage.inputTokens,
@@ -1004,12 +539,10 @@ ${
         });
       }
 
-      // 处理错误结果 (Requirement 2.3)
       if (sdkResult.isError) {
         throw new Error(sdkResult.errorMessage || 'Query execution failed');
       }
 
-      // 保存 SDK 会话 ID 以便后续恢复 (Requirement 3.2)
       if (sdkResult.sessionId && sdkResult.sessionId !== session.sdkSessionId) {
         session.sdkSessionId = sdkResult.sessionId;
         await this.sessionManager.saveSession(session);
@@ -1018,7 +551,6 @@ ${
         });
       }
 
-      // 添加助手消息到会话，包含 usage 统计信息 (Requirement 2.2, 3.1, 3.3)
       await this.sessionManager.addMessage(session, {
         role: 'assistant',
         content: sdkResult.response,
@@ -1038,54 +570,43 @@ ${
     }
   }
 
-  /**
-   * 处理中断
-   *
-   * 当用户触发中断（Ctrl+C 或 Esc）时调用此方法
-   * 会中止当前正在进行的 SDK 查询并显示中断状态
-   * 消息队列中的后续消息不受影响，会继续处理
-   *
-   * **验证: 需求 4.1, 4.2, 4.3, 流式输入需求**
-   */
   private handleInterrupt(): void {
     this.logger.info('User interrupted operation');
 
-    // 优先中断 StreamingQueryManager（交互模式）
     if (this.streamingQueryManager && this.streamingQueryManager.isProcessing()) {
-      const interrupted = this.streamingQueryManager.interruptSession();
-      if (interrupted) {
-        this.logger.debug('Interrupt signal sent to streaming query manager');
+      const result = this.streamingQueryManager.interruptSession();
+      if (result.success) {
+        this.logger.debug('Interrupt signal sent to streaming query manager', {
+          clearedMessages: result.clearedMessages,
+        });
+
+        if (this.ui) {
+          if (result.clearedMessages > 0) {
+            this.ui.displayWarning(
+              `Operation interrupted. ${result.clearedMessages} queued message(s) cleared.`
+            );
+          } else {
+            this.ui.displayWarning(ERROR_MESSAGES[SDKErrorType.INTERRUPTED]);
+          }
+        }
       }
     }
 
-    // 调用 AbortController.abort() 中断正在进行的 SDK 查询 (Requirement 4.1)
     if (this.currentAbortController) {
       this.currentAbortController.abort();
       this.logger.debug('Interrupt signal sent to SDK query');
     }
 
-    // 中断 SDKQueryExecutor（如果正在执行）
     if (this.sdkExecutor.isRunning()) {
       this.sdkExecutor.interrupt();
     }
 
-    // 显示中断警告消息 (Requirement 4.3)
-    if (this.ui) {
+    if (this.ui && !this.streamingQueryManager?.isProcessing()) {
+      this.ui.stopComputing();
       this.ui.displayWarning(ERROR_MESSAGES[SDKErrorType.INTERRUPTED]);
-
-      // 如果有排队的消息，显示提示
-      if (this.streamingQueryManager) {
-        const queueLength = this.streamingQueryManager.getQueueLength();
-        if (queueLength > 0) {
-          this.ui.displayInfo(`消息队列中还有 ${queueLength} 条消息待处理`);
-        }
-      }
     }
   }
 
-  /**
-   * 处理回退
-   */
   private async handleRewind(_session: Session): Promise<void> {
     await this.logger.info('Opening rewind menu');
 
@@ -1096,7 +617,6 @@ ${
       return;
     }
 
-    // 获取快照列表
     const snapshots = await this.rewindManager.listSnapshots();
 
     if (snapshots.length === 0) {
@@ -1106,7 +626,6 @@ ${
       return;
     }
 
-    // 转换为 UI 快照格式
     const uiSnapshots: UISnapshot[] = snapshots.map((s: RewindSnapshot) => ({
       id: s.id,
       timestamp: s.timestamp,
@@ -1114,7 +633,6 @@ ${
       files: Array.from(s.files.keys()),
     }));
 
-    // 显示回退菜单
     if (this.ui) {
       const selected = await this.ui.showRewindMenu(uiSnapshots);
 
@@ -1133,11 +651,7 @@ ${
     }
   }
 
-  /**
-   * 从 stdin 读取输入
-   */
   private async readStdin(): Promise<string | null> {
-    // 检查是否有管道输入
     if (process.stdin.isTTY) {
       return null;
     }
@@ -1156,125 +670,32 @@ ${
         resolve(null);
       });
 
-      // 设置超时
       setTimeout(() => {
         resolve(data.trim() || null);
       }, 1000);
     });
   }
 
-  /**
-   * 输出结果
-   * @param result 查询结果字符串
-   * @param format 输出格式
-   */
   private outputResult(result: string, format: string): void {
-    // 构建查询结果对象
     const queryResult: OutputQueryResult = {
       content: result,
       success: true,
     };
 
-    // 验证格式是否有效
     const outputFormat: OutputFormat = this.outputFormatter.isValidFormat(format)
       ? (format as OutputFormat)
       : 'text';
 
-    // 使用格式化器输出
     const formattedOutput = this.outputFormatter.format(queryResult, outputFormat);
     console.log(formattedOutput);
-  }
-
-  /**
-   * 输出带有完整信息的结果
-   * @param queryResult 完整的查询结果对象
-   * @param format 输出格式
-   * @internal 此方法将在 SDK 集成后使用，用于输出包含工具调用和元数据的完整结果
-   */
-  // @ts-expect-error 预留方法，将在后续 SDK 集成中使用
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private outputFullResult(queryResult: OutputQueryResult, format: string): void {
-    // 验证格式是否有效
-    const outputFormat: OutputFormat = this.outputFormatter.isValidFormat(format)
-      ? (format as OutputFormat)
-      : 'text';
-
-    // 使用格式化器输出
-    const formattedOutput = this.outputFormatter.format(queryResult, outputFormat);
-    console.log(formattedOutput);
-  }
-
-  /**
-   * 处理错误
-   */
-  private handleError(error: unknown): number {
-    if (error instanceof CLIParseError) {
-      console.error(`Argument error: ${error.message}`);
-      console.error('Use --help for help information');
-      return ExitCodes.CONFIG_ERROR;
-    }
-
-    if (error instanceof TimeoutError) {
-      console.error(`Timeout error: ${error.message}`);
-      this.ciLogger?.logError(error);
-      return ExitCodes.TIMEOUT_ERROR;
-    }
-
-    if (error instanceof Error) {
-      // 网络错误处理
-      if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-        console.error(
-          'Network error: Unable to connect to server, please check your network connection'
-        );
-        console.error('Hint: Will retry automatically...');
-        this.ciLogger?.logError(error, { type: 'network' });
-        return ExitCodes.NETWORK_ERROR;
-      }
-
-      // API 错误处理
-      if (
-        error.message.includes('API') ||
-        error.message.includes('401') ||
-        error.message.includes('403')
-      ) {
-        console.error(
-          'API error: Authentication failed, please check ANTHROPIC_API_KEY environment variable'
-        );
-        this.ciLogger?.logError(error, { type: 'auth' });
-        return ExitCodes.AUTH_ERROR;
-      }
-
-      console.error(`Error: ${error.message}`);
-      this.ciLogger?.logError(error);
-
-      // 详细模式下显示堆栈
-      if (EnvConfig.isDebugMode()) {
-        console.error(error.stack);
-      }
-
-      return CISupport.getExitCode(error);
-    } else {
-      console.error('Unknown error:', error);
-      return ExitCodes.ERROR;
-    }
   }
 }
 
-/**
- * 主函数
- * process.argv 是 Node.js 中的一个全局变量，它是一个包含命令行参数的数组。这个数组的前两个元素是固定的：
- * process.argv[0] 是 Node.js 可执行文件的路径
- * process.argv[1] 是当前执行的 JavaScript 文件的路径
- * process.argv[2] 及之后的元素才是实际传递给脚本的命令行参数
- * 因此，process.argv.slice(2) 表示从索引 2 开始截取数组，这样就能获得所有实际的命令行参数，
- * 排除了 Node.js 可执行文件路径和当前脚本路径这两个固定元素。
- */
 export async function main(args: string[] = process.argv.slice(2)): Promise<number> {
   const app = new Application();
   return app.run(args);
 }
 
-// 如果直接运行此文件
 if (require.main === module) {
   main()
     .then((exitCode) => {

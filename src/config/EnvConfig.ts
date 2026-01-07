@@ -4,8 +4,6 @@
  * 核心方法：
  * - getEnvConfig(): 获取环境变量配置
  * - isDebugMode(): 检查是否启用调试模式
- * - isCI(): 检查是否在 CI 环境中运行
- * - getCIEnvironmentInfo(): 获取 CI 环境信息
  * - validateEnvironment(): 验证环境变量配置
  */
 
@@ -15,32 +13,6 @@
 export interface EnvConfiguration {
   /** 是否启用调试模式 */
   debugMode: boolean;
-  /** 是否在 CI 环境中运行 */
-  isCI: boolean;
-  /** CI 环境类型 */
-  ciEnvironment?: string;
-}
-
-/**
- * CI 环境信息接口
- */
-export interface CIEnvironmentInfo {
-  /** CI 平台名称 */
-  platform: string;
-  /** 仓库名称 */
-  repository?: string;
-  /** 工作流/流水线名称 */
-  workflow?: string;
-  /** 运行 ID */
-  runId?: string;
-  /** 运行编号 */
-  runNumber?: string;
-  /** 触发者 */
-  actor?: string;
-  /** Git 引用 */
-  ref?: string;
-  /** Git SHA */
-  sha?: string;
 }
 
 /**
@@ -49,48 +21,6 @@ export interface CIEnvironmentInfo {
 export const ENV_KEYS = {
   // 核心配置
   CLAUDE_REPLICA_DEBUG: 'CLAUDE_REPLICA_DEBUG',
-
-  // 通用 CI 标识
-  CI: 'CI',
-  CONTINUOUS_INTEGRATION: 'CONTINUOUS_INTEGRATION',
-
-  // GitHub Actions
-  GITHUB_ACTIONS: 'GITHUB_ACTIONS',
-  GITHUB_REPOSITORY: 'GITHUB_REPOSITORY',
-  GITHUB_WORKFLOW: 'GITHUB_WORKFLOW',
-  GITHUB_RUN_ID: 'GITHUB_RUN_ID',
-  GITHUB_RUN_NUMBER: 'GITHUB_RUN_NUMBER',
-  GITHUB_ACTOR: 'GITHUB_ACTOR',
-  GITHUB_REF: 'GITHUB_REF',
-  GITHUB_SHA: 'GITHUB_SHA',
-
-  // GitLab CI
-  GITLAB_CI: 'GITLAB_CI',
-  CI_PROJECT_NAME: 'CI_PROJECT_NAME',
-  CI_PIPELINE_ID: 'CI_PIPELINE_ID',
-  CI_JOB_NAME: 'CI_JOB_NAME',
-  CI_COMMIT_REF_NAME: 'CI_COMMIT_REF_NAME',
-  CI_COMMIT_SHA: 'CI_COMMIT_SHA',
-
-  // Jenkins
-  JENKINS_URL: 'JENKINS_URL',
-  JOB_NAME: 'JOB_NAME',
-  BUILD_NUMBER: 'BUILD_NUMBER',
-  BUILD_URL: 'BUILD_URL',
-
-  // CircleCI
-  CIRCLECI: 'CIRCLECI',
-  CIRCLE_PROJECT_REPONAME: 'CIRCLE_PROJECT_REPONAME',
-  CIRCLE_BUILD_NUM: 'CIRCLE_BUILD_NUM',
-
-  // 其他 CI 平台
-  TRAVIS: 'TRAVIS',
-  TF_BUILD: 'TF_BUILD',
-  BITBUCKET_PIPELINE_UUID: 'BITBUCKET_PIPELINE_UUID',
-  TEAMCITY_VERSION: 'TEAMCITY_VERSION',
-  BUILDKITE: 'BUILDKITE',
-  CODEBUILD_BUILD_ID: 'CODEBUILD_BUILD_ID',
-  DRONE: 'DRONE',
 
   // MCP 相关
   GITHUB_TOKEN: 'GITHUB_TOKEN',
@@ -180,93 +110,6 @@ export class EnvConfig {
   }
 
   /**
-   * 检查是否在 CI 环境中运行
-   *
-   * @returns 是否在 CI 环境中
-   */
-  static isCI(): boolean {
-    return (
-      this.getBoolean(ENV_KEYS.CI) ||
-      this.getBoolean(ENV_KEYS.CONTINUOUS_INTEGRATION) ||
-      this.has(ENV_KEYS.GITHUB_ACTIONS) ||
-      this.has(ENV_KEYS.GITLAB_CI) ||
-      this.has(ENV_KEYS.JENKINS_URL) ||
-      this.has(ENV_KEYS.CIRCLECI) ||
-      this.has(ENV_KEYS.TRAVIS) ||
-      this.has(ENV_KEYS.TF_BUILD) ||
-      this.has(ENV_KEYS.BITBUCKET_PIPELINE_UUID) ||
-      this.has(ENV_KEYS.TEAMCITY_VERSION) ||
-      this.has(ENV_KEYS.BUILDKITE) ||
-      this.has(ENV_KEYS.CODEBUILD_BUILD_ID) ||
-      this.has(ENV_KEYS.DRONE)
-    );
-  }
-
-  /**
-   * 检测 CI 环境类型
-   *
-   * @returns CI 环境名称
-   */
-  static detectCIEnvironment(): string | undefined {
-    if (this.has(ENV_KEYS.GITHUB_ACTIONS)) return 'github-actions';
-    if (this.has(ENV_KEYS.GITLAB_CI)) return 'gitlab-ci';
-    if (this.has(ENV_KEYS.JENKINS_URL)) return 'jenkins';
-    if (this.has(ENV_KEYS.CIRCLECI)) return 'circleci';
-    if (this.has(ENV_KEYS.TRAVIS)) return 'travis';
-    if (this.has(ENV_KEYS.TF_BUILD)) return 'azure-pipelines';
-    if (this.has(ENV_KEYS.BITBUCKET_PIPELINE_UUID)) return 'bitbucket-pipelines';
-    if (this.has(ENV_KEYS.TEAMCITY_VERSION)) return 'teamcity';
-    if (this.has(ENV_KEYS.BUILDKITE)) return 'buildkite';
-    if (this.has(ENV_KEYS.CODEBUILD_BUILD_ID)) return 'codebuild';
-    if (this.has(ENV_KEYS.DRONE)) return 'drone';
-    if (this.isCI()) return 'unknown-ci';
-    return undefined;
-  }
-
-  /**
-   * 获取 CI 环境详细信息
-   *
-   * @returns CI 环境信息对象
-   */
-  static getCIEnvironmentInfo(): CIEnvironmentInfo | undefined {
-    const platform = this.detectCIEnvironment();
-    if (!platform) return undefined;
-
-    const info: CIEnvironmentInfo = { platform };
-
-    switch (platform) {
-      case 'github-actions':
-        info.repository = this.getString(ENV_KEYS.GITHUB_REPOSITORY);
-        info.workflow = this.getString(ENV_KEYS.GITHUB_WORKFLOW);
-        info.runId = this.getString(ENV_KEYS.GITHUB_RUN_ID);
-        info.runNumber = this.getString(ENV_KEYS.GITHUB_RUN_NUMBER);
-        info.actor = this.getString(ENV_KEYS.GITHUB_ACTOR);
-        info.ref = this.getString(ENV_KEYS.GITHUB_REF);
-        info.sha = this.getString(ENV_KEYS.GITHUB_SHA);
-        break;
-
-      case 'gitlab-ci':
-        info.repository = this.getString(ENV_KEYS.CI_PROJECT_NAME);
-        info.workflow = this.getString(ENV_KEYS.CI_PIPELINE_ID);
-        info.ref = this.getString(ENV_KEYS.CI_COMMIT_REF_NAME);
-        info.sha = this.getString(ENV_KEYS.CI_COMMIT_SHA);
-        break;
-
-      case 'jenkins':
-        info.workflow = this.getString(ENV_KEYS.JOB_NAME);
-        info.runNumber = this.getString(ENV_KEYS.BUILD_NUMBER);
-        break;
-
-      case 'circleci':
-        info.repository = this.getString(ENV_KEYS.CIRCLE_PROJECT_REPONAME);
-        info.runNumber = this.getString(ENV_KEYS.CIRCLE_BUILD_NUM);
-        break;
-    }
-
-    return info;
-  }
-
-  /**
    * 获取完整的环境配置
    *
    * @returns 环境配置对象
@@ -274,8 +117,6 @@ export class EnvConfig {
   static getConfiguration(): EnvConfiguration {
     return {
       debugMode: this.isDebugMode(),
-      isCI: this.isCI(),
-      ciEnvironment: this.detectCIEnvironment(),
     };
   }
 
@@ -303,7 +144,6 @@ export class EnvConfig {
     const lines = [
       '环境配置:',
       `  调试模式: ${config.debugMode ? '启用' : '禁用'}`,
-      `  CI 环境: ${config.isCI ? `是 (${config.ciEnvironment})` : '否'}`,
     ];
     return lines.join('\n');
   }
