@@ -72,8 +72,6 @@ export interface SDKQueryOptions {
   resumeSessionAt?: string;
   /** 恢复会话时是否 fork 到新会话 */
   forkSession?: boolean;
-  /** 消息回调，用于实时处理 SDK 消息流中的事件 */
-  onMessage?: (message: SDKMessage) => void | Promise<void>;
 }
 
 /**
@@ -369,11 +367,6 @@ export class SDKQueryExecutor {
         // 处理消息
         const processResult = this.processMessage(message, accumulatedResponse);
         accumulatedResponse = processResult.accumulatedResponse;
-
-        // 调用消息回调
-        if (options.onMessage) {
-          await options.onMessage(message);
-        }
 
         // 更新会话 ID
         if ('session_id' in message && message.session_id) {

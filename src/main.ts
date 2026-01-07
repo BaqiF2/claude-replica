@@ -44,7 +44,6 @@ import {
   OutputFormat,
 } from './output/OutputFormatter';
 import { SecurityManager } from './security/SecurityManager';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import {
   CISupport,
   CIDetector,
@@ -87,36 +86,18 @@ type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 /**
  * 日志记录器类
  */
-export class Logger {
+class Logger {
   private readonly logFile: string;
   private readonly verbose: boolean;
   private readonly debugMode: boolean;
   private readonly securityManager: SecurityManager;
-  private readonly loggingConfig: {
-    logConversationRounds: boolean;
-    logToolCalls: boolean;
-    logToolResults: boolean;
-  };
 
-  constructor(
-    verbose = false,
-    securityManager?: SecurityManager,
-    loggingConfig?: {
-      logConversationRounds?: boolean;
-      logToolCalls?: boolean;
-      logToolResults?: boolean;
-    },
-  ) {
+  constructor(verbose = false, securityManager?: SecurityManager) {
     this.verbose = verbose;
     this.debugMode = EnvConfig.isDebugMode();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     this.logFile = path.join(LOG_DIR, `claude-replica-${timestamp}.log`);
     this.securityManager = securityManager || new SecurityManager();
-    this.loggingConfig = {
-      logConversationRounds: loggingConfig?.logConversationRounds ?? true,
-      logToolCalls: loggingConfig?.logToolCalls ?? true,
-      logToolResults: loggingConfig?.logToolResults ?? true,
-    };
   }
 
   /**
@@ -185,81 +166,6 @@ export class Logger {
     const reset = '\x1b[0m';
     return `${colors[level]}[${level.toUpperCase()}]${reset}`;
   }
-
-  /**
-   * 记录对话开始
-   */
-  async logConversationStart(roundNumber: number, userPrompt: string): Promise<void> {
-    if (!this.loggingConfig.logConversationRounds) {
-      return;
-    }
-
-    await this.info(`Conversation round ${roundNumber} started`, {
-      roundNumber,
-      promptLength: userPrompt.length,
-      promptPreview: userPrompt.substring(0, 100),
-    });
-  }
-
-  /**
-   * 记录对话结束
-   */
-  async logConversationEnd(
-    roundNumber: number,
-    result: {
-      success: boolean;
-      responseLength?: number;
-      error?: string;
-      durationMs?: number;
-      tokensUsed?: { input: number; output: number };
-      costUsd?: number;
-    },
-  ): Promise<void> {
-    if (!this.loggingConfig.logConversationRounds) {
-      return;
-    }
-
-    await this.info(`Conversation round ${roundNumber} ended`, {
-      roundNumber,
-      ...result,
-    });
-  }
-
-  /**
-   * 记录工具调用
-   */
-  async logToolCall(toolName: string, params: Record<string, unknown>): Promise<void> {
-    if (!this.loggingConfig.logToolCalls) {
-      return;
-    }
-
-    await this.info(`Tool called: ${toolName}`, {
-      tool: toolName,
-      params: this.securityManager.sanitizeLogData(params),
-    });
-  }
-
-  /**
-   * 记录工具结果
-   */
-  async logToolResult(
-    toolName: string,
-    result: {
-      success: boolean;
-      outputLength?: number;
-      outputPreview?: string;  // 新增：输出摘要（前100字符）
-      error?: string;
-    },
-  ): Promise<void> {
-    if (!this.loggingConfig.logToolResults) {
-      return;
-    }
-
-    await this.info(`Tool result: ${toolName}`, {
-      tool: toolName,
-      ...result,
-    });
-  }
 }
 
 /**
@@ -282,7 +188,8 @@ export class Application {
   private rewindManager: RewindManager | null = null;
   private permissionManager!: PermissionManager;
   private messageRouter!: MessageRouter;
-  // 流式消息处理器，用于处理 SDK 返回的流式消息
+  // 流式消息处理器，用于处理 SDK 返回的流式消息（将在 SDK 集成时使用）
+  // @ts-expect-error 预留变量，将在后续 SDK 集成中使用
   private streamingProcessor!: StreamingMessageProcessor;
   private logger!: Logger;
   private ui: InteractiveUI | null = null;
@@ -412,10 +319,6 @@ export class Application {
     // 合并 CLI 选项到配置
     const mergedConfig = this.mergeOptionsToConfig(options, userConfig, projectConfig);
 
-    // 使用合并后的配置重新创建 Logger（包含日志配置）
-    this.logger = new Logger(options.verbose, this.securityManager, mergedConfig.logging);
-    await this.logger.init();
-
     // 初始化权限管理器
     const permissionConfig = this.buildPermissionConfig(options, mergedConfig);
     this.permissionManager = new PermissionManager(permissionConfig, this.toolRegistry);
@@ -427,16 +330,8 @@ export class Application {
       permissionManager: this.permissionManager,
     });
 
-    // 初始化流式消息处理器（使用显示配置）
-    this.streamingProcessor = new StreamingMessageProcessor({
-      showToolDetails: mergedConfig.display?.showToolDetails ?? true,
-      showFullToolOutput: mergedConfig.display?.showFullToolOutput ?? true,
-      maxToolOutputLength: mergedConfig.display?.maxToolOutputLength ?? 0,
-      showCostInfo: mergedConfig.display?.showCostInfo ?? true,
-      showConversationRounds: mergedConfig.display?.showConversationRounds ?? true,
-      enableStreaming: true,
-      logger: this.logger, // 添加日志记录器
-    });
+    // 初始化流式消息处理器
+    this.streamingProcessor = new StreamingMessageProcessor();
 
     // 初始化回退管理器
     this.rewindManager = new RewindManager({
@@ -753,7 +648,7 @@ export class Application {
       }
 
       // 执行查询
-      await this.executeQuery(message, session);
+      const result = await this.executeQuery(message, session);
 
       // 清除进度指示器
       if (this.ui) {
@@ -761,13 +656,9 @@ export class Application {
       }
 
       // 显示结果
-      // 注意：在交互模式下，StreamingMessageProcessor 已经实时显示了所有消息
-      // 包括助手回复，因此不需要再次调用 ui.displayMessage() 导致重复输出
-      // 只有在非交互模式下才需要输出结果，但非交互模式不会进入此方法
-      // 所以这里不再显示结果，避免重复输出
-      // if (this.ui && result) {
-      //   this.ui.displayMessage(result, 'assistant');
-      // }
+      if (this.ui && result) {
+        this.ui.displayMessage(result, 'assistant');
+      }
     } catch (error) {
       if (this.ui) {
         this.ui.clearProgress();
@@ -934,16 +825,6 @@ ${
     session: Session,
     _options?: CLIOptions
   ): Promise<string> {
-    // 计算对话轮次
-    const roundNumber = session.messages.filter((m) => m.role === 'user').length + 1;
-    const queryStartTime = Date.now();
-
-    // 开始对话轮次显示
-    this.streamingProcessor?.startConversationRound();
-
-    // 记录对话开始
-    await this.logger.logConversationStart(roundNumber, prompt);
-
     // 添加用户消息到会话
     await this.sessionManager.addMessage(session, {
       role: 'user',
@@ -969,12 +850,6 @@ ${
     this.currentAbortController = new AbortController();
 
     try {
-      // 创建消息处理器
-      const messageHandler = async (message: SDKMessage) => {
-        // 实时处理和显示消息（所有类型的消息都会在StreamingMessageProcessor中处理）
-        this.streamingProcessor?.processAndDisplay(message as any);
-      };
-
       // 调用 SDK 执行查询
       // 注意：canUseTool 和 mcpServers 类型需要在 SDK 层面处理兼容性
       const sdkResult = await this.sdkExecutor.execute({
@@ -1002,8 +877,6 @@ ${
         // 会话恢复支持 (Requirement 3.2)
         // 如果会话有 SDK 会话 ID，则传递给 SDK 以恢复历史消息
         resume: session.sdkSessionId,
-        // 传递消息处理器
-        onMessage: messageHandler,
       });
 
       // 记录使用统计
@@ -1044,36 +917,7 @@ ${
           : undefined,
       });
 
-      // 记录对话成功结束
-      await this.logger.logConversationEnd(roundNumber, {
-        success: true,
-        responseLength: sdkResult.response.length,
-        durationMs: Date.now() - queryStartTime,
-        tokensUsed: sdkResult.usage
-          ? {
-              input: sdkResult.usage.inputTokens,
-              output: sdkResult.usage.outputTokens,
-            }
-          : undefined,
-        costUsd: sdkResult.totalCostUsd,
-      });
-
-      // 结束对话轮次显示
-      this.streamingProcessor?.endConversationRound();
-
       return sdkResult.response;
-    } catch (error) {
-      // 记录对话失败
-      await this.logger.logConversationEnd(roundNumber, {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        durationMs: Date.now() - queryStartTime,
-      });
-
-      // 结束对话轮次显示
-      this.streamingProcessor?.endConversationRound();
-
-      throw error;
     } finally {
       this.currentAbortController = null;
     }

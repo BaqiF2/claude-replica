@@ -14,8 +14,6 @@
  * - extractTextFromAssistantMessage(): 从助手消息提取文本
  */
 
-import type { Logger } from '../main';
-
 export type SDKMessageType =
   | 'assistant'
   | 'user'
@@ -241,14 +239,6 @@ export interface StreamingMessageProcessorOptions {
   includePartialMessages?: boolean;
   /** UI 更新最小间隔（毫秒），用于优化更新频率 */
   updateIntervalMs?: number;
-  /** 是否显示完整工具输出 (默认: true) */
-  showFullToolOutput?: boolean;
-  /** 工具输出最大长度, 0=无限制 (默认: 0) */
-  maxToolOutputLength?: number;
-  /** 是否显示对话轮次标记 (默认: true) */
-  showConversationRounds?: boolean;
-  /** 日志记录器实例 */
-  logger?: Logger;
 }
 
 /**
@@ -271,13 +261,7 @@ export class StreamingMessageProcessor {
   private readonly enableStreaming: boolean;
   private readonly includePartialMessages: boolean;
   private readonly updateIntervalMs: number;
-  private readonly showFullToolOutput: boolean;
-  private readonly maxToolOutputLength: number;
-  private readonly showConversationRounds: boolean;
-  private readonly logger?: Logger;
 
-  /** 对话轮次计数器 */
-  private conversationRoundCounter: number = 0;
   /** 上次 UI 更新时间戳 */
   private lastUpdateTime: number = 0;
   /** 待输出的缓冲文本 */
@@ -290,10 +274,6 @@ export class StreamingMessageProcessor {
     this.enableStreaming = options.enableStreaming ?? true;
     this.includePartialMessages = options.includePartialMessages ?? false;
     this.updateIntervalMs = options.updateIntervalMs ?? 50; // 默认 50ms 更新间隔
-    this.showFullToolOutput = options.showFullToolOutput ?? true;
-    this.maxToolOutputLength = options.maxToolOutputLength ?? 0;
-    this.showConversationRounds = options.showConversationRounds ?? true;
-    this.logger = options.logger;
   }
 
   /**
@@ -523,13 +503,6 @@ export class StreamingMessageProcessor {
       return;
     }
 
-    // 记录工具调用日志
-    if (this.logger) {
-      this.logger.logToolCall(toolUse.name, toolUse.input).catch(() => {
-        // 忽略日志记录错误
-      });
-    }
-
     this.outputHandler.writeLine('');
     this.outputHandler.writeLine(`🔧 工具调用: ${toolUse.name}`);
 
@@ -548,41 +521,16 @@ export class StreamingMessageProcessor {
       return;
     }
 
-    // 记录工具结果日志
-    if (this.logger) {
-      // 生成输出摘要（前100字符）
-      const outputPreview = toolResult.content.length > 100
-        ? toolResult.content.substring(0, 100) + '...'
-        : toolResult.content;
-
-      this.logger.logToolResult(toolResult.toolUseId || 'unknown', {
-        success: !toolResult.isError,
-        outputLength: toolResult.content.length,
-        outputPreview: outputPreview,  // 添加输出摘要
-        error: toolResult.isError ? toolResult.content : undefined,
-      }).catch(() => {
-        // 忽略日志记录错误
-      });
-    }
-
     const prefix = toolResult.isError ? '❌' : '✅';
     this.outputHandler.writeLine(`${prefix} 工具结果:`);
 
+    // 截断过长的结果
     const content = toolResult.content;
-
-    // 根据配置决定是否截断
-    if (this.showFullToolOutput || this.maxToolOutputLength === 0) {
-      // 完整显示
-      this.outputHandler.writeLine(`   ${content}`);
+    const maxLength = 500;
+    if (content.length > maxLength) {
+      this.outputHandler.writeLine(`   ${content.substring(0, maxLength)}...`);
     } else {
-      // 根据配置长度截断
-      const maxLen = this.maxToolOutputLength;
-      if (content.length > maxLen) {
-        this.outputHandler.writeLine(`   ${content.substring(0, maxLen)}...`);
-        this.outputHandler.writeLine(`   [已截断，完整长度: ${content.length} 字符]`);
-      } else {
-        this.outputHandler.writeLine(`   ${content}`);
-      }
+      this.outputHandler.writeLine(`   ${content}`);
     }
   }
 
@@ -639,37 +587,6 @@ export class StreamingMessageProcessor {
     if (error.code) {
       this.outputHandler.writeError(`   Error code: ${error.code}`);
     }
-  }
-
-  /**
-   * 开始新的对话轮次
-   * 显示对话轮次分隔线和计数
-   */
-  startConversationRound(): void {
-    this.conversationRoundCounter++;
-    if (!this.showConversationRounds) {
-      return;
-    }
-
-    this.outputHandler.writeLine('');
-    this.outputHandler.writeLine(
-      `${'='.repeat(60)}\n` +
-        `  第 ${this.conversationRoundCounter} 轮对话\n` +
-        `${'='.repeat(60)}`,
-    );
-  }
-
-  /**
-   * 结束对话轮次
-   * 显示对话轮次结束分隔线
-   */
-  endConversationRound(): void {
-    if (!this.showConversationRounds) {
-      return;
-    }
-
-    this.outputHandler.writeLine('');
-    this.outputHandler.writeLine(`${'─'.repeat(60)}`);
   }
 
   /**

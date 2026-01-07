@@ -190,18 +190,6 @@ export interface UserConfig {
   hooks?: Partial<Record<HookEvent, HookConfig[]>>;
   sandbox?: SandboxSettings;
   enableFileCheckpointing?: boolean;
-  display?: {
-    showToolDetails?: boolean; // 显示工具详情 (默认: true)
-    showFullToolOutput?: boolean; // 显示完整工具输出 (默认: true)
-    maxToolOutputLength?: number; // 工具输出最大长度, 0=无限制 (默认: 0)
-    showCostInfo?: boolean; // 显示成本信息 (默认: true)
-    showConversationRounds?: boolean; // 显示对话轮次标记 (默认: true)
-  };
-  logging?: {
-    logConversationRounds?: boolean; // 记录对话轮次 (默认: true)
-    logToolCalls?: boolean; // 记录工具调用 (默认: true)
-    logToolResults?: boolean; // 记录工具结果 (默认: true)
-  };
 }
 
 /**
