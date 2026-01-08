@@ -112,6 +112,8 @@ export interface SDKQueryOptions {
   model?: string;
   /** 系统提示词 */
   systemPrompt?: string | { type: 'preset'; preset: 'claude_code'; append?: string };
+  /** 配置源列表（用于 SDK 自动加载 CLAUDE.md） */
+  settingSources?: ('user' | 'project' | 'local')[];
   /** 允许的工具列表 */
   allowedTools?: string[];
   /** 禁止的工具列表 */
@@ -663,6 +665,11 @@ export class SDKQueryExecutor {
       sdkOptions.systemPrompt = options.systemPrompt;
     }
 
+    // 配置源（用于 SDK 自动加载 CLAUDE.md）
+    if (options.settingSources) {
+      sdkOptions.settingSources = options.settingSources;
+    }
+
     if (options.allowedTools) {
       sdkOptions.allowedTools = options.allowedTools;
     }
@@ -787,111 +794,4 @@ export class SDKQueryExecutor {
 
     return textParts.join('');
   }
-}
-
-/**
- * 独立的选项映射函数
- *
- * 将 SDKQueryOptions 转换为 SDK 的 Options 格式
- * 这是一个纯函数，不依赖于 SDKQueryExecutor 实例
- *
- * @param options - 查询选项
- * @param abortController - 可选的中断控制器
- * @returns SDK 选项
- *
- * **验证: 需求 1.2, 6.1, 6.2, 6.3, 6.4, 6.5**
- */
-export function mapToSDKOptions(
-  options: SDKQueryOptions,
-  abortController?: AbortController
-): SDKOptions {
-  const sdkOptions: SDKOptions = {};
-
-  // 基本选项
-  if (options.model) {
-    sdkOptions.model = options.model;
-  }
-
-  if (options.systemPrompt) {
-    sdkOptions.systemPrompt = options.systemPrompt;
-  }
-
-  if (options.allowedTools) {
-    sdkOptions.allowedTools = options.allowedTools;
-  }
-
-  if (options.disallowedTools) {
-    sdkOptions.disallowedTools = options.disallowedTools;
-  }
-
-  if (options.cwd) {
-    sdkOptions.cwd = options.cwd;
-  }
-
-  if (options.permissionMode) {
-    sdkOptions.permissionMode = options.permissionMode;
-  }
-
-  // 自定义权限处理函数
-  if (options.canUseTool) {
-    sdkOptions.canUseTool = options.canUseTool;
-  }
-
-  // 限制选项 (Requirements 6.1, 6.2, 6.3)
-  if (options.maxTurns !== undefined) {
-    sdkOptions.maxTurns = options.maxTurns;
-  }
-
-  if (options.maxBudgetUsd !== undefined) {
-    sdkOptions.maxBudgetUsd = options.maxBudgetUsd;
-  }
-
-  if (options.maxThinkingTokens !== undefined) {
-    sdkOptions.maxThinkingTokens = options.maxThinkingTokens;
-  }
-
-  // MCP 服务器配置 (Requirement 6.5)
-  if (options.mcpServers) {
-    sdkOptions.mcpServers = options.mcpServers;
-  }
-
-  // 子代理定义
-  if (options.agents) {
-    sdkOptions.agents = options.agents;
-  }
-
-  // 钩子配置
-  if (options.hooks) {
-    sdkOptions.hooks = options.hooks;
-  }
-
-  // 沙箱配置 (Requirement 6.4)
-  if (options.sandbox) {
-    sdkOptions.sandbox = options.sandbox;
-  }
-
-  // 文件检查点
-  if (options.enableFileCheckpointing !== undefined) {
-    sdkOptions.enableFileCheckpointing = options.enableFileCheckpointing;
-  }
-
-  // 会话恢复选项 (Requirement 3.2)
-  if (options.resume) {
-    sdkOptions.resume = options.resume;
-  }
-
-  if (options.resumeSessionAt) {
-    sdkOptions.resumeSessionAt = options.resumeSessionAt;
-  }
-
-  if (options.forkSession !== undefined) {
-    sdkOptions.forkSession = options.forkSession;
-  }
-
-  // 中断控制器
-  if (abortController) {
-    sdkOptions.abortController = abortController;
-  }
-
-  return sdkOptions;
 }

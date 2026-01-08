@@ -7,7 +7,9 @@
  * 核心方法：
  * - routeMessage(): 将消息路由到 SDK 并构建查询选项
  * - buildStreamMessage(): 构建流式消息（支持图像引用）
- * - buildSystemPrompt(): 构建系统提示词（包含 CLAUDE.md 和技能）
+ * - getSystemPromptOptions(): 获取系统提示词选项（SDK 预设格式）
+ * - buildAppendPrompt(): 构建追加提示词（仅包含技能内容）
+ * - getSettingSources(): 获取配置源列表（用于 SDK 自动加载 CLAUDE.md）
  * - buildQueryOptions(): 构建完整的 SDK 查询选项
  * - getEnabledToolNames(): 获取启用的工具列表
  * - createPermissionHandler(): 创建权限处理函数
@@ -49,8 +51,10 @@ export interface Message {
 export interface QueryOptions {
   /** 模型名称 */
   model: string;
-  /** 系统提示词 */
-  systemPrompt: string;
+  /** 系统提示词（支持字符串或预设对象格式） */
+  systemPrompt: string | { type: 'preset'; preset: 'claude_code'; append?: string };
+  /** 配置源列表（用于 SDK 自动加载 CLAUDE.md） */
+  settingSources?: ('user' | 'project' | 'local')[];
   /** 允许的工具列表 */
   allowedTools: string[];
   /** 禁止的工具列表 */
@@ -154,7 +158,7 @@ const DEFAULT_MODEL = process.env.CLAUDE_REPLICA_DEFAULT_MODEL || 'sonnet';
  * 消息路由器类
  *
  * 负责：
- * - 构建系统提示词（包含 CLAUDE.md 和技能）
+ * - 构建系统提示词选项（使用 SDK 预设和 append）
  * - 构建流式消息（包含图像处理）
  * - 获取启用的工具列表
  * - 创建权限处理函数
@@ -381,56 +385,6 @@ export class MessageRouter {
     };
   }
 
-  /**
-   * 构建系统提示词
-   *
-   * 按以下顺序组合系统提示词：
-   * 1. CLAUDE.md 内容（如果存在）
-   * 2. 加载的技能内容
-   * 3. 追加的自定义提示词（如果提供）
-   *
-   * @param session - 当前会话
-   * @param appendPrompt - 追加的提示词（可选）
-   * @param replacePrompt - 完全替换的提示词（可选）
-   * @returns 构建的系统提示词
-   */
-  async buildSystemPrompt(
-    session: Session,
-    appendPrompt?: string,
-    replacePrompt?: string
-  ): Promise<string> {
-    // 如果提供了替换提示词，直接返回
-    if (replacePrompt) {
-      return replacePrompt;
-    }
-
-    const parts: string[] = [];
-
-    // 1. 加载 CLAUDE.md 内容：工作目录的长期记忆
-    const claudeMd = await this.configManager.loadClaudeMd(session.workingDirectory);
-    if (claudeMd) {
-      parts.push(claudeMd);
-    }
-
-    // 2. 添加加载的技能内容
-    const skillsPrompt = this.buildSkillsPrompt(session.context.loadedSkills);
-    if (skillsPrompt) {
-      parts.push(skillsPrompt);
-    }
-
-    // 3. 添加默认系统指令
-    const defaultInstructions = this.getDefaultSystemInstructions();
-    if (defaultInstructions) {
-      parts.push(defaultInstructions);
-    }
-
-    // 4. 追加自定义提示词
-    if (appendPrompt) {
-      parts.push(appendPrompt);
-    }
-
-    return parts.join('\n\n');
-  }
 
   /**
    * 获取启用的工具名称列表
@@ -534,6 +488,67 @@ export class MessageRouter {
   }
 
   /**
+   * 获取系统提示词选项（SDK 预设格式）
+   *
+   * 返回 SDK 预设格式的系统提示词配置，使用 claude_code 预设。
+   * 如果会话有技能加载，则构建 append 字符串追加到预设后面。
+   *
+   * @param session - 当前会话
+   * @returns 系统提示词预设对象
+   */
+  getSystemPromptOptions(session: Session): { type: 'preset'; preset: 'claude_code'; append?: string } {
+    const appendPrompt = this.buildAppendPrompt(session);
+
+    return {
+      type: 'preset',
+      preset: 'claude_code',
+      ...(appendPrompt ? { append: appendPrompt } : {}),
+    };
+  }
+
+  /**
+   * 构建追加提示词（仅包含技能内容）
+   *
+   * 与旧的 buildSystemPrompt 不同，此方法仅构建需要追加到预设的内容：
+   * - 加载的技能内容
+   * - 自定义指令（如果提供）
+   *
+   * 不再包含 CLAUDE.md（由 SDK 通过 settingSources 自动加载）
+   * 不再包含默认系统指令（已在 claude_code 预设中提供）
+   *
+   * @param session - 当前会话
+   * @returns 追加的提示词，如果没有内容则返回 undefined
+   */
+  buildAppendPrompt(session: Session): string | undefined {
+    const parts: string[] = [];
+
+    // 添加加载的技能内容
+    const skillsPrompt = this.buildSkillsPrompt(session.context.loadedSkills);
+    if (skillsPrompt) {
+      parts.push(skillsPrompt);
+    }
+
+    // 如果没有任何内容，返回 undefined
+    if (parts.length === 0) {
+      return undefined;
+    }
+
+    return parts.join('\n\n');
+  }
+
+  /**
+   * 获取配置源列表
+   *
+   * 返回用于 SDK 自动加载 CLAUDE.md 的配置源。
+   * 目前仅支持项目级 CLAUDE.md（.claude/CLAUDE.md）
+   *
+   * @returns 配置源数组
+   */
+  getSettingSources(): ('user' | 'project' | 'local')[] {
+    return ['project'];
+  }
+
+  /**
    * 构建查询选项
    *
    * 组合所有配置构建完整的 SDK Options
@@ -547,8 +562,11 @@ export class MessageRouter {
     // 合并用户和项目配置
     const mergedConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
 
-    // 构建系统提示词
-    const systemPrompt = await this.buildSystemPrompt(session);
+    // 获取系统提示词选项（SDK 预设格式）
+    const systemPrompt = this.getSystemPromptOptions(session);
+
+    // 获取配置源（用于 SDK 自动加载 CLAUDE.md）
+    const settingSources = this.getSettingSources();
 
     // 获取启用的工具
     const allowedTools = this.getEnabledToolNames(session);
@@ -563,6 +581,7 @@ export class MessageRouter {
     const options: QueryOptions = {
       model: mergedConfig.model || DEFAULT_MODEL,
       systemPrompt,
+      settingSources,
       allowedTools,
       disallowedTools: mergedConfig.disallowedTools,
       cwd: session.workingDirectory,
@@ -644,25 +663,4 @@ export class MessageRouter {
     return Array.from(tools);
   }
 
-  /**
-   * 获取默认系统指令
-   *
-   * @returns 默认系统指令
-   */
-  private getDefaultSystemInstructions(): string {
-    return `You are an intelligent code assistant that helps users with various programming tasks.
-
-You can:
-- Read and edit files
-- Execute shell commands
-- Search the codebase
-- Analyze and understand code
-- Provide programming advice and best practices
-
-Always:
-- Confirm user intent before modifying files
-- Provide clear explanations
-- Follow the project's coding standards
-- Pay attention to code security`;
-  }
 }
