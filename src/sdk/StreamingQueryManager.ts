@@ -515,6 +515,7 @@ export class StreamingQueryManager {
       const sdkResult = await this.sdkExecutor.executeStreaming(messageGenerator, {
         model: queryOptions.model,
         systemPrompt: queryOptions.systemPrompt,
+        settingSources: queryOptions.settingSources,
         allowedTools: queryOptions.allowedTools,
         disallowedTools: queryOptions.disallowedTools,
         cwd: queryOptions.cwd,

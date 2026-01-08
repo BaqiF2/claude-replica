@@ -333,7 +333,7 @@ enum SDKErrorType {
 sdkExecutor.execute(options)
   ↓
 // 2. 映射选项
-const sdkOptions = mapToSDKOptions(options)
+const sdkOptions = sdkExecutor.mapToSDKOptions(options)
   ↓
 // 3. 调用 SDK
 const generator = query({ prompt, options: sdkOptions })

@@ -12,7 +12,6 @@ export {
   classifySDKError,
   createSDKError,
   getErrorMessage,
-  mapToSDKOptions,
   // 流式输入相关类型
   TextContentBlock,
   ImageContentBlock,

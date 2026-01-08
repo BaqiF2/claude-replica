@@ -21,7 +21,6 @@ import {
   createSDKError,
   getErrorMessage,
   ERROR_MESSAGES,
-  mapToSDKOptions,
 } from '../../src/sdk/SDKQueryExecutor';
 
 // 模拟 SDK 消息类型
@@ -165,6 +164,85 @@ describe('SDKQueryExecutor', () => {
       expect(sdkOptions.disallowedTools).toEqual(['Bash']);
     });
 
+    it('应该正确映射字符串 systemPrompt（向后兼容）', () => {
+      const options: SDKQueryOptions = {
+        prompt: '你好',
+        systemPrompt: 'You are a helpful assistant.',
+      };
+
+      const sdkOptions = executor.mapToSDKOptions(options);
+
+      expect(sdkOptions.systemPrompt).toBe('You are a helpful assistant.');
+    });
+
+    it('应该正确映射 systemPrompt 预设对象', () => {
+      const options: SDKQueryOptions = {
+        prompt: '你好',
+        systemPrompt: {
+          type: 'preset',
+          preset: 'claude_code',
+        },
+      };
+
+      const sdkOptions = executor.mapToSDKOptions(options);
+
+      expect(sdkOptions.systemPrompt).toEqual({
+        type: 'preset',
+        preset: 'claude_code',
+      });
+    });
+
+    it('应该正确映射带 append 的 systemPrompt 预设对象', () => {
+      const options: SDKQueryOptions = {
+        prompt: '你好',
+        systemPrompt: {
+          type: 'preset',
+          preset: 'claude_code',
+          append: 'Custom instructions here',
+        },
+      };
+
+      const sdkOptions = executor.mapToSDKOptions(options);
+
+      expect(sdkOptions.systemPrompt).toEqual({
+        type: 'preset',
+        preset: 'claude_code',
+        append: 'Custom instructions here',
+      });
+    });
+
+    it('应该正确映射 settingSources', () => {
+      const options: SDKQueryOptions = {
+        prompt: '你好',
+        settingSources: ['project'],
+      };
+
+      const sdkOptions = executor.mapToSDKOptions(options);
+
+      expect(sdkOptions.settingSources).toEqual(['project']);
+    });
+
+    it('应该同时映射 systemPrompt 预设对象和 settingSources', () => {
+      const options: SDKQueryOptions = {
+        prompt: '你好',
+        systemPrompt: {
+          type: 'preset',
+          preset: 'claude_code',
+          append: 'Custom instructions',
+        },
+        settingSources: ['project'],
+      };
+
+      const sdkOptions = executor.mapToSDKOptions(options);
+
+      expect(sdkOptions.systemPrompt).toEqual({
+        type: 'preset',
+        preset: 'claude_code',
+        append: 'Custom instructions',
+      });
+      expect(sdkOptions.settingSources).toEqual(['project']);
+    });
+
     it('应该忽略未定义的选项', () => {
       const options: SDKQueryOptions = {
         prompt: '你好',
@@ -175,6 +253,8 @@ describe('SDKQueryExecutor', () => {
       expect(sdkOptions.model).toBeUndefined();
       expect(sdkOptions.maxTurns).toBeUndefined();
       expect(sdkOptions.mcpServers).toBeUndefined();
+      expect(sdkOptions.systemPrompt).toBeUndefined();
+      expect(sdkOptions.settingSources).toBeUndefined();
     });
   });
 
@@ -489,7 +569,8 @@ describe('SDKQueryExecutor - 属性测试', () => {
             permissionMode: permissionModeArb,
           }),
           async (options) => {
-            const sdkOptions = mapToSDKOptions(options as SDKQueryOptions);
+            const executor = new SDKQueryExecutor();
+            const sdkOptions = executor.mapToSDKOptions(options as SDKQueryOptions);
 
             // 验证所有指定的字段都被正确映射
             expect(sdkOptions.model).toBe(options.model);
@@ -512,7 +593,8 @@ describe('SDKQueryExecutor - 属性测试', () => {
             maxThinkingTokens: fc.integer({ min: 100, max: 10000 }),
           }),
           async (options) => {
-            const sdkOptions = mapToSDKOptions(options as SDKQueryOptions);
+            const executor = new SDKQueryExecutor();
+            const sdkOptions = executor.mapToSDKOptions(options as SDKQueryOptions);
 
             // 验证限制选项被正确映射 (Requirements 6.1, 6.2, 6.3)
             expect(sdkOptions.maxTurns).toBe(options.maxTurns);
@@ -533,7 +615,8 @@ describe('SDKQueryExecutor - 属性测试', () => {
             disallowedTools: fc.array(toolNameArb, { minLength: 0, maxLength: 3 }),
           }),
           async (options) => {
-            const sdkOptions = mapToSDKOptions(options as SDKQueryOptions);
+            const executor = new SDKQueryExecutor();
+            const sdkOptions = executor.mapToSDKOptions(options as SDKQueryOptions);
 
             // 验证工具列表被正确映射
             expect(sdkOptions.allowedTools).toEqual(options.allowedTools);
@@ -552,7 +635,8 @@ describe('SDKQueryExecutor - 属性测试', () => {
             sandbox: sandboxArb,
           }),
           async (options) => {
-            const sdkOptions = mapToSDKOptions(options as SDKQueryOptions);
+            const executor = new SDKQueryExecutor();
+            const sdkOptions = executor.mapToSDKOptions(options as SDKQueryOptions);
 
             // 验证沙箱配置被正确映射 (Requirement 6.4)
             expect(sdkOptions.sandbox).toEqual(options.sandbox);
@@ -574,7 +658,8 @@ describe('SDKQueryExecutor - 属性测试', () => {
             ),
           }),
           async (options) => {
-            const sdkOptions = mapToSDKOptions(options as SDKQueryOptions);
+            const executor = new SDKQueryExecutor();
+            const sdkOptions = executor.mapToSDKOptions(options as SDKQueryOptions);
 
             // 验证 MCP 服务器配置被正确映射 (Requirement 6.5)
             expect(sdkOptions.mcpServers).toEqual(options.mcpServers);
@@ -601,7 +686,8 @@ describe('SDKQueryExecutor - 属性测试', () => {
             enableFileCheckpointing: fc.boolean(),
           }),
           async (options) => {
-            const sdkOptions = mapToSDKOptions(options as SDKQueryOptions);
+            const executor = new SDKQueryExecutor();
+            const sdkOptions = executor.mapToSDKOptions(options as SDKQueryOptions);
 
             // 验证所有字段都被正确映射
             expect(sdkOptions.model).toBe(options.model);
@@ -627,7 +713,8 @@ describe('SDKQueryExecutor - 属性测试', () => {
             prompt: fc.string({ minLength: 1, maxLength: 100 }),
           }),
           async (options) => {
-            const sdkOptions = mapToSDKOptions(options as SDKQueryOptions);
+            const executor = new SDKQueryExecutor();
+            const sdkOptions = executor.mapToSDKOptions(options as SDKQueryOptions);
 
             // 验证未指定的字段不存在于结果中
             expect(sdkOptions.model).toBeUndefined();
@@ -655,7 +742,9 @@ describe('SDKQueryExecutor - 属性测试', () => {
           }),
           async (options) => {
             const abortController = new AbortController();
-            const sdkOptions = mapToSDKOptions(options as SDKQueryOptions, abortController);
+            const executorWithAbort = new SDKQueryExecutor();
+            (executorWithAbort as any).abortController = abortController;
+            const sdkOptions = executorWithAbort.mapToSDKOptions(options as SDKQueryOptions);
 
             // 验证 AbortController 被正确传递
             expect(sdkOptions.abortController).toBe(abortController);

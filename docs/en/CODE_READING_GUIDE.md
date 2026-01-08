@@ -334,7 +334,7 @@ enum SDKErrorType {
 sdkExecutor.execute(options)
   ↓
 // 2. Map options
-const sdkOptions = mapToSDKOptions(options)
+const sdkOptions = sdkExecutor.mapToSDKOptions(options)
   ↓
 // 3. Call SDK
 const generator = query({ prompt, options: sdkOptions })

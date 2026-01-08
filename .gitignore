@@ -36,3 +36,5 @@ jest-results.json
 
 # Session data
 .claude-replica/
+.claude
+.codex
