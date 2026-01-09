@@ -46,6 +46,7 @@ describe('ToolRegistry', () => {
         'Bash', 'BashOutput', 'KillBash',
         'Grep', 'Glob',
         'Task',
+        'Skill',
         'AskUserQuestion',
         'WebFetch', 'WebSearch',
         'TodoWrite',
@@ -303,6 +304,17 @@ describe('ToolRegistry', () => {
       const metadata = registry.getToolMetadata('InvalidTool');
 
       expect(metadata).toBeUndefined();
+    });
+  });
+
+  describe('Skill 工具注册', () => {
+    it('应注册 Skill 工具并设置正确元数据', () => {
+      const metadata = registry.getToolMetadata('Skill');
+
+      expect(metadata).toBeDefined();
+      expect(metadata?.name).toBe('Skill');
+      expect(metadata?.category).toBe(ToolCategory.AGENT);
+      expect(metadata?.dangerous).toBe(false);
     });
   });
 });

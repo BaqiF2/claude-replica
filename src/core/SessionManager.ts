@@ -60,18 +60,6 @@ export interface Message {
 }
 
 /**
- * 技能接口
- */
-export interface Skill {
-  name: string;
-  description: string;
-  triggers?: string[];
-  tools?: string[];
-  content: string;
-  metadata: Record<string, unknown>;
-}
-
-/**
  * 代理接口
  */
 export interface Agent {
@@ -89,7 +77,6 @@ export interface SessionContext {
   workingDirectory: string;
   projectConfig: ProjectConfig;
   userConfig: UserConfig;
-  loadedSkills: Skill[];
   activeAgents: Agent[];
 }
 
@@ -200,7 +187,6 @@ export class SessionManager {
         workingDirectory: workingDir,
         projectConfig,
         userConfig,
-        loadedSkills: [],
         activeAgents: [],
       },
       expired: false,
@@ -308,7 +294,6 @@ export class SessionManager {
         workingDirectory: metadata.workingDirectory,
         projectConfig: {},
         userConfig: {},
-        loadedSkills: [],
         activeAgents: [],
       };
       try {

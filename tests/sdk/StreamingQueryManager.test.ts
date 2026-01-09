@@ -38,7 +38,6 @@ function createMockSession(workingDirectory: string = '/test/project'): Session 
       workingDirectory,
       projectConfig: {},
       userConfig: {},
-      loadedSkills: [],
       activeAgents: [],
     },
     expired: false,
@@ -599,4 +598,3 @@ describe('StreamingQueryManager - 属性测试', () => {
     });
   });
 });
-

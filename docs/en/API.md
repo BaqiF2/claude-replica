@@ -17,7 +17,6 @@ This document provides detailed programming API documentation for Claude Replica
   - [ToolRegistry](#toolregistry)
   - [PermissionManager](#permissionmanager)
 - [Extension API](#extension-api)
-  - [SkillManager](#skillmanager)
   - [CommandManager](#commandmanager)
   - [AgentRegistry](#agentregistry)
   - [HookManager](#hookmanager)
@@ -121,7 +120,6 @@ interface SessionContext {
   workingDirectory: string;
   projectConfig: ProjectConfig;
   userConfig: UserConfig;
-  loadedSkills: Skill[];
   activeAgents: Agent[];
 }
 
@@ -362,44 +360,6 @@ type CanUseTool = (params: {
 ```
 
 ## Extension API
-
-### SkillManager
-
-Skill manager, loading and matching skills.
-
-```typescript
-import { SkillManager, Skill } from 'claude-replica';
-
-const skillManager = new SkillManager();
-
-// Load skills from directory
-await skillManager.loadSkills(directories: string[]): Promise<Skill[]>;
-
-// Match skills based on context
-const matchedSkills = skillManager.matchSkills(context: string): Skill[];
-
-// Apply skills to system prompt
-const prompt = skillManager.applySkills(
-  skills: Skill[],
-  baseSystemPrompt: string
-): string;
-
-// Get skill-related tool list
-const tools = skillManager.getSkillTools(skills: Skill[]): string[];
-```
-
-#### Skill Interface
-
-```typescript
-interface Skill {
-  name: string;
-  description: string;
-  triggers?: string[];
-  tools?: string[];
-  content: string;
-  metadata: Record<string, unknown>;
-}
-```
 
 ### CommandManager
 
@@ -698,9 +658,19 @@ interface Plugin {
   dependencies?: Record<string, string>;
   commands?: Command[];
   agents?: Agent[];
-  skills?: Skill[];
+  skills?: PluginSkill[];
   hooks?: HookConfig;
   mcpServers?: MCPServerConfigMap;
+}
+
+interface PluginSkill {
+  name: string;
+  description: string;
+  triggers?: string[];
+  tools?: string[];
+  content: string;
+  metadata?: Record<string, unknown>;
+  sourcePath: string;
 }
 
 interface PluginInstallResult {
@@ -830,7 +800,6 @@ import {
   CanUseTool,
 
   // Extension types
-  Skill,
   Command,
   Agent,
   AgentDefinition,

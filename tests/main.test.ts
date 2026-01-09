@@ -5,6 +5,10 @@
  * **验证: 需求 1.1, 1.2, 1.3, 6.3, 6.4, 20.1, 20.2, 20.3, 20.4, 20.5, 20.6**
  */
 
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as os from 'os';
+
 // 模拟 SDK 模块 - 返回正确的 AsyncGenerator
 jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: jest.fn().mockImplementation(() => {
@@ -41,7 +45,45 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
   }),
 }));
 
-import { main, Application } from '../src/main';
+let main: typeof import('../src/main').main;
+let Application: typeof import('../src/main').Application;
+let tempHome: string;
+let originalHome: string | undefined;
+let originalUserProfile: string | undefined;
+beforeAll(async () => {
+  originalHome = process.env.HOME;
+  originalUserProfile = process.env.USERPROFILE;
+  tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-replica-home-'));
+  process.env.HOME = tempHome;
+  process.env.USERPROFILE = tempHome;
+
+  jest.resetModules();
+  jest.doMock('os', () => {
+    const actual = jest.requireActual<typeof os>('os');
+    return {
+      ...actual,
+      homedir: () => tempHome,
+    };
+  });
+  ({ main, Application } = await import('../src/main'));
+});
+
+afterAll(async () => {
+  if (originalHome === undefined) {
+    delete process.env.HOME;
+  } else {
+    process.env.HOME = originalHome;
+  }
+
+  if (originalUserProfile === undefined) {
+    delete process.env.USERPROFILE;
+  } else {
+    process.env.USERPROFILE = originalUserProfile;
+  }
+
+  await fs.rm(tempHome, { recursive: true, force: true });
+  jest.dontMock('os');
+});
 
 describe('main 函数', () => {
   describe('--help 选项', () => {

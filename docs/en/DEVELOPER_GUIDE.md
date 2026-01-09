@@ -134,9 +134,6 @@ claude-replica/
 │   ├── sandbox/           # Sandbox management
 │   │   ├── SandboxManager.ts
 │   │   └── index.ts
-│   ├── skills/            # Skill manager
-│   │   ├── SkillManager.ts
-│   │   └── index.ts
 │   ├── tools/             # Tool registry
 │   │   ├── ToolRegistry.ts
 │   │   └── index.ts
@@ -162,7 +159,6 @@ claude-replica/
 │   ├── plugins/
 │   ├── rewind/
 │   ├── sandbox/
-│   ├── skills/
 │   ├── tools/
 │   ├── ui/
 │   └── utils/
@@ -191,7 +187,7 @@ claude-replica/
                             ↓
 ┌──────────────┬──────────────┬──────────────┬────────────────┐
 │  Tool System  │ Extension System │ MCP Integration │ Configuration │
-│ ToolRegistry  │ SkillManager   │ MCPManager    │ ConfigManager  │
+│ ToolRegistry  │ SDK Skills     │ MCPManager    │ ConfigManager  │
 │ Permission   │ CommandMgr     │              │ SDKConfigLoader│
 │ Manager      │ AgentRegistry  │              │                │
 │              │ HookManager    │              │                │
@@ -406,6 +402,25 @@ Tools are built-in supported by SDK, but custom tools can be added via MCP.
 1. Create MCP server
 2. Configure in `.mcp.json`
 3. Tools automatically register
+
+### SDK Skills
+
+Skills are auto-discovered by the Claude Agent SDK; no custom SkillManager is needed.
+
+- Project-level auto-discovery only
+- Location: `.claude/skills/<skill-name>/SKILL.md`
+- frontmatter must include `description`
+
+Example:
+
+```markdown
+---
+name: agent-sdk-dev
+description: SDK development guide
+---
+
+Skill content...
+```
 
 ### Create Plugin
 

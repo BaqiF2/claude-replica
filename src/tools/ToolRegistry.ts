@@ -143,6 +143,12 @@ export class ToolRegistry {
       description: '委托任务给子代理',
       dangerous: false,
     });
+    this.registerTool({
+      name: 'Skill',
+      category: ToolCategory.AGENT,
+      description: '执行 Agent Skill',
+      dangerous: false,
+    });
 
     // 用户交互工具
     this.registerTool({

@@ -77,7 +77,6 @@ function createMockSession(workingDirectory: string): Session {
       workingDirectory,
       projectConfig: {},
       userConfig: {},
-      loadedSkills: [],
       activeAgents: [],
     },
     expired: false,
@@ -386,4 +385,3 @@ describe('流式输入集成测试', () => {
     });
   });
 });
-

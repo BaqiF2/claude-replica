@@ -13,10 +13,16 @@ import {
 describe('CollaborationManager', () => {
   let tempDir: string;
   let manager: CollaborationManager;
+  let originalHome: string | undefined;
+  let originalUserProfile: string | undefined;
 
   beforeEach(async () => {
     // 创建临时目录
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'collab-test-'));
+    originalHome = process.env.HOME;
+    originalUserProfile = process.env.USERPROFILE;
+    process.env.HOME = tempDir;
+    process.env.USERPROFILE = tempDir;
     manager = new CollaborationManager(tempDir);
 
     // 创建项目配置目录
@@ -26,6 +32,16 @@ describe('CollaborationManager', () => {
   afterEach(async () => {
     // 清理临时目录
     await fs.rm(tempDir, { recursive: true, force: true });
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
+    if (originalUserProfile === undefined) {
+      delete process.env.USERPROFILE;
+    } else {
+      process.env.USERPROFILE = originalUserProfile;
+    }
   });
 
   describe('配置共享功能', () => {

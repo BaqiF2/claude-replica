@@ -20,7 +20,6 @@ import { promisify } from 'util';
 
 import { Command } from '../commands/CommandManager';
 import { Agent } from '../agents/AgentRegistry';
-import { Skill } from '../skills/SkillManager';
 import { HookConfig } from '../hooks/HookManager';
 import { MCPServerConfigMap } from '../mcp/MCPManager';
 
@@ -45,6 +44,26 @@ export interface PluginMetadata {
 }
 
 /**
+ * 插件技能接口
+ */
+export interface PluginSkill {
+  /** 技能名称 */
+  name: string;
+  /** 技能描述 */
+  description: string;
+  /** 触发器 */
+  triggers?: string[];
+  /** 工具列表 */
+  tools?: string[];
+  /** 技能内容 */
+  content: string;
+  /** 额外元数据 */
+  metadata?: Record<string, unknown>;
+  /** 源文件路径 */
+  sourcePath: string;
+}
+
+/**
  * 插件接口
  */
 export interface Plugin extends PluginMetadata {
@@ -59,7 +78,7 @@ export interface Plugin extends PluginMetadata {
   /** 代理列表 */
   agents?: Agent[];
   /** 技能列表 */
-  skills?: Skill[];
+  skills?: PluginSkill[];
   /** 钩子配置 */
   hooks?: HookConfig;
   /** MCP 服务器配置 */
@@ -75,7 +94,7 @@ export interface PluginContent {
   /** 代理列表 */
   agents: Agent[];
   /** 技能列表 */
-  skills: Skill[];
+  skills: PluginSkill[];
   /** 钩子配置 */
   hooks: HookConfig;
   /** MCP 服务器配置 */
@@ -645,9 +664,17 @@ export class PluginManager {
 
     const name = path.basename(filePath, '.md');
 
+    const rawName = frontmatter.name ?? name;
+    const rawDescription = frontmatter.description;
+
     return {
-      name: (frontmatter.name as string) ?? name,
-      description: (frontmatter.description as string) ?? '',
+      name: typeof rawName === 'string' ? rawName : String(rawName),
+      description:
+        typeof rawDescription === 'string'
+          ? rawDescription
+          : rawDescription == null
+            ? ''
+            : String(rawDescription),
       argumentHint: frontmatter.argumentHint as string | undefined,
       allowedTools: frontmatter.allowedTools as string[] | undefined,
       template: body.trim(),
@@ -713,8 +740,15 @@ export class PluginManager {
       return null;
     }
 
+    const rawDescription = frontmatter.description;
+
     return {
-      description: (frontmatter.description as string) ?? '',
+      description:
+        typeof rawDescription === 'string'
+          ? rawDescription
+          : rawDescription == null
+            ? ''
+            : String(rawDescription),
       model: frontmatter.model as 'sonnet' | 'opus' | 'haiku' | 'inherit' | undefined,
       prompt: body.trim(),
       tools: frontmatter.tools as string[] | undefined,
@@ -728,8 +762,8 @@ export class PluginManager {
    * @param directory 技能目录
    * @returns 技能列表
    */
-  private async loadSkills(directory: string): Promise<Skill[]> {
-    const skills: Skill[] = [];
+  private async loadSkills(directory: string): Promise<PluginSkill[]> {
+    const skills: PluginSkill[] = [];
 
     try {
       const entries = await fs.readdir(directory, { withFileTypes: true });
@@ -772,7 +806,7 @@ export class PluginManager {
    * @param filePath 文件路径
    * @returns 技能对象或 null
    */
-  private async parseSkillFile(filePath: string): Promise<Skill | null> {
+  private async parseSkillFile(filePath: string): Promise<PluginSkill | null> {
     const content = await fs.readFile(filePath, 'utf-8');
     const { frontmatter, body } = this.parseFrontmatter(content);
 
@@ -782,9 +816,17 @@ export class PluginManager {
 
     const name = this.extractSkillName(filePath);
 
+    const rawName = frontmatter.name ?? name;
+    const rawDescription = frontmatter.description;
+
     return {
-      name: (frontmatter.name as string) ?? name,
-      description: (frontmatter.description as string) ?? '',
+      name: typeof rawName === 'string' ? rawName : String(rawName),
+      description:
+        typeof rawDescription === 'string'
+          ? rawDescription
+          : rawDescription == null
+            ? ''
+            : String(rawDescription),
       triggers: frontmatter.triggers as string[] | undefined,
       tools: frontmatter.tools as string[] | undefined,
       content: body.trim(),
@@ -924,6 +966,10 @@ export class PluginManager {
     if (value === 'true') return true;
     if (value === 'false') return false;
 
+    if (/^-?0\d+/.test(value)) {
+      return value;
+    }
+
     if (/^-?\d+(\.\d+)?$/.test(value)) {
       const num = Number(value);
       if (!isNaN(num)) return num;
@@ -1049,8 +1095,8 @@ export class PluginManager {
    *
    * @returns 技能列表
    */
-  getAllSkills(): Skill[] {
-    const skills: Skill[] = [];
+  getAllSkills(): PluginSkill[] {
+    const skills: PluginSkill[] = [];
     const pluginArray = Array.from(this.plugins.values());
     for (const plugin of pluginArray) {
       if (plugin.skills) {

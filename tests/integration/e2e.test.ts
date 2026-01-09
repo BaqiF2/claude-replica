@@ -50,10 +50,8 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { main, Application } from '../../src/main';
 import { SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
-import { SkillManager } from '../../src/skills/SkillManager';
 import { CommandManager } from '../../src/commands/CommandManager';
 import { AgentRegistry } from '../../src/agents/AgentRegistry';
 import { HookManager } from '../../src/hooks/HookManager';
@@ -64,11 +62,32 @@ import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { OutputFormatter } from '../../src/output/OutputFormatter';
 
 describe('端到端集成测试', () => {
+  let main: typeof import('../../src/main').main;
+  let Application: typeof import('../../src/main').Application;
+  let tempHome: string;
+  let originalHome: string | undefined;
+  let originalUserProfile: string | undefined;
   let testDir: string;
   let sessionsDir: string;
   let configDir: string;
 
   beforeAll(async () => {
+    originalHome = process.env.HOME;
+    originalUserProfile = process.env.USERPROFILE;
+    tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-replica-home-'));
+    process.env.HOME = tempHome;
+    process.env.USERPROFILE = tempHome;
+
+    jest.resetModules();
+    jest.doMock('os', () => {
+      const actual = jest.requireActual<typeof os>('os');
+      return {
+        ...actual,
+        homedir: () => tempHome,
+      };
+    });
+    ({ main, Application } = await import('../../src/main'));
+
     // 创建测试目录
     testDir = path.join(os.tmpdir(), `claude-replica-e2e-${Date.now()}`);
     sessionsDir = path.join(testDir, 'sessions');
@@ -83,9 +102,24 @@ describe('端到端集成测试', () => {
     // 清理测试目录
     try {
       await fs.rm(testDir, { recursive: true, force: true });
+      await fs.rm(tempHome, { recursive: true, force: true });
     } catch {
       // 忽略清理错误
     }
+
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
+
+    if (originalUserProfile === undefined) {
+      delete process.env.USERPROFILE;
+    } else {
+      process.env.USERPROFILE = originalUserProfile;
+    }
+
+    jest.dontMock('os');
   });
 
   describe('非交互式模式工作流', () => {
@@ -273,10 +307,12 @@ describe('端到端集成测试', () => {
   describe('会话恢复工作流', () => {
     let sessionManager: SessionManager;
     let testSessionId: string;
-    // 使用默认的会话目录，与 Application 一致
-    const defaultSessionsDir = path.join(os.homedir(), '.claude-replica', 'sessions');
+    // 使用与 Application 一致的会话目录（基于测试用的 HOME）
+    let defaultSessionsDir: string;
 
     beforeAll(async () => {
+      const baseHome = tempHome || testDir;
+      defaultSessionsDir = path.join(baseHome, '.claude-replica', 'sessions');
       sessionManager = new SessionManager(defaultSessionsDir);
       
       // 创建一个测试会话
@@ -406,43 +442,15 @@ describe('端到端集成测试', () => {
   });
 
   describe('扩展系统集成工作流', () => {
-    let skillsDir: string;
     let commandsDir: string;
     let agentsDir: string;
 
     beforeAll(async () => {
-      skillsDir = path.join(configDir, 'skills');
       commandsDir = path.join(configDir, 'commands');
       agentsDir = path.join(configDir, 'agents');
       
-      await fs.mkdir(skillsDir, { recursive: true });
       await fs.mkdir(commandsDir, { recursive: true });
       await fs.mkdir(agentsDir, { recursive: true });
-    });
-
-    it('应该加载技能文件', async () => {
-      // 创建测试技能文件
-      const skillContent = `---
-name: test-skill
-description: 测试技能
-triggers:
-  - test
-  - 测试
-tools:
-  - Read
-  - Write
----
-
-这是一个测试技能的内容。
-`;
-      await fs.writeFile(path.join(skillsDir, 'test-skill.skill.md'), skillContent);
-      
-      const skillManager = new SkillManager();
-      await skillManager.loadSkills([skillsDir]);
-      
-      const skills = skillManager.getAllSkills();
-      expect(skills.length).toBeGreaterThan(0);
-      expect(skills.some((s: { name: string }) => s.name === 'test-skill')).toBe(true);
     });
 
     it('应该加载命令文件', async () => {

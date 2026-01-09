@@ -5,7 +5,7 @@
  * - query() 函数的调用（使用对象参数）
  * - Options 接口的构建
  * - 系统提示词选项的构建（SDK 预设格式）
- * - 追加提示词的构建（仅包含技能内容）
+ * - 追加提示词的构建（无额外提示词）
  * - 配置源列表的获取（用于 SDK 自动加载 CLAUDE.md）
  *
  * 需求: 1.4, 18.5
@@ -23,7 +23,6 @@ function createMockSession(overrides: Partial<Session> = {}): Session {
     workingDirectory: '/test/project',
     projectConfig: {},
     userConfig: {},
-    loadedSkills: [],
     activeAgents: [],
   };
 
@@ -106,42 +105,10 @@ describe('MessageRouter', () => {
         preset: 'claude_code',
       });
     });
-
-    it('应该返回带 append 的预设（有技能场景）', () => {
-      const router = new MessageRouter({
-        configManager,
-        toolRegistry,
-        permissionManager,
-      });
-
-      const session = createMockSession({
-        context: {
-          workingDirectory: '/test/project',
-          projectConfig: {},
-          userConfig: {},
-          loadedSkills: [
-            {
-              name: 'typescript-expert',
-              description: 'TypeScript 专家技能',
-              content: '你是 TypeScript 专家，擅长类型系统和最佳实践。',
-              metadata: {},
-            },
-          ],
-          activeAgents: [],
-        },
-      });
-
-      const systemPrompt = router.getSystemPromptOptions(session);
-
-      expect(systemPrompt).toHaveProperty('type', 'preset');
-      expect(systemPrompt).toHaveProperty('preset', 'claude_code');
-      expect(systemPrompt).toHaveProperty('append');
-      expect(typeof systemPrompt.append).toBe('string');
-    });
   });
 
   describe('buildAppendPrompt', () => {
-    it('应该返回 undefined（无技能场景）', () => {
+    it('应该返回 undefined', () => {
       const router = new MessageRouter({
         configManager,
         toolRegistry,
@@ -152,110 +119,6 @@ describe('MessageRouter', () => {
       const appendPrompt = router.buildAppendPrompt(session);
 
       expect(appendPrompt).toBeUndefined();
-    });
-
-    it('应该返回技能内容（有技能场景）', () => {
-      const router = new MessageRouter({
-        configManager,
-        toolRegistry,
-        permissionManager,
-      });
-
-      const session = createMockSession({
-        context: {
-          workingDirectory: '/test/project',
-          projectConfig: {},
-          userConfig: {},
-          loadedSkills: [
-            {
-              name: 'typescript-expert',
-              description: 'TypeScript 专家技能',
-              content: '你是 TypeScript 专家，擅长类型系统和最佳实践。',
-              metadata: {},
-            },
-          ],
-          activeAgents: [],
-        },
-      });
-
-      const appendPrompt = router.buildAppendPrompt(session);
-
-      expect(appendPrompt).toBeDefined();
-      expect(typeof appendPrompt).toBe('string');
-      expect(appendPrompt).toContain('typescript-expert');
-      expect(appendPrompt).toContain('TypeScript 专家');
-      expect(appendPrompt).toContain('你是 TypeScript 专家，擅长类型系统和最佳实践。');
-    });
-
-    it('应该返回多个技能内容', () => {
-      const router = new MessageRouter({
-        configManager,
-        toolRegistry,
-        permissionManager,
-      });
-
-      const session = createMockSession({
-        context: {
-          workingDirectory: '/test/project',
-          projectConfig: {},
-          userConfig: {},
-          loadedSkills: [
-            {
-              name: 'skill-1',
-              description: '技能 1',
-              content: '技能 1 的内容',
-              metadata: {},
-            },
-            {
-              name: 'skill-2',
-              description: '技能 2',
-              content: '技能 2 的内容',
-              metadata: {},
-            },
-          ],
-          activeAgents: [],
-        },
-      });
-
-      const appendPrompt = router.buildAppendPrompt(session);
-
-      expect(appendPrompt).toBeDefined();
-      expect(appendPrompt).toContain('skill-1');
-      expect(appendPrompt).toContain('skill-2');
-      expect(appendPrompt).toContain('技能 1 的内容');
-      expect(appendPrompt).toContain('技能 2 的内容');
-    });
-
-    it('不应该包含 CLAUDE.md 内容', () => {
-      const router = new MessageRouter({
-        configManager,
-        toolRegistry,
-        permissionManager,
-      });
-
-      const session = createMockSession({
-        context: {
-          workingDirectory: '/test/project',
-          projectConfig: {},
-          userConfig: {},
-          loadedSkills: [
-            {
-              name: 'test-skill',
-              description: '测试技能',
-              content: '测试内容',
-              metadata: {},
-            },
-          ],
-          activeAgents: [],
-        },
-      });
-
-      const appendPrompt = router.buildAppendPrompt(session);
-
-      // 验证不包含 CLAUDE.md 相关标记
-      // buildAppendPrompt 不应调用 loadClaudeMd
-      expect(appendPrompt).toBeDefined();
-      expect(appendPrompt).not.toContain('CLAUDE.md');
     });
   });
 
@@ -306,14 +169,13 @@ describe('MessageRouter', () => {
             allowedTools: ['Read', 'Grep'],
           },
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
 
       const tools = router.getEnabledToolNames(session);
 
-      expect(tools).toEqual(['Read', 'Grep']);
+      expect(tools).toEqual(['Read', 'Grep', 'Skill']);
     });
 
     it('应该根据配置的 disallowedTools 过滤工具', () => {
@@ -330,7 +192,6 @@ describe('MessageRouter', () => {
             disallowedTools: ['WebFetch', 'WebSearch'],
           },
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -341,35 +202,17 @@ describe('MessageRouter', () => {
       expect(tools).not.toContain('WebSearch');
     });
 
-    it('应该包含技能所需的工具', () => {
+    it('应该默认包含 Skill 工具', () => {
       const router = new MessageRouter({
         configManager,
         toolRegistry,
         permissionManager,
       });
 
-      const session = createMockSession({
-        context: {
-          workingDirectory: '/test/project',
-          projectConfig: {},
-          userConfig: {},
-          loadedSkills: [
-            {
-              name: 'web-skill',
-              description: '网络技能',
-              tools: ['WebFetch', 'WebSearch'],
-              content: '你可以访问网络。',
-              metadata: {},
-            },
-          ],
-          activeAgents: [],
-        },
-      });
-
+      const session = createMockSession();
       const tools = router.getEnabledToolNames(session);
 
-      expect(tools).toContain('WebFetch');
-      expect(tools).toContain('WebSearch');
+      expect(tools).toContain('Skill');
     });
   });
 
@@ -473,7 +316,6 @@ describe('MessageRouter', () => {
           workingDirectory: '/test/project',
           projectConfig: {},
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [
             {
               name: 'reviewer',
@@ -507,7 +349,6 @@ describe('MessageRouter', () => {
           workingDirectory: '/test/project',
           projectConfig: {},
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [
             {
               name: 'reviewer',
@@ -548,7 +389,6 @@ describe('MessageRouter', () => {
             model: 'claude-sonnet-4-5-20250929',
           },
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -591,38 +431,6 @@ describe('MessageRouter', () => {
       });
     });
 
-    it('应该使用 SDK 预设格式的 systemPrompt（有技能）', async () => {
-      const router = new MessageRouter({
-        configManager,
-        toolRegistry,
-        permissionManager,
-      });
-
-      const session = createMockSession({
-        context: {
-          workingDirectory: '/test/project',
-          projectConfig: {},
-          userConfig: {},
-          loadedSkills: [
-            {
-              name: 'test-skill',
-              description: '测试技能',
-              content: '测试内容',
-              metadata: {},
-            },
-          ],
-          activeAgents: [],
-        },
-      });
-
-      const options = await router.buildQueryOptions(session);
-
-      expect(options.systemPrompt).toHaveProperty('type', 'preset');
-      expect(options.systemPrompt).toHaveProperty('preset', 'claude_code');
-      expect(options.systemPrompt).toHaveProperty('append');
-      expect(typeof (options.systemPrompt as any).append).toBe('string');
-    });
-
     it('应该包含 settingSources 字段', async () => {
       const router = new MessageRouter({
         configManager,
@@ -634,48 +442,6 @@ describe('MessageRouter', () => {
       const options = await router.buildQueryOptions(session);
 
       expect(options.settingSources).toEqual(['project']);
-    });
-
-    it('应该正确组合 systemPrompt 对象和 settingSources', async () => {
-      const router = new MessageRouter({
-        configManager,
-        toolRegistry,
-        permissionManager,
-      });
-
-      const session = createMockSession({
-        context: {
-          workingDirectory: '/test/project',
-          projectConfig: {},
-          userConfig: {},
-          loadedSkills: [
-            {
-              name: 'skill-1',
-              description: '技能 1',
-              content: '技能内容',
-              metadata: {},
-            },
-          ],
-          activeAgents: [],
-        },
-      });
-
-      const options = await router.buildQueryOptions(session);
-
-      // 验证 systemPrompt 预设格式
-      expect(options.systemPrompt).toEqual({
-        type: 'preset',
-        preset: 'claude_code',
-        append: expect.any(String),
-      });
-
-      // 验证 settingSources
-      expect(options.settingSources).toEqual(['project']);
-
-      // 验证 append 包含技能内容但不包含 CLAUDE.md
-      const systemPrompt = options.systemPrompt as any;
-      expect(systemPrompt.append).toContain('skill-1');
-      expect(systemPrompt.append).not.toContain('CLAUDE.md');
     });
 
     it('应该包含权限模式', async () => {
@@ -692,7 +458,6 @@ describe('MessageRouter', () => {
             permissionMode: 'acceptEdits',
           },
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -721,7 +486,6 @@ describe('MessageRouter', () => {
             },
           },
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -744,7 +508,6 @@ describe('MessageRouter', () => {
           workingDirectory: '/test/project',
           projectConfig: {},
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [
             {
               name: 'reviewer',
@@ -821,7 +584,6 @@ describe('MessageRouter', () => {
           workingDirectory: '/custom/project/path',
           projectConfig: {},
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -886,7 +648,6 @@ describe('MessageRouter - 流式消息构建', () => {
           workingDirectory: tempDir,
           projectConfig: {},
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -929,7 +690,6 @@ describe('MessageRouter - 流式消息构建', () => {
           workingDirectory: tempDir,
           projectConfig: {},
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -962,7 +722,6 @@ describe('MessageRouter - 流式消息构建', () => {
           workingDirectory: tempDir,
           projectConfig: {},
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -1007,7 +766,6 @@ describe('MessageRouter - 流式消息构建', () => {
           workingDirectory: tempDir,
           projectConfig: {},
           userConfig: {},
-          loadedSkills: [],
           activeAgents: [],
         },
       });
@@ -1110,7 +868,6 @@ describe('MessageRouter - Options 接口构建', () => {
           },
         },
         userConfig: {},
-        loadedSkills: [],
         activeAgents: [],
       },
     });
@@ -1137,7 +894,6 @@ describe('MessageRouter - Options 接口构建', () => {
           maxBudgetUsd: 10.0,
         },
         userConfig: {},
-        loadedSkills: [],
         activeAgents: [],
       },
     });

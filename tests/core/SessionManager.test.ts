@@ -26,18 +26,6 @@ const arbMessage = fc.record({
 });
 
 /**
- * 生成随机技能的 Arbitrary
- */
-const arbSkill = fc.record({
-  name: fc.string({ minLength: 1, maxLength: 50 }),
-  description: fc.string({ minLength: 1, maxLength: 200 }),
-  triggers: fc.option(fc.array(fc.string({ minLength: 1, maxLength: 50 }), { maxLength: 5 }), { nil: undefined }),
-  tools: fc.option(fc.array(fc.string({ minLength: 1, maxLength: 20 }), { maxLength: 5 }), { nil: undefined }),
-  content: fc.string({ minLength: 1, maxLength: 1000 }),
-  metadata: fc.dictionary(fc.string({ minLength: 1, maxLength: 20 }), fc.string({ minLength: 1, maxLength: 100 })),
-});
-
-/**
  * 生成随机代理的 Arbitrary
  */
 const arbAgent = fc.record({
@@ -60,7 +48,6 @@ const arbSessionContext = fc.record({
   userConfig: fc.record({
     model: fc.option(fc.string({ minLength: 1, maxLength: 50 }), { nil: undefined }),
   }),
-  loadedSkills: fc.array(arbSkill, { maxLength: 3 }),
   activeAgents: fc.array(arbAgent, { maxLength: 3 }),
 });
 
@@ -297,7 +284,6 @@ describe('属性测试: 会话恢复的完整性', () => {
 
           // 更新上下文
           await sessionManager.updateContext(session, {
-            loadedSkills: context.loadedSkills,
             activeAgents: context.activeAgents,
           });
 
@@ -325,7 +311,6 @@ describe('属性测试: 会话恢复的完整性', () => {
 
           // 验证上下文一致
           expect(loadedSession!.context.workingDirectory).toBe(context.workingDirectory);
-          expect(loadedSession!.context.loadedSkills.length).toBe(context.loadedSkills.length);
           expect(loadedSession!.context.activeAgents.length).toBe(context.activeAgents.length);
 
           // 清理

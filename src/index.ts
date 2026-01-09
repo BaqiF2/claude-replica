@@ -8,7 +8,7 @@
  * - 工具组件：ToolRegistry
  * - 权限组件：PermissionManager, PermissionConfig 等
  * - 配置组件：ConfigManager, SDKConfigLoader 等
- * - 扩展组件：SkillManager, CommandManager, AgentRegistry 等
+ * - 扩展组件：CommandManager, AgentRegistry 等
  * - 其他组件：HookManager, MCPManager, OutputFormatter 等
  */
 
@@ -32,7 +32,6 @@ export {
   SessionContext,
   Message,
   ContentBlock,
-  Skill as SessionSkill,
   Agent as SessionAgent,
 } from './core/SessionManager';
 export {
@@ -71,9 +70,6 @@ export {
   AgentDefinition,
   SandboxSettings,
 } from './config';
-
-// 技能组件
-export { SkillManager, Skill, SkillManagerConfig } from './skills';
 
 // 命令组件
 export { CommandManager, Command, CommandManagerConfig, CommandExecutionResult } from './commands';

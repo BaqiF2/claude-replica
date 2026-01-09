@@ -93,8 +93,8 @@ const SENSITIVE_FILE_PATTERNS = [
  */
 const DEFAULT_GITIGNORE_ENTRIES = [
   '# Claude Replica 本地配置',
-  '.claude/settings.local.json',
-  '.claude/auth.json',
+  '.claude-replica/settings.local.json',
+  '.claude-replica/auth.json',
   '.claude-replica/sessions/',
   '.claude-replica/logs/',
   '.claude-replica/cache/',
@@ -122,8 +122,9 @@ export class CollaborationManager {
 
   constructor(projectDir: string) {
     this.projectDir = projectDir;
-    this.userConfigDir = path.join(os.homedir(), '.claude');
-    this.projectConfigDir = path.join(projectDir, '.claude');
+    const homeDir = process.env.HOME || process.env.USERPROFILE || os.homedir();
+    this.userConfigDir = path.join(homeDir, '.claude-replica');
+    this.projectConfigDir = path.join(projectDir, '.claude-replica');
   }
 
   // ==================== 配置共享功能 ====================

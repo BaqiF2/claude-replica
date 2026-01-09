@@ -134,9 +134,6 @@ claude-replica/
 │   ├── sandbox/           # 沙箱管理
 │   │   ├── SandboxManager.ts
 │   │   └── index.ts
-│   ├── skills/            # 技能管理器
-│   │   ├── SkillManager.ts
-│   │   └── index.ts
 │   ├── tools/             # 工具注册表
 │   │   ├── ToolRegistry.ts
 │   │   └── index.ts
@@ -162,7 +159,6 @@ claude-replica/
 │   ├── plugins/
 │   ├── rewind/
 │   ├── sandbox/
-│   ├── skills/
 │   ├── tools/
 │   ├── ui/
 │   └── utils/
@@ -191,7 +187,7 @@ claude-replica/
                             ↓
 ┌──────────────┬──────────────┬──────────────┬────────────────┐
 │  工具系统     │  扩展系统     │  MCP 集成    │  配置系统       │
-│ ToolRegistry │ SkillManager │ MCPManager   │ ConfigManager  │
+│ ToolRegistry │ SDK Skills   │ MCPManager   │ ConfigManager  │
 │ Permission   │ CommandMgr   │              │ SDKConfigLoader│
 │ Manager      │ AgentRegistry│              │                │
 │              │ HookManager  │              │                │
@@ -406,6 +402,25 @@ export { MyFeatureManager, MyFeatureConfig } from './myfeature';
 1. 创建 MCP 服务器
 2. 在 `.mcp.json` 中配置
 3. 工具自动注册
+
+### SDK Skills
+
+Skills 由 Claude Agent SDK 自动发现，无需自定义 SkillManager。
+
+- 仅支持项目级自动发现
+- 目录：`.claude/skills/<skill-name>/SKILL.md`
+- frontmatter 必须包含 `description`
+
+示例：
+
+```markdown
+---
+name: agent-sdk-dev
+description: SDK 开发指南
+---
+
+技能内容正文...
+```
 
 ### 创建插件
 

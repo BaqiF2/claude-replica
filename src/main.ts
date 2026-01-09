@@ -23,7 +23,6 @@ import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
 import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
-import { SkillManager } from './skills/SkillManager';
 import { CommandManager } from './commands/CommandManager';
 import { AgentRegistry } from './agents/AgentRegistry';
 import { HookManager } from './hooks/HookManager';
@@ -50,7 +49,6 @@ export class Application {
   private readonly errorHandler: ErrorHandler;
   private readonly sessionManager: SessionManager;
   private readonly toolRegistry: ToolRegistry;
-  private readonly skillManager: SkillManager;
   private readonly commandManager: CommandManager;
   private readonly agentRegistry: AgentRegistry;
   private readonly hookManager: HookManager;
@@ -76,7 +74,6 @@ export class Application {
     this.errorHandler = new ErrorHandler();
     this.sessionManager = new SessionManager();
     this.toolRegistry = new ToolRegistry();
-    this.skillManager = new SkillManager();
     this.commandManager = new CommandManager();
     this.agentRegistry = new AgentRegistry();
     this.hookManager = new HookManager();
@@ -140,18 +137,19 @@ export class Application {
     this.rewindManager = new RewindManager({ workingDir });
     await this.rewindManager.initialize();
 
-    await this.loadExtensions(workingDir);
+    await this.loadExtensions();
+    await this.loadCustomExtensions(workingDir);
     await this.loadMCPServers(workingDir);
 
     await this.logger.debug('Application initialized');
   }
 
-  private async loadExtensions(workingDir: string): Promise<void> {
+  private async loadExtensions(): Promise<void> {
+    // Skills 由 SDK Agent Skills API 自动管理
+  }
+
+  private async loadCustomExtensions(workingDir: string): Promise<void> {
     await this.logger.debug('Loading extensions...');
-    const skillDirs = [
-      path.join(os.homedir(), '.claude', 'skills'),
-      path.join(workingDir, '.claude', 'skills'),
-    ];
     const commandDirs = [
       path.join(os.homedir(), '.claude', 'commands'),
       path.join(workingDir, '.claude', 'commands'),
@@ -162,9 +160,6 @@ export class Application {
     ];
 
     await Promise.all([
-      this.skillManager
-        .loadSkills(skillDirs)
-        .catch((err) => this.logger.warn('Failed to load skills', err)),
       this.commandManager
         .loadCommands(commandDirs)
         .catch((err) => this.logger.warn('Failed to load commands', err)),

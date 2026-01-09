@@ -8,7 +8,7 @@
  * - routeMessage(): 将消息路由到 SDK 并构建查询选项
  * - buildStreamMessage(): 构建流式消息（支持图像引用）
  * - getSystemPromptOptions(): 获取系统提示词选项（SDK 预设格式）
- * - buildAppendPrompt(): 构建追加提示词（仅包含技能内容）
+ * - buildAppendPrompt(): 构建追加提示词（当前无追加内容）
  * - getSettingSources(): 获取配置源列表（用于 SDK 自动加载 CLAUDE.md）
  * - buildQueryOptions(): 构建完整的 SDK 查询选项
  * - getEnabledToolNames(): 获取启用的工具列表
@@ -27,7 +27,7 @@ import {
 } from '../config/SDKConfigLoader';
 import { ToolRegistry } from '../tools/ToolRegistry';
 import { PermissionManager, CanUseTool, ToolUseParams } from '../permissions/PermissionManager';
-import { Session, Skill, ContentBlock } from './SessionManager';
+import { Session, ContentBlock } from './SessionManager';
 import { ImageHandler, ImageData } from '../image/ImageHandler';
 import {
   StreamContentBlock,
@@ -391,14 +391,14 @@ export class MessageRouter {
    *
    * 处理逻辑：
    * 1. 从配置获取基础工具列表
-   * 2. 添加技能所需的工具
+   * 2. 确保默认包含 Skill 工具
    * 3. 移除禁用的工具
    *
    * @param session - 当前会话
    * @returns 启用的工具名称数组
    */
   getEnabledToolNames(session: Session): string[] {
-    const { projectConfig, userConfig, loadedSkills } = session.context;
+    const { projectConfig, userConfig } = session.context;
 
     // 合并用户和项目配置
     const mergedConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
@@ -409,12 +409,9 @@ export class MessageRouter {
       disallowedTools: mergedConfig.disallowedTools,
     });
 
-    // 添加技能所需的工具
-    const skillTools = this.getSkillTools(loadedSkills);
-    for (const tool of skillTools) {
-      if (!tools.includes(tool) && this.toolRegistry.isValidTool(tool)) {
-        tools.push(tool);
-      }
+    // 默认启用 Skill 工具
+    if (!tools.includes('Skill') && this.toolRegistry.isValidTool('Skill')) {
+      tools.push('Skill');
     }
 
     // 移除禁用的工具
@@ -507,33 +504,17 @@ export class MessageRouter {
   }
 
   /**
-   * 构建追加提示词（仅包含技能内容）
+   * 构建追加提示词
    *
-   * 与旧的 buildSystemPrompt 不同，此方法仅构建需要追加到预设的内容：
-   * - 加载的技能内容
-   * - 自定义指令（如果提供）
+   * Skills 现在由 SDK Agent Skills API 自动管理，无需在系统提示词中注入。
+   * CLAUDE.md 由 SDK 通过 settingSources 自动加载。
    *
-   * 不再包含 CLAUDE.md（由 SDK 通过 settingSources 自动加载）
-   * 不再包含默认系统指令（已在 claude_code 预设中提供）
-   *
-   * @param session - 当前会话
-   * @returns 追加的提示词，如果没有内容则返回 undefined
+   * @param _session - 当前会话
+   * @returns 追加的提示词，当前始终返回 undefined
    */
-  buildAppendPrompt(session: Session): string | undefined {
-    const parts: string[] = [];
-
-    // 添加加载的技能内容
-    const skillsPrompt = this.buildSkillsPrompt(session.context.loadedSkills);
-    if (skillsPrompt) {
-      parts.push(skillsPrompt);
-    }
-
-    // 如果没有任何内容，返回 undefined
-    if (parts.length === 0) {
-      return undefined;
-    }
-
-    return parts.join('\n\n');
+  buildAppendPrompt(_session: Session): string | undefined {
+    // Skills 由 SDK Agent Skills API 自动管理
+    return undefined;
   }
 
   /**
@@ -541,6 +522,7 @@ export class MessageRouter {
    *
    * 返回用于 SDK 自动加载 CLAUDE.md 的配置源。
    * 目前仅支持项目级 CLAUDE.md（.claude/CLAUDE.md）
+   * Skills 仅支持项目级自动发现。
    *
    * @returns 配置源数组
    */
@@ -621,46 +603,6 @@ export class MessageRouter {
     );
 
     return textBlocks.map((block) => block.text).join('\n');
-  }
-
-  /**
-   * 构建技能提示词
-   *
-   * @param skills - 技能列表
-   * @returns 技能提示词
-   */
-  private buildSkillsPrompt(skills: Skill[]): string {
-    if (skills.length === 0) {
-      return '';
-    }
-
-    const parts: string[] = [];
-
-    for (const skill of skills) {
-      parts.push(`## Skill: ${skill.name}\n\n${skill.content}`);
-    }
-
-    return parts.join('\n\n');
-  }
-
-  /**
-   * 获取技能所需的工具列表
-   *
-   * @param skills - 技能列表
-   * @returns 工具名称数组
-   */
-  private getSkillTools(skills: Skill[]): string[] {
-    const tools = new Set<string>();
-
-    for (const skill of skills) {
-      if (skill.tools) {
-        for (const tool of skill.tools) {
-          tools.add(tool);
-        }
-      }
-    }
-
-    return Array.from(tools);
   }
 
 }
