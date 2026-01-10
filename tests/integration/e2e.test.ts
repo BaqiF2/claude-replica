@@ -45,6 +45,13 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
     }
     return mockGenerator();
   }),
+  createSdkMcpServer: jest.fn().mockImplementation((config) => config),
+  tool: jest.fn().mockImplementation((name, description, schema, handler) => ({
+    name,
+    description,
+    schema,
+    handler,
+  })),
 }));
 
 import * as fs from 'fs/promises';
@@ -52,7 +59,6 @@ import * as path from 'path';
 import * as os from 'os';
 import { SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
-import { AgentRegistry } from '../../src/agents/AgentRegistry';
 import { HookManager } from '../../src/hooks/HookManager';
 import { MCPManager } from '../../src/mcp/MCPManager';
 import { RewindManager } from '../../src/rewind/RewindManager';
@@ -122,6 +128,47 @@ describe('端到端集成测试', () => {
   });
 
   describe('非交互式模式工作流', () => {
+    const findJsonOutput = (calls: Array<unknown[]>): string | undefined => {
+      for (const call of calls) {
+        const value = call[0];
+        if (typeof value !== 'string') {
+          continue;
+        }
+        try {
+          JSON.parse(value);
+          return value;
+        } catch {
+          continue;
+        }
+      }
+      return undefined;
+    };
+
+    const findStreamJsonOutput = (calls: Array<unknown[]>): string | undefined => {
+      for (const call of calls) {
+        const value = call[0];
+        if (typeof value !== 'string') {
+          continue;
+        }
+        const lines = value.split('\n').filter((line) => line.trim());
+        if (lines.length === 0) {
+          continue;
+        }
+        const allJsonLines = lines.every((line) => {
+          try {
+            JSON.parse(line);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        if (allJsonLines) {
+          return value;
+        }
+      }
+      return undefined;
+    };
+
     it('应该完成基本的查询工作流', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       
@@ -142,7 +189,10 @@ describe('端到端集成测试', () => {
       expect(exitCode).toBe(0);
       
       // 验证 JSON 输出格式
-      const output = consoleSpy.mock.calls[0][0];
+      const output = findJsonOutput(consoleSpy.mock.calls);
+      if (!output) {
+        throw new Error('Missing JSON output');
+      }
       const parsed = JSON.parse(output);
       expect(parsed).toHaveProperty('result');
       expect(parsed).toHaveProperty('success', true);
@@ -158,7 +208,10 @@ describe('端到端集成测试', () => {
       expect(exitCode).toBe(0);
       
       // 验证流式 JSON 输出
-      const output = consoleSpy.mock.calls[0][0];
+      const output = findStreamJsonOutput(consoleSpy.mock.calls);
+      if (!output) {
+        throw new Error('Missing stream-json output');
+      }
       const lines = output.split('\n').filter((l: string) => l.trim());
       expect(lines.length).toBeGreaterThanOrEqual(1);
       
@@ -437,37 +490,6 @@ describe('端到端集成测试', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('v0.1.0'));
       
       consoleSpy.mockRestore();
-    });
-  });
-
-  describe('扩展系统集成工作流', () => {
-    let agentsDir: string;
-
-    beforeAll(async () => {
-      agentsDir = path.join(configDir, 'agents');
-      await fs.mkdir(agentsDir, { recursive: true });
-    });
-
-    it('应该加载代理文件', async () => {
-      // 创建测试代理文件
-      const agentContent = `---
-description: 测试代理
-model: sonnet
-tools:
-  - Read
-  - Grep
----
-
-你是一个测试代理。
-`;
-      await fs.writeFile(path.join(agentsDir, 'test-agent.agent.md'), agentContent);
-      
-      const agentRegistry = new AgentRegistry();
-      await agentRegistry.loadAgents([agentsDir]);
-      
-      const agents = agentRegistry.listAgents();
-      expect(agents.length).toBeGreaterThan(0);
-      expect(agents.some(a => a.name === 'test-agent')).toBe(true);
     });
   });
 

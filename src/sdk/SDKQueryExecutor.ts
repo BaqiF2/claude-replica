@@ -7,6 +7,7 @@
  * 核心方法：
  * - execute(): 执行 SDK 查询并处理响应（兼容接口，内部使用流式实现）
  * - executeStreaming(): 执行流式 SDK 查询，接受 AsyncGenerator 输入
+ * - setCustomMcpServers(): 设置自定义 MCP 服务器配置并用于合并
  * - interrupt(): 中断正在进行的查询
  * - isRunning(): 检查是否有查询正在进行
  * - classifyError(): 分类 SDK 错误类型
@@ -369,6 +370,9 @@ export class SDKQueryExecutor {
   /** 是否正在执行查询 */
   private isExecuting: boolean = false;
 
+  /** 自定义 MCP 服务器配置 */
+  private customMcpServers: Record<string, McpServerConfig> = {};
+
   /**
    * 检查是否正在执行查询
    *
@@ -387,6 +391,15 @@ export class SDKQueryExecutor {
    */
   isInterrupted(): boolean {
     return this.abortController?.signal.aborted ?? false;
+  }
+
+  /**
+   * 设置自定义 MCP 服务器配置
+   *
+   * @param servers - 自定义 MCP 服务器配置映射
+   */
+  setCustomMcpServers(servers: Record<string, McpServerConfig>): void {
+    this.customMcpServers = { ...servers };
   }
 
   /**
@@ -705,8 +718,9 @@ export class SDKQueryExecutor {
     }
 
     // MCP 服务器配置 (Requirement 6.5)
-    if (options.mcpServers) {
-      sdkOptions.mcpServers = options.mcpServers;
+    const mergedMcpServers = this.mergeMcpServers(options.mcpServers);
+    if (mergedMcpServers) {
+      sdkOptions.mcpServers = mergedMcpServers;
     }
 
     // 子代理定义
@@ -748,6 +762,22 @@ export class SDKQueryExecutor {
     }
 
     return sdkOptions;
+  }
+
+  private mergeMcpServers(
+    servers?: Record<string, McpServerConfig>
+  ): Record<string, McpServerConfig> | undefined {
+    const hasCustomServers = Object.keys(this.customMcpServers).length;
+    const hasExternalServers = servers ? Object.keys(servers).length : false;
+
+    if (!hasCustomServers && !hasExternalServers) {
+      return undefined;
+    }
+
+    return {
+      ...(servers ?? {}),
+      ...this.customMcpServers,
+    };
   }
 
   /**

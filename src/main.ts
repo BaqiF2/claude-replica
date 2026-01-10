@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * 文件功能：主程序入口，负责初始化应用程序、解析命令行参数、管理会话和执行查询
+ * 文件功能：主程序入口，负责初始化应用程序、解析命令行参数、管理会话和执行查询。
  *
- * 核心类：Logger、Application
+ * 核心类：
+ * - Application: CLI 应用生命周期与执行流程管理。
+ *
+ * 核心方法：
+ * - run(): 解析命令行参数并执行交互/非交互模式。
+ * - initialize(): 初始化配置、权限、扩展和工具。
+ * - main(): CLI 入口函数，创建 Application 并运行。
  */
 
 import * as dotenv from 'dotenv';
@@ -13,7 +19,6 @@ dotenv.config({ quiet: process.env.DOTENV_QUIET === 'true' });
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 
 import { CLIParser, CLIOptions } from './cli/CLIParser';
 import { ConfigManager } from './config';
@@ -23,7 +28,6 @@ import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
 import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
-import { AgentRegistry } from './agents/AgentRegistry';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
 import { RewindManager, Snapshot as RewindSnapshot } from './rewind/RewindManager';
@@ -37,9 +41,11 @@ import { SDKQueryExecutor, SDKErrorType, ERROR_MESSAGES, StreamingQueryManager }
 import { Logger } from './logging/Logger';
 import { ConfigBuilder } from './config/ConfigBuilder';
 import { ErrorHandler } from './errors/ErrorHandler';
+import { CustomToolManager } from './custom-tools';
+import { calculatorTool } from './custom-tools/math';
 
 const VERSION = process.env.VERSION || '0.1.0';
-
+const CUSTOM_TOOL_MODULE_NAME = process.env.CUSTOM_TOOL_MODULE_NAME ?? 'math/calculators';
 
 export class Application {
   private readonly cliParser: CLIParser;
@@ -48,7 +54,6 @@ export class Application {
   private readonly errorHandler: ErrorHandler;
   private readonly sessionManager: SessionManager;
   private readonly toolRegistry: ToolRegistry;
-  private readonly agentRegistry: AgentRegistry;
   private readonly hookManager: HookManager;
   private readonly mcpManager: MCPManager;
   private readonly outputFormatter: OutputFormatter;
@@ -72,7 +77,6 @@ export class Application {
     this.errorHandler = new ErrorHandler();
     this.sessionManager = new SessionManager();
     this.toolRegistry = new ToolRegistry();
-    this.agentRegistry = new AgentRegistry();
     this.hookManager = new HookManager();
     this.mcpManager = new MCPManager();
     this.outputFormatter = new OutputFormatter();
@@ -136,6 +140,7 @@ export class Application {
 
     await this.loadExtensions();
     await this.loadCustomExtensions(workingDir);
+    await this.initializeCustomTools();
     await this.loadMCPServers(workingDir);
 
     await this.logger.debug('Application initialized');
@@ -147,16 +152,6 @@ export class Application {
 
   private async loadCustomExtensions(workingDir: string): Promise<void> {
     await this.logger.debug('Loading extensions...');
-    const agentDirs = [
-      path.join(os.homedir(), '.claude', 'agents'),
-      path.join(workingDir, '.claude', 'agents'),
-    ];
-
-    await Promise.all([
-      this.agentRegistry
-        .loadAgents(agentDirs)
-        .catch((err) => this.logger.warn('Failed to load agents', err)),
-    ]);
 
     const hooksConfigPath = path.join(workingDir, '.claude', 'hooks.json');
     try {
@@ -168,6 +163,32 @@ export class Application {
     }
 
     await this.logger.debug('Extensions loaded');
+  }
+
+  private async initializeCustomTools(): Promise<void> {
+    const customToolManager = new CustomToolManager();
+    const registration = customToolManager.registerModule(CUSTOM_TOOL_MODULE_NAME, [
+      calculatorTool,
+    ]);
+
+    if (!registration.valid) {
+      await this.logger.error('Custom tool module registration failed', {
+        module: CUSTOM_TOOL_MODULE_NAME,
+        errors: registration.errors,
+      });
+      return;
+    }
+
+    const customMcpServers = customToolManager.createMcpServers();
+    if (!Object.keys(customMcpServers).length) {
+      await this.logger.warn('No custom MCP servers created', { module: CUSTOM_TOOL_MODULE_NAME });
+      return;
+    }
+
+    this.sdkExecutor.setCustomMcpServers(customMcpServers);
+    await this.logger.info('Custom tool MCP servers registered', {
+      servers: Object.keys(customMcpServers),
+    });
   }
 
   private async loadMCPServers(workingDir: string): Promise<void> {
@@ -319,7 +340,16 @@ export class Application {
     if (message.startsWith('/')) {
       const parts = message.slice(1).split(/\s+/);
       const cmdName = parts[0].toLowerCase();
-      const builtInCommands = ['help', 'sessions', 'config', 'permissions', 'mcp', 'clear', 'exit', 'quit'];
+      const builtInCommands = [
+        'help',
+        'sessions',
+        'config',
+        'permissions',
+        'mcp',
+        'clear',
+        'exit',
+        'quit',
+      ];
 
       if (builtInCommands.includes(cmdName)) {
         await this.handleCommand(message, session);
@@ -501,6 +531,7 @@ Available commands:
         disallowedTools: queryResult.options.disallowedTools,
         cwd: queryResult.options.cwd,
         permissionMode: queryResult.options.permissionMode,
+        canUseTool: queryResult.options.canUseTool,
         maxTurns: queryResult.options.maxTurns,
         maxBudgetUsd: queryResult.options.maxBudgetUsd,
         maxThinkingTokens: queryResult.options.maxThinkingTokens,

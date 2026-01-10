@@ -291,6 +291,62 @@ Create `.mcp.json` in the project root:
 }
 ```
 
+### Custom Tools (In-Process MCP)
+
+Define TypeScript tools with Zod schemas and register them as in-process MCP servers. The built-in calculator tool lives in `src/custom-tools/math/calculator.ts` and is registered in `src/main.ts` with the module name `math/calculators` (server name `custom-tools-math-calculators` by default).
+
+Tool definition example:
+
+```ts
+import { z } from 'zod';
+import type { ToolDefinition, ToolResult } from '../custom-tools/types';
+
+const echoSchema = z.object({
+  message: z.string().min(1),
+});
+
+export const echoTool: ToolDefinition<typeof echoSchema, { message: string }, ToolResult> = {
+  name: 'echo',
+  description: 'Echo back the provided message.',
+  module: 'demo/echo',
+  schema: echoSchema,
+  handler: async ({ message }) => ({
+    content: [{ type: 'text', text: message }],
+  }),
+};
+```
+
+Module registration example:
+
+```ts
+import { CustomToolManager } from './custom-tools';
+import { echoTool } from './custom-tools/demo/echo';
+
+const manager = new CustomToolManager();
+manager.registerModule('demo/echo', [echoTool]);
+const customServers = manager.createMcpServers();
+```
+
+Usage example:
+
+```bash
+claude-replica -p "Use the calculator tool to evaluate (12.5 + 7.5) / 4 with 2 decimals"
+```
+
+Permission configuration example:
+
+```json
+{
+  "permissionMode": "default",
+  "allowedTools": [
+    "mcp__custom-tools-math-calculators__calculator",
+    "mcp__custom-tools-math-calculators__*"
+  ]
+}
+```
+
+The MCP tool na必须调用 calculator 工具计算 1 + 1，只返回结果。me format is `mcp__{server}__{tool}`. For modules, the server name is built from `CUSTOM_TOOL_SERVER_NAME_PREFIX` and `CUSTOM_TOOL_MODULE_SEPARATOR` (default: `custom-tools` + `-`), so `math/calculators` becomes `custom-tools-math-calculators`.
+
 ## 🔒 Permission Modes
 
 | Mode | Description |

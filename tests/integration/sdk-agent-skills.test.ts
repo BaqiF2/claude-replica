@@ -76,9 +76,9 @@ describe('SDK SubAgents 集成测试', () => {
     const session = await createSession();
     const messageRouter = createMessageRouter();
 
-    const options = await messageRouter.buildQueryOptions(session);
+    const tools = messageRouter.getEnabledToolNames(session);
 
-    expect(options.allowedTools).toContain('Task');
+    expect(tools).toContain('Task');
   });
 
   it('disallowedTools 应覆盖 Task 自动添加', async () => {
@@ -88,8 +88,8 @@ describe('SDK SubAgents 集成测试', () => {
     });
     const messageRouter = createMessageRouter();
 
-    const options = await messageRouter.buildQueryOptions(session);
+    const tools = messageRouter.getEnabledToolNames(session);
 
-    expect(options.allowedTools).not.toContain('Task');
+    expect(tools).not.toContain('Task');
   });
 });
