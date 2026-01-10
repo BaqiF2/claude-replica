@@ -41,7 +41,6 @@ import { ErrorHandler } from './errors/ErrorHandler';
 
 const VERSION = process.env.VERSION || '0.1.0';
 
-
 export class Application {
   private readonly cliParser: CLIParser;
   private readonly configManager: ConfigManager;
@@ -154,19 +153,13 @@ export class Application {
       path.join(os.homedir(), '.claude', 'commands'),
       path.join(workingDir, '.claude', 'commands'),
     ];
-    const agentDirs = [
-      path.join(os.homedir(), '.claude', 'agents'),
-      path.join(workingDir, '.claude', 'agents'),
-    ];
 
-    await Promise.all([
-      this.commandManager
-        .loadCommands(commandDirs)
-        .catch((err) => this.logger.warn('Failed to load commands', err)),
-      this.agentRegistry
-        .loadAgents(agentDirs)
-        .catch((err) => this.logger.warn('Failed to load agents', err)),
-    ]);
+    await this.commandManager
+      .loadCommands(commandDirs)
+      .catch((err) => this.logger.warn('Failed to load commands', err));
+
+    const presetAgentCount = Object.keys(this.agentRegistry.getAll()).length;
+    console.log(`SubAgents initialized: ${presetAgentCount} preset agent(s)`);
 
     const hooksConfigPath = path.join(workingDir, '.claude', 'hooks.json');
     try {

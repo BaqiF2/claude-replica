@@ -16,6 +16,7 @@ import { ConfigManager } from '../../src/config/ConfigManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager, PermissionConfig } from '../../src/permissions/PermissionManager';
 import { Session, SessionContext } from '../../src/core/SessionManager';
+import { getPresetAgents } from '../../src/agents/PresetAgents';
 
 // 模拟会话创建辅助函数
 function createMockSession(overrides: Partial<Session> = {}): Session {
@@ -175,7 +176,7 @@ describe('MessageRouter', () => {
 
       const tools = router.getEnabledToolNames(session);
 
-      expect(tools).toEqual(['Read', 'Grep', 'Skill']);
+      expect(tools).toEqual(['Read', 'Grep', 'Skill', 'Task']);
     });
 
     it('应该根据配置的 disallowedTools 过滤工具', () => {
@@ -291,7 +292,7 @@ describe('MessageRouter', () => {
   });
 
   describe('getAgentDefinitions', () => {
-    it('应该返回空对象当没有活动代理时', () => {
+    it('应该返回预设代理当没有活动代理时', () => {
       const router = new MessageRouter({
         configManager,
         toolRegistry,
@@ -301,7 +302,7 @@ describe('MessageRouter', () => {
       const session = createMockSession();
       const agents = router.getAgentDefinitions(session);
 
-      expect(agents).toEqual({});
+      expect(agents).toEqual(getPresetAgents());
     });
 
     it('应该返回活动代理的定义', () => {
@@ -368,7 +369,8 @@ describe('MessageRouter', () => {
 
       const agents = router.getAgentDefinitions(session);
 
-      expect(Object.keys(agents)).toHaveLength(2);
+      const presetCount = Object.keys(getPresetAgents()).length;
+      expect(Object.keys(agents)).toHaveLength(presetCount + 2);
       expect(agents).toHaveProperty('reviewer');
       expect(agents).toHaveProperty('tester');
     });

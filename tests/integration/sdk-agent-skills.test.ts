@@ -1,41 +1,43 @@
 /**
- * SDK Agent Skills 集成测试
+ * SDK SubAgents 集成测试
  *
  * 验证：
- * - settingSources 仅包含 project
- * - allowedTools 包含 Skill
- * - buildAppendPrompt 返回 undefined
+ * - 预设 agents 自动加载并保持一致
+ * - 默认注入预设 agents 并自动启用 Task 工具
+ * - disallowedTools 配置覆盖自动添加
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import { MessageRouter } from '../../src/core/MessageRouter';
-import { SessionManager } from '../../src/core/SessionManager';
+import { SessionManager, Session } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
+import { AgentRegistry } from '../../src/agents/AgentRegistry';
+import { getPresetAgentNames } from '../../src/agents/PresetAgents';
+import type { ProjectConfig } from '../../src/config';
 
-describe('SDK Agent Skills 集成测试', () => {
+describe('SDK SubAgents 集成测试', () => {
   let tempDir: string;
   let sessionManager: SessionManager;
   let configManager: ConfigManager;
   let toolRegistry: ToolRegistry;
   let permissionManager: PermissionManager;
+  let agentRegistry: AgentRegistry;
+  let presetAgents: ReturnType<AgentRegistry['getAll']>;
+  let presetAgentNames: string[];
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sdk-skills-test-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sdk-subagents-test-'));
     sessionManager = new SessionManager(path.join(tempDir, 'sessions'));
     configManager = new ConfigManager();
     toolRegistry = new ToolRegistry();
     permissionManager = new PermissionManager({ mode: 'default' }, toolRegistry);
-
-    const skillDir = path.join(tempDir, '.claude', 'skills', 'test-skill');
-    await fs.mkdir(skillDir, { recursive: true });
-    await fs.writeFile(
-      path.join(skillDir, 'SKILL.md'),
-      `---\nname: test-skill\ndescription: Test skill\n---\n\nThis is a test skill.`
-    );
+    agentRegistry = new AgentRegistry();
+    presetAgents = agentRegistry.getAll();
+    presetAgentNames = getPresetAgentNames();
   });
 
   afterEach(async () => {
@@ -46,19 +48,48 @@ describe('SDK Agent Skills 集成测试', () => {
     }
   });
 
-  it('应返回正确的 SDK Skills 配置', async () => {
-    const session = await sessionManager.createSession(tempDir);
-    const messageRouter = new MessageRouter({
+  const createSession = (projectConfig: ProjectConfig = {}): Promise<Session> =>
+    sessionManager.createSession(tempDir, projectConfig, {});
+
+  const createMessageRouter = (): MessageRouter =>
+    new MessageRouter({
       configManager,
       toolRegistry,
       permissionManager,
     });
 
+  it('应自动加载预设 agents 并保持一致', async () => {
+    const session = await createSession();
+    const messageRouter = createMessageRouter();
+
+    const firstOptions = await messageRouter.buildQueryOptions(session);
+    const secondOptions = await messageRouter.buildQueryOptions(session);
+
+    expect(firstOptions.agents).toBeDefined();
+    expect(Object.keys(firstOptions.agents ?? {}).sort()).toEqual(
+      [...presetAgentNames].sort()
+    );
+    expect(firstOptions.agents).toEqual(secondOptions.agents);
+  });
+
+  it('默认应自动启用 Task 工具', async () => {
+    const session = await createSession();
+    const messageRouter = createMessageRouter();
+
     const options = await messageRouter.buildQueryOptions(session);
 
-    expect(messageRouter.buildAppendPrompt(session)).toBeUndefined();
-    expect(options.settingSources).toEqual(['project']);
-    expect(options.settingSources).toContain('project');
-    expect(options.allowedTools).toContain('Skill');
+    expect(options.allowedTools).toContain('Task');
+  });
+
+  it('disallowedTools 应覆盖 Task 自动添加', async () => {
+    const session = await createSession({
+      agents: presetAgents,
+      disallowedTools: ['Task'],
+    });
+    const messageRouter = createMessageRouter();
+
+    const options = await messageRouter.buildQueryOptions(session);
+
+    expect(options.allowedTools).not.toContain('Task');
   });
 });

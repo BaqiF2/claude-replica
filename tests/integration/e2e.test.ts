@@ -54,6 +54,7 @@ import { SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { CommandManager } from '../../src/commands/CommandManager';
 import { AgentRegistry } from '../../src/agents/AgentRegistry';
+import { getPresetAgentNames } from '../../src/agents/PresetAgents';
 import { HookManager } from '../../src/hooks/HookManager';
 import { MCPManager } from '../../src/mcp/MCPManager';
 import { RewindManager } from '../../src/rewind/RewindManager';
@@ -123,6 +124,47 @@ describe('端到端集成测试', () => {
   });
 
   describe('非交互式模式工作流', () => {
+    const findJsonOutput = (calls: Array<unknown[]>): string | undefined => {
+      for (const call of calls) {
+        const value = call[0];
+        if (typeof value !== 'string') {
+          continue;
+        }
+        try {
+          JSON.parse(value);
+          return value;
+        } catch {
+          continue;
+        }
+      }
+      return undefined;
+    };
+
+    const findStreamJsonOutput = (calls: Array<unknown[]>): string | undefined => {
+      for (const call of calls) {
+        const value = call[0];
+        if (typeof value !== 'string') {
+          continue;
+        }
+        const lines = value.split('\n').filter((line) => line.trim());
+        if (lines.length === 0) {
+          continue;
+        }
+        const allJsonLines = lines.every((line) => {
+          try {
+            JSON.parse(line);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        if (allJsonLines) {
+          return value;
+        }
+      }
+      return undefined;
+    };
+
     it('应该完成基本的查询工作流', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       
@@ -143,8 +185,9 @@ describe('端到端集成测试', () => {
       expect(exitCode).toBe(0);
       
       // 验证 JSON 输出格式
-      const output = consoleSpy.mock.calls[0][0];
-      const parsed = JSON.parse(output);
+      const output = findJsonOutput(consoleSpy.mock.calls);
+      expect(output).toBeDefined();
+      const parsed = JSON.parse(output as string);
       expect(parsed).toHaveProperty('result');
       expect(parsed).toHaveProperty('success', true);
       
@@ -159,8 +202,9 @@ describe('端到端集成测试', () => {
       expect(exitCode).toBe(0);
       
       // 验证流式 JSON 输出
-      const output = consoleSpy.mock.calls[0][0];
-      const lines = output.split('\n').filter((l: string) => l.trim());
+      const output = findStreamJsonOutput(consoleSpy.mock.calls);
+      expect(output).toBeDefined();
+      const lines = (output as string).split('\n').filter((l: string) => l.trim());
       expect(lines.length).toBeGreaterThanOrEqual(1);
       
       // 检查是否有 result 类型的行
@@ -443,14 +487,11 @@ describe('端到端集成测试', () => {
 
   describe('扩展系统集成工作流', () => {
     let commandsDir: string;
-    let agentsDir: string;
 
     beforeAll(async () => {
       commandsDir = path.join(configDir, 'commands');
-      agentsDir = path.join(configDir, 'agents');
       
       await fs.mkdir(commandsDir, { recursive: true });
-      await fs.mkdir(agentsDir, { recursive: true });
     });
 
     it('应该加载命令文件', async () => {
@@ -473,26 +514,15 @@ argumentHint: <参数>
       expect(commands.some(c => c.name === 'test-command')).toBe(true);
     });
 
-    it('应该加载代理文件', async () => {
-      // 创建测试代理文件
-      const agentContent = `---
-description: 测试代理
-model: sonnet
-tools:
-  - Read
-  - Grep
----
-
-你是一个测试代理。
-`;
-      await fs.writeFile(path.join(agentsDir, 'test-agent.agent.md'), agentContent);
-      
+    it('应该提供预设代理', () => {
       const agentRegistry = new AgentRegistry();
-      await agentRegistry.loadAgents([agentsDir]);
-      
-      const agents = agentRegistry.listAgents();
-      expect(agents.length).toBeGreaterThan(0);
-      expect(agents.some(a => a.name === 'test-agent')).toBe(true);
+      const agents = agentRegistry.getAll();
+      const presetNames = getPresetAgentNames();
+
+      expect(Object.keys(agents)).toHaveLength(presetNames.length);
+      for (const name of presetNames) {
+        expect(agents).toHaveProperty(name);
+      }
     });
   });
 
