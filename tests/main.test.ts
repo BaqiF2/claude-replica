@@ -43,6 +43,13 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
     }
     return mockGenerator();
   }),
+  createSdkMcpServer: jest.fn().mockImplementation((config) => config),
+  tool: jest.fn().mockImplementation((name, description, schema, handler) => ({
+    name,
+    description,
+    schema,
+    handler,
+  })),
 }));
 
 let main: typeof import('../src/main').main;

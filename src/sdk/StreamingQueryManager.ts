@@ -525,6 +525,7 @@ export class StreamingQueryManager {
         disallowedTools: queryOptions.disallowedTools,
         cwd: queryOptions.cwd,
         permissionMode: queryOptions.permissionMode,
+        canUseTool: queryOptions.canUseTool,
         mcpServers: queryOptions.mcpServers as Parameters<
           typeof this.sdkExecutor.executeStreaming
         >[1]['mcpServers'],

@@ -35,6 +35,12 @@ describe('PermissionManager', () => {
     'ListMcpResources', 'ReadMcpResource'
   );
 
+  const MCP_SERVER_NAME = 'custom-tools-math';
+  const MCP_TOOL_NAME = 'calculator';
+  const MCP_TOOL_FULL_NAME = `mcp__${MCP_SERVER_NAME}__${MCP_TOOL_NAME}`;
+  const MCP_MODULE_NAME = `mcp__${MCP_SERVER_NAME}`;
+  const MCP_MODULE_WILDCARD = `${MCP_MODULE_NAME}__*`;
+
   // 生成权限模式的 Arbitrary
   const arbPermissionMode = fc.constantFrom(
     'default', 'acceptEdits', 'bypassPermissions', 'plan'
@@ -242,6 +248,62 @@ describe('PermissionManager', () => {
       for (const tool of safeTools) {
         expect(manager.shouldPromptForTool(tool)).toBe(false);
       }
+    });
+  });
+
+  describe('MCP 工具权限', () => {
+    it('应支持 MCP 工具白名单的模块级匹配', async () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+        allowedTools: [MCP_MODULE_NAME],
+      };
+
+      const manager = new PermissionManager(config, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
+
+      const result = await handler({
+        tool: MCP_TOOL_FULL_NAME,
+        args: {},
+        context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
+      });
+
+      expect(result).toBe(true);
+    });
+
+    it('应支持 MCP 工具白名单的通配模块匹配', async () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+        allowedTools: [MCP_MODULE_WILDCARD],
+      };
+
+      const manager = new PermissionManager(config, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
+
+      const result = await handler({
+        tool: MCP_TOOL_FULL_NAME,
+        args: {},
+        context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
+      });
+
+      expect(result).toBe(true);
+    });
+
+    it('应支持 MCP 工具黑名单的模块级拒绝', async () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+        disallowedTools: [MCP_MODULE_NAME],
+      };
+
+      const manager = new PermissionManager(config, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
+
+      const result = await handler({
+        tool: MCP_TOOL_FULL_NAME,
+        args: {},
+        context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
+      });
+
+      expect(result).toBe(false);
     });
   });
 
@@ -463,6 +525,18 @@ describe('PermissionManager', () => {
 
       expect(manager.isToolAllowed('Read')).toBe(true);
       expect(manager.isToolAllowed('Write')).toBe(true);
+    });
+
+    it('应支持 MCP 工具模块级白名单', () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+        allowedTools: [MCP_MODULE_NAME],
+      };
+
+      const manager = new PermissionManager(config, toolRegistry);
+
+      expect(manager.isToolAllowed(MCP_TOOL_FULL_NAME)).toBe(true);
+      expect(manager.isToolAllowed('Read')).toBe(false);
     });
   });
 

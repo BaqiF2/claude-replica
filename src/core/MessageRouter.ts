@@ -26,11 +26,12 @@ import {
   HookCallbackMatcher,
 } from '../config/SDKConfigLoader';
 import { ToolRegistry } from '../tools/ToolRegistry';
-import { PermissionManager, CanUseTool, ToolUseParams } from '../permissions/PermissionManager';
+import { PermissionManager, ToolUseParams } from '../permissions/PermissionManager';
 import { Session, ContentBlock } from './SessionManager';
 import { ImageHandler, ImageData } from '../image/ImageHandler';
 import { getPresetAgents } from '../agents/PresetAgents';
 import { StreamContentBlock, TextContentBlock, ImageContentBlock } from '../sdk/SDKQueryExecutor';
+import type { CanUseTool as SDKCanUseTool, PermissionResult } from '@anthropic-ai/claude-agent-sdk';
 
 /**
  * 消息接口
@@ -53,7 +54,7 @@ export interface QueryOptions {
   /** 配置源列表（用于 SDK 自动加载 CLAUDE.md） */
   settingSources?: ('user' | 'project' | 'local')[];
   /** 允许的工具列表 */
-  allowedTools: string[];
+  allowedTools?: string[];
   /** 禁止的工具列表 */
   disallowedTools?: string[];
   /** 工作目录 */
@@ -61,7 +62,7 @@ export interface QueryOptions {
   /** 权限模式 */
   permissionMode: PermissionMode;
   /** 自定义权限处理函数 */
-  canUseTool?: CanUseTool;
+  canUseTool?: SDKCanUseTool;
   /** MCP 服务器配置 */
   mcpServers?: Record<string, McpServerConfig>;
   /** 子代理定义 */
@@ -404,10 +405,25 @@ export class MessageRouter {
     const disallowedSet = new Set(mergedConfig.disallowedTools ?? []);
 
     // 获取基础工具列表
-    let tools = this.toolRegistry.getEnabledTools({
-      allowedTools: mergedConfig.allowedTools,
-      disallowedTools: mergedConfig.disallowedTools,
-    });
+    let tools: string[] = [];
+    const configuredAllowedTools = mergedConfig.allowedTools ?? [];
+
+    if (configuredAllowedTools.length > 0) {
+      const seen = new Set<string>();
+      for (const tool of configuredAllowedTools) {
+        if (!this.toolRegistry.isValidTool(tool) && !this.isMcpToolName(tool)) {
+          continue;
+        }
+        if (!seen.has(tool)) {
+          seen.add(tool);
+          tools.push(tool);
+        }
+      }
+    } else {
+      tools = this.toolRegistry.getEnabledTools({
+        disallowedTools: mergedConfig.disallowedTools,
+      });
+    }
 
     // 默认启用 Skill 工具
     if (!tools.includes('Skill') && this.toolRegistry.isValidTool('Skill')) {
@@ -442,22 +458,57 @@ export class MessageRouter {
    * @param session - 当前会话
    * @returns 权限处理函数
    */
-  createPermissionHandler(session: Session): CanUseTool {
+  createPermissionHandler(session: Session): SDKCanUseTool {
     // 使用权限管理器创建处理函数
     const baseHandler = this.permissionManager.createCanUseToolHandler();
 
     // 包装处理函数以添加会话上下文
-    return async (params: ToolUseParams): Promise<boolean> => {
-      // 确保上下文包含会话 ID
+    return async (
+      toolName: string,
+      input: Record<string, unknown>,
+      options
+    ): Promise<PermissionResult> => {
+      if (options.signal.aborted) {
+        return {
+          behavior: 'deny',
+          message: 'Permission request aborted.',
+          interrupt: true,
+          toolUseID: options.toolUseID,
+        };
+      }
+
       const enrichedParams: ToolUseParams = {
-        ...params,
+        tool: toolName,
+        args: input,
         context: {
-          ...params.context,
-          sessionId: params.context.sessionId || session.id,
+          sessionId: session.id,
+          messageUuid: options.toolUseID || '',
         },
       };
 
-      return baseHandler(enrichedParams);
+      try {
+        const allowed = await baseHandler(enrichedParams);
+        if (allowed) {
+          return {
+            behavior: 'allow',
+            updatedInput: input,
+            toolUseID: options.toolUseID,
+          };
+        }
+
+        return {
+          behavior: 'deny',
+          message: `Permission denied for tool: ${toolName}.`,
+          toolUseID: options.toolUseID,
+        };
+      } catch (error) {
+        return {
+          behavior: 'deny',
+          message:
+            error instanceof Error ? error.message : 'Permission check failed unexpectedly.',
+          toolUseID: options.toolUseID,
+        };
+      }
     };
   }
 
@@ -564,7 +615,10 @@ export class MessageRouter {
     const settingSources = this.getSettingSources();
 
     // 获取启用的工具
-    const allowedTools = this.getEnabledToolNames(session);
+    const allowedTools =
+      mergedConfig.allowedTools && mergedConfig.allowedTools.length > 0
+        ? this.getEnabledToolNames(session)
+        : undefined;
 
     // 获取子代理定义
     const agents = this.getAgentDefinitions(session);
@@ -616,5 +670,9 @@ export class MessageRouter {
     );
 
     return textBlocks.map((block) => block.text).join('\n');
+  }
+
+  private isMcpToolName(toolName: string): boolean {
+    return toolName.startsWith('mcp__');
   }
 }

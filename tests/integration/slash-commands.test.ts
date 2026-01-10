@@ -208,9 +208,9 @@ If --dry-run is specified, only simulate the deployment.`;
         permissionManager,
       });
 
-      const options = await messageRouter.buildQueryOptions(session);
+      const tools = messageRouter.getEnabledToolNames(session);
 
-      expect(options.allowedTools).toContain('Skill');
+      expect(tools).toContain('Skill');
     });
   });
 
