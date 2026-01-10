@@ -92,11 +92,30 @@ Sessions auto-save after each operation. Expired sessions are cleaned up automat
 - **Frontmatter**: `name`, `description`, `triggers[]`, `tools[]`
 
 ### Agents System (`src/agents/`)
-- **Purpose**: Specialized sub-agents for specific tasks
-- **Format**: `*.agent.md` files with YAML frontmatter
-- **Registration**: `AgentRegistry` loads definitions
-- **Definition**: `description`, `model` (sonnet/opus/haiku/inherit), `prompt`, `tools[]`
-- **SDK Integration**: Passed to SDK as `AgentDefinition[]` in options
+- **Purpose**: Specialized sub-agents for focused tasks, defined programmatically as presets.
+- **Architecture**: Presets are defined in code (no `*.agent.md` files). `AgentRegistry` returns validated presets and the SDK receives `AgentDefinition[]`.
+- **Constraints**: Sub-agents must not include `Task`. When any sub-agent is defined, the main agent auto-enables `Task` unless it is explicitly listed in `disallowedTools`.
+- **Code locations**: `src/agents/PresetAgents.ts`, `src/agents/AgentRegistry.ts`, `src/main.ts`.
+
+**Preset Agents**
+
+| Agent | Scenario | Tools | Model |
+| --- | --- | --- | --- |
+| code-reviewer | Review correctness, edge cases, regressions | Read, Grep, Glob | sonnet |
+| test-runner | Run tests/lint and summarize failures | Read, Grep, Glob, Bash | sonnet |
+| doc-generator | Update or create documentation | Read, Grep, Glob, Write, Edit | sonnet |
+| refactoring-specialist | Behavior-preserving refactors | Read, Grep, Glob, Edit, Write | sonnet |
+| security-auditor | Security review and risk assessment | Read, Grep, Glob | sonnet |
+| data-analyzer | Lightweight dataset/log analysis | Read, Grep, Glob, Bash | sonnet |
+
+**Recommended Tool Combinations**
+
+| Use case | Tools |
+| --- | --- |
+| Read-only review and auditing | Read, Grep, Glob |
+| Test execution and diagnostics | Read, Grep, Glob, Bash |
+| Documentation updates | Read, Grep, Glob, Write, Edit |
+| Behavior-preserving refactors | Read, Grep, Glob, Edit, Write |
 
 ### Hooks System (`src/hooks/`)
 - **Purpose**: Event-driven automation on tool/session events

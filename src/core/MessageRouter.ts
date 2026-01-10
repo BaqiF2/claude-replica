@@ -29,11 +29,8 @@ import { ToolRegistry } from '../tools/ToolRegistry';
 import { PermissionManager, CanUseTool, ToolUseParams } from '../permissions/PermissionManager';
 import { Session, ContentBlock } from './SessionManager';
 import { ImageHandler, ImageData } from '../image/ImageHandler';
-import {
-  StreamContentBlock,
-  TextContentBlock,
-  ImageContentBlock,
-} from '../sdk/SDKQueryExecutor';
+import { getPresetAgents } from '../agents/PresetAgents';
+import { StreamContentBlock, TextContentBlock, ImageContentBlock } from '../sdk/SDKQueryExecutor';
 
 /**
  * 消息接口
@@ -188,7 +185,6 @@ export class MessageRouter {
     }
   }
 
-
   /**
    * 设置默认工作目录
    *
@@ -305,7 +301,10 @@ export class MessageRouter {
    * @param session - 会话对象（用于获取工作目录）
    * @returns 流式消息构建结果
    */
-  async buildStreamMessage(rawMessage: string, session: Session): Promise<StreamMessageBuildResult> {
+  async buildStreamMessage(
+    rawMessage: string,
+    session: Session
+  ): Promise<StreamMessageBuildResult> {
     const imageHandler = this.getImageHandler(session.workingDirectory);
 
     // 处理图像引用
@@ -385,14 +384,14 @@ export class MessageRouter {
     };
   }
 
-
   /**
    * 获取启用的工具名称列表
    *
    * 处理逻辑：
    * 1. 从配置获取基础工具列表
    * 2. 确保默认包含 Skill 工具
-   * 3. 移除禁用的工具
+   * 3. 如存在子代理则自动启用 Task 工具
+   * 4. 移除禁用的工具
    *
    * @param session - 当前会话
    * @returns 启用的工具名称数组
@@ -402,6 +401,7 @@ export class MessageRouter {
 
     // 合并用户和项目配置
     const mergedConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
+    const disallowedSet = new Set(mergedConfig.disallowedTools ?? []);
 
     // 获取基础工具列表
     let tools = this.toolRegistry.getEnabledTools({
@@ -414,9 +414,20 @@ export class MessageRouter {
       tools.push('Skill');
     }
 
+    const agents = this.getAgentDefinitions(session);
+    const hasAgents = Object.keys(agents).length > 0;
+    if (
+      hasAgents &&
+      !tools.includes('Task') &&
+      this.toolRegistry.isValidTool('Task') &&
+      !disallowedSet.has('Task')
+    ) {
+      tools.push('Task');
+      console.info('Info: Task tool automatically enabled because subAgents are defined...');
+    }
+
     // 移除禁用的工具
-    if (mergedConfig.disallowedTools && mergedConfig.disallowedTools.length > 0) {
-      const disallowedSet = new Set(mergedConfig.disallowedTools);
+    if (disallowedSet.size > 0) {
       tools = tools.filter((tool) => !disallowedSet.has(tool));
     }
 
@@ -460,7 +471,14 @@ export class MessageRouter {
    */
   getAgentDefinitions(session: Session): Record<string, AgentDefinition> {
     const { activeAgents, projectConfig } = session.context;
-    const result: Record<string, AgentDefinition> = {};
+    const result: Record<string, AgentDefinition> = getPresetAgents();
+
+    // 合并配置中的代理定义
+    if (projectConfig.agents) {
+      for (const [name, definition] of Object.entries(projectConfig.agents)) {
+        result[name] = definition;
+      }
+    }
 
     // 从活动代理列表转换
     for (const agent of activeAgents) {
@@ -470,15 +488,6 @@ export class MessageRouter {
         tools: agent.tools,
         model: agent.model,
       };
-    }
-
-    // 合并配置中的代理定义
-    if (projectConfig.agents) {
-      for (const [name, definition] of Object.entries(projectConfig.agents)) {
-        if (!result[name]) {
-          result[name] = definition;
-        }
-      }
     }
 
     return result;
@@ -493,7 +502,11 @@ export class MessageRouter {
    * @param session - 当前会话
    * @returns 系统提示词预设对象
    */
-  getSystemPromptOptions(session: Session): { type: 'preset'; preset: 'claude_code'; append?: string } {
+  getSystemPromptOptions(session: Session): {
+    type: 'preset';
+    preset: 'claude_code';
+    append?: string;
+  } {
     const appendPrompt = this.buildAppendPrompt(session);
 
     return {
@@ -604,5 +617,4 @@ export class MessageRouter {
 
     return textBlocks.map((block) => block.text).join('\n');
   }
-
 }

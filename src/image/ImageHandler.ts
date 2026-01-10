@@ -210,7 +210,6 @@ export class ImageHandler {
     };
   }
 
-
   /**
    * 解析 @ 语法引用的图像
    *
@@ -296,7 +295,6 @@ export class ImageHandler {
     return { text: processedText, images, errors };
   }
 
-
   /**
    * 检查路径是否是图像文件
    *
@@ -307,7 +305,6 @@ export class ImageHandler {
     const ext = this.getExtension(filePath);
     return SUPPORTED_IMAGE_FORMATS.includes(ext as ImageFormat);
   }
-
 
   /**
    * 解析文件路径
@@ -417,7 +414,6 @@ export class ImageHandler {
         return false;
     }
   }
-
 
   /**
    * 格式化文件大小

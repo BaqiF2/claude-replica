@@ -39,8 +39,10 @@ export class ConfigBuilder {
     if (options.permissionMode) result.permissionMode = options.permissionMode;
     if (options.maxTurns !== undefined) result.maxTurns = options.maxTurns;
     if (options.maxBudgetUsd !== undefined) result.maxBudgetUsd = options.maxBudgetUsd;
-    if (options.maxThinkingTokens !== undefined) result.maxThinkingTokens = options.maxThinkingTokens;
-    if (options.enableFileCheckpointing) result.enableFileCheckpointing = options.enableFileCheckpointing;
+    if (options.maxThinkingTokens !== undefined)
+      result.maxThinkingTokens = options.maxThinkingTokens;
+    if (options.enableFileCheckpointing)
+      result.enableFileCheckpointing = options.enableFileCheckpointing;
     if (options.sandbox) result.sandbox = { enabled: true };
 
     return result;
