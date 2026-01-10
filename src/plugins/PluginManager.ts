@@ -18,7 +18,7 @@ import * as os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
-import { Command } from '../commands/CommandManager';
+import { Command } from '../commands/types';
 import { Agent } from '../agents/AgentRegistry';
 import { HookConfig } from '../hooks/HookManager';
 import { MCPServerConfigMap } from '../mcp/MCPManager';

@@ -8,7 +8,7 @@
  * - 工具组件：ToolRegistry
  * - 权限组件：PermissionManager, PermissionConfig 等
  * - 配置组件：ConfigManager, SDKConfigLoader 等
- * - 扩展组件：CommandManager, AgentRegistry 等
+ * - 扩展组件：AgentRegistry 等
  * - 其他组件：HookManager, MCPManager, OutputFormatter 等
  */
 
@@ -72,7 +72,7 @@ export {
 } from './config';
 
 // 命令组件
-export { CommandManager, Command, CommandManagerConfig, CommandExecutionResult } from './commands';
+export { Command, CommandExecutionResult } from './commands';
 
 // 代理组件
 export { AgentRegistry, Agent, AgentRegistryConfig } from './agents';

@@ -23,7 +23,6 @@ import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
 import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
-import { CommandManager } from './commands/CommandManager';
 import { AgentRegistry } from './agents/AgentRegistry';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
@@ -49,7 +48,6 @@ export class Application {
   private readonly errorHandler: ErrorHandler;
   private readonly sessionManager: SessionManager;
   private readonly toolRegistry: ToolRegistry;
-  private readonly commandManager: CommandManager;
   private readonly agentRegistry: AgentRegistry;
   private readonly hookManager: HookManager;
   private readonly mcpManager: MCPManager;
@@ -74,7 +72,6 @@ export class Application {
     this.errorHandler = new ErrorHandler();
     this.sessionManager = new SessionManager();
     this.toolRegistry = new ToolRegistry();
-    this.commandManager = new CommandManager();
     this.agentRegistry = new AgentRegistry();
     this.hookManager = new HookManager();
     this.mcpManager = new MCPManager();
@@ -150,19 +147,12 @@ export class Application {
 
   private async loadCustomExtensions(workingDir: string): Promise<void> {
     await this.logger.debug('Loading extensions...');
-    const commandDirs = [
-      path.join(os.homedir(), '.claude', 'commands'),
-      path.join(workingDir, '.claude', 'commands'),
-    ];
     const agentDirs = [
       path.join(os.homedir(), '.claude', 'agents'),
       path.join(workingDir, '.claude', 'agents'),
     ];
 
     await Promise.all([
-      this.commandManager
-        .loadCommands(commandDirs)
-        .catch((err) => this.logger.warn('Failed to load commands', err)),
       this.agentRegistry
         .loadAgents(agentDirs)
         .catch((err) => this.logger.warn('Failed to load agents', err)),
@@ -361,7 +351,6 @@ export class Application {
   private async handleCommand(command: string, _session: Session): Promise<void> {
     const parts = command.slice(1).split(/\s+/);
     const cmdName = parts[0].toLowerCase();
-    const cmdArgs = parts.slice(1).join(' ');
 
     switch (cmdName) {
       case 'help':
@@ -389,10 +378,7 @@ export class Application {
         }
         break;
       default: {
-        const customCmd = this.commandManager.getCommand(cmdName);
-        if (customCmd) {
-          await this.commandManager.executeCommand(cmdName, cmdArgs);
-        } else if (this.ui) {
+        if (this.ui) {
           this.ui.displayError(`Unknown command: ${cmdName}. Type /help for available commands.`);
         }
       }
@@ -409,14 +395,6 @@ Available commands:
   /mcp         - Show MCP server status
   /clear       - Clear screen
   /exit        - Exit program
-
-Custom commands:
-${
-  this.commandManager
-    .listCommands()
-    .map((c) => `  /${c.name} - ${c.description}`)
-    .join('\n') || '  (none)'
-}
 `.trim();
 
     console.log(helpText);

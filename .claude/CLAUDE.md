@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Claude Replica is a command-line tool that replicates Claude Code functionality using the Claude Agent SDK. It provides AI-assisted programming capabilities with an extensible architecture supporting skills, commands, sub-agents, hooks, and MCP integration.
+Claude Replica is a command-line tool that replicates Claude Code functionality using the Claude Agent SDK. It provides AI-assisted programming capabilities with an extensible architecture supporting skills, sub-agents, hooks, and MCP integration.
 
 ## Development Commands
 
@@ -91,12 +91,6 @@ Sessions auto-save after each operation. Expired sessions are cleaned up automat
 - **Loading**: Auto-loaded via `SkillManager`, merged into system prompt by `MessageRouter`
 - **Frontmatter**: `name`, `description`, `triggers[]`, `tools[]`
 
-### Commands System (`src/commands/`)
-- **Purpose**: Reusable command templates with parameter substitution
-- **Format**: `*.command.md` files with YAML frontmatter
-- **Invocation**: `/user:command` or `/project:command`
-- **Features**: Template variables (`$ARGUMENTS`), embedded command output, tool allowlists
-
 ### Agents System (`src/agents/`)
 - **Purpose**: Specialized sub-agents for specific tasks
 - **Format**: `*.agent.md` files with YAML frontmatter
@@ -150,7 +144,6 @@ Each subsystem has a manager class:
 - `SessionManager` - session lifecycle
 - `ConfigManager` - config loading/merging
 - `SkillManager` - skill loading
-- `CommandManager` - command templates
 - `AgentRegistry` - sub-agent definitions
 - `HookManager` - event hooks
 - `MCPManager` - MCP servers

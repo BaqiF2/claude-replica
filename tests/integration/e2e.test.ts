@@ -52,7 +52,6 @@ import * as path from 'path';
 import * as os from 'os';
 import { SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
-import { CommandManager } from '../../src/commands/CommandManager';
 import { AgentRegistry } from '../../src/agents/AgentRegistry';
 import { HookManager } from '../../src/hooks/HookManager';
 import { MCPManager } from '../../src/mcp/MCPManager';
@@ -442,35 +441,11 @@ describe('端到端集成测试', () => {
   });
 
   describe('扩展系统集成工作流', () => {
-    let commandsDir: string;
     let agentsDir: string;
 
     beforeAll(async () => {
-      commandsDir = path.join(configDir, 'commands');
       agentsDir = path.join(configDir, 'agents');
-      
-      await fs.mkdir(commandsDir, { recursive: true });
       await fs.mkdir(agentsDir, { recursive: true });
-    });
-
-    it('应该加载命令文件', async () => {
-      // 创建测试命令文件
-      const commandContent = `---
-name: test-command
-description: 测试命令
-argumentHint: <参数>
----
-
-执行测试命令: $ARGUMENTS
-`;
-      await fs.writeFile(path.join(commandsDir, 'test-command.md'), commandContent);
-      
-      const commandManager = new CommandManager();
-      await commandManager.loadCommands([commandsDir]);
-      
-      const commands = commandManager.listCommands();
-      expect(commands.length).toBeGreaterThan(0);
-      expect(commands.some(c => c.name === 'test-command')).toBe(true);
     });
 
     it('应该加载代理文件', async () => {
