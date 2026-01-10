@@ -341,7 +341,11 @@ export class StreamingQueryManager {
       );
 
       // 如果有严重的图像错误（所有图像都无法加载），返回错误
-      if (buildResult.errors && buildResult.errors.length > 0 && buildResult.contentBlocks.length === 0) {
+      if (
+        buildResult.errors &&
+        buildResult.errors.length > 0 &&
+        buildResult.contentBlocks.length === 0
+      ) {
         return {
           success: false,
           error: buildResult.errors.map((e) => `${e.reference}: ${e.error}`).join('; '),
@@ -371,7 +375,8 @@ export class StreamingQueryManager {
 
       return {
         success: true,
-        imageErrors: buildResult.errors && buildResult.errors.length > 0 ? buildResult.errors : undefined,
+        imageErrors:
+          buildResult.errors && buildResult.errors.length > 0 ? buildResult.errors : undefined,
       };
     } catch (error) {
       return {
@@ -520,11 +525,17 @@ export class StreamingQueryManager {
         disallowedTools: queryOptions.disallowedTools,
         cwd: queryOptions.cwd,
         permissionMode: queryOptions.permissionMode,
+        mcpServers: queryOptions.mcpServers as Parameters<
+          typeof this.sdkExecutor.executeStreaming
+        >[1]['mcpServers'],
+        agents: queryOptions.agents,
         maxTurns: queryOptions.maxTurns,
         maxBudgetUsd: queryOptions.maxBudgetUsd,
         maxThinkingTokens: queryOptions.maxThinkingTokens,
+        enableFileCheckpointing: queryOptions.enableFileCheckpointing,
         sandbox: queryOptions.sandbox,
         abortController: this.activeSession.abortController,
+        resume: this.activeSession.session.sdkSessionId,
         // 传递消息回调，用于实时输出工具调用信息
         onMessage: (message) => this.handleSDKMessage(message),
       });
@@ -653,7 +664,8 @@ export class StreamingQueryManager {
             const resultInfo: ToolResultInfo = {
               toolUseId: block.tool_use_id,
               name: toolUseInfo?.name,
-              content: typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
+              content:
+                typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
               isError: block.is_error || false,
             };
 
@@ -665,4 +677,3 @@ export class StreamingQueryManager {
     }
   }
 }
-

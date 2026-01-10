@@ -141,10 +141,7 @@ export class EnvConfig {
    */
   static printConfiguration(): string {
     const config = this.getConfiguration();
-    const lines = [
-      '环境配置:',
-      `  调试模式: ${config.debugMode ? '启用' : '禁用'}`,
-    ];
+    const lines = ['环境配置:', `  调试模式: ${config.debugMode ? '启用' : '禁用'}`];
     return lines.join('\n');
   }
 }

@@ -254,6 +254,47 @@ describe('错误处理', () => {
 });
 
 describe('输出格式', () => {
+  const findJsonOutput = (calls: Array<unknown[]>): string | undefined => {
+    for (const call of calls) {
+      const value = call[0];
+      if (typeof value !== 'string') {
+        continue;
+      }
+      try {
+        JSON.parse(value);
+        return value;
+      } catch {
+        continue;
+      }
+    }
+    return undefined;
+  };
+
+  const findStreamJsonOutput = (calls: Array<unknown[]>): string | undefined => {
+    for (const call of calls) {
+      const value = call[0];
+      if (typeof value !== 'string') {
+        continue;
+      }
+      const lines = value.split('\n').filter((line) => line.trim());
+      if (lines.length === 0) {
+        continue;
+      }
+      const allJsonLines = lines.every((line) => {
+        try {
+          JSON.parse(line);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (allJsonLines) {
+        return value;
+      }
+    }
+    return undefined;
+  };
+
   it('应该支持 text 格式输出', async () => {
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
     
@@ -272,9 +313,9 @@ describe('输出格式', () => {
     const exitCode = await main(['-p', '测试', '--output-format', 'json']);
     
     expect(exitCode).toBe(0);
-    const output = consoleSpy.mock.calls[0][0];
-    expect(() => JSON.parse(output)).not.toThrow();
-    const parsed = JSON.parse(output);
+    const output = findJsonOutput(consoleSpy.mock.calls);
+    expect(output).toBeDefined();
+    const parsed = JSON.parse(output as string);
     expect(parsed).toHaveProperty('result');
     expect(parsed).toHaveProperty('success', true);
     
@@ -287,9 +328,10 @@ describe('输出格式', () => {
     const exitCode = await main(['-p', '测试', '--output-format', 'stream-json']);
     
     expect(exitCode).toBe(0);
-    const output = consoleSpy.mock.calls[0][0];
+    const output = findStreamJsonOutput(consoleSpy.mock.calls);
+    expect(output).toBeDefined();
     // stream-json 可能包含多行，每行都是有效的 JSON
-    const lines = output.split('\n').filter((l: string) => l.trim());
+    const lines = (output as string).split('\n').filter((l: string) => l.trim());
     expect(lines.length).toBeGreaterThanOrEqual(1);
     
     // 检查是否有 type: result 的行

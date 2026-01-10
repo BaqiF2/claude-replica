@@ -246,9 +246,10 @@ export class InteractiveUI extends EventEmitter {
     // 格式化参数为简洁的 key: value 形式
     const argPairs = Object.entries(args)
       .map(([key, value]) => {
-        const displayValue = typeof value === 'string'
-          ? `"${value.length > 30 ? value.slice(0, 30) + '...' : value}"`
-          : JSON.stringify(value);
+        const displayValue =
+          typeof value === 'string'
+            ? `"${value.length > 30 ? value.slice(0, 30) + '...' : value}"`
+            : JSON.stringify(value);
         return `${key}: ${displayValue}`;
       })
       .join(', ');
@@ -273,9 +274,8 @@ export class InteractiveUI extends EventEmitter {
     // 截取结果显示（简洁摘要）
     const maxLength = 200;
     const firstLine = result.split('\n')[0];
-    const displayResult = firstLine.length > maxLength
-      ? firstLine.slice(0, maxLength) + '...'
-      : firstLine;
+    const displayResult =
+      firstLine.length > maxLength ? firstLine.slice(0, maxLength) + '...' : firstLine;
 
     if (displayResult.trim()) {
       this.writeLine(`  ${resultIcon}  ${this.colorize(displayResult.trim(), color)}`);
@@ -460,7 +460,6 @@ export class InteractiveUI extends EventEmitter {
       this.input.on('data', handleInput);
     });
   }
-
 
   /**
    * 设置初始权限模式
