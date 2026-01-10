@@ -210,6 +210,11 @@ export class Application {
       },
     });
 
+    // Handle slash commands
+    this.ui.on('command', async (command: string) => {
+      await this.handleCommand(command, session);
+    });
+
     this.streamingQueryManager = new StreamingQueryManager({
       messageRouter: this.messageRouter,
       sdkExecutor: this.sdkExecutor,
@@ -310,9 +315,17 @@ export class Application {
   }
 
   private async handleUserMessage(message: string, session: Session): Promise<void> {
+    // Check if it's a built-in command
     if (message.startsWith('/')) {
-      await this.handleCommand(message, session);
-      return;
+      const parts = message.slice(1).split(/\s+/);
+      const cmdName = parts[0].toLowerCase();
+      const builtInCommands = ['help', 'sessions', 'config', 'permissions', 'mcp', 'clear', 'exit', 'quit'];
+
+      if (builtInCommands.includes(cmdName)) {
+        await this.handleCommand(message, session);
+        return;
+      }
+      // Non-built-in slash commands are passed to SDK
     }
 
     try {
@@ -348,7 +361,7 @@ export class Application {
     }
   }
 
-  private async handleCommand(command: string, _session: Session): Promise<void> {
+  private async handleCommand(command: string, session: Session): Promise<void> {
     const parts = command.slice(1).split(/\s+/);
     const cmdName = parts[0].toLowerCase();
 
@@ -378,9 +391,8 @@ export class Application {
         }
         break;
       default: {
-        if (this.ui) {
-          this.ui.displayError(`Unknown command: ${cmdName}. Type /help for available commands.`);
-        }
+        // Unknown commands are treated as slash commands and passed to SDK
+        await this.handleUserMessage(command, session);
       }
     }
   }
