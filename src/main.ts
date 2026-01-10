@@ -23,7 +23,6 @@ import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
 import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
-import { CommandManager } from './commands/CommandManager';
 import { AgentRegistry } from './agents/AgentRegistry';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
@@ -41,6 +40,7 @@ import { ErrorHandler } from './errors/ErrorHandler';
 
 const VERSION = process.env.VERSION || '0.1.0';
 
+
 export class Application {
   private readonly cliParser: CLIParser;
   private readonly configManager: ConfigManager;
@@ -48,7 +48,6 @@ export class Application {
   private readonly errorHandler: ErrorHandler;
   private readonly sessionManager: SessionManager;
   private readonly toolRegistry: ToolRegistry;
-  private readonly commandManager: CommandManager;
   private readonly agentRegistry: AgentRegistry;
   private readonly hookManager: HookManager;
   private readonly mcpManager: MCPManager;
@@ -73,7 +72,6 @@ export class Application {
     this.errorHandler = new ErrorHandler();
     this.sessionManager = new SessionManager();
     this.toolRegistry = new ToolRegistry();
-    this.commandManager = new CommandManager();
     this.agentRegistry = new AgentRegistry();
     this.hookManager = new HookManager();
     this.mcpManager = new MCPManager();
@@ -149,17 +147,16 @@ export class Application {
 
   private async loadCustomExtensions(workingDir: string): Promise<void> {
     await this.logger.debug('Loading extensions...');
-    const commandDirs = [
-      path.join(os.homedir(), '.claude', 'commands'),
-      path.join(workingDir, '.claude', 'commands'),
+    const agentDirs = [
+      path.join(os.homedir(), '.claude', 'agents'),
+      path.join(workingDir, '.claude', 'agents'),
     ];
 
-    await this.commandManager
-      .loadCommands(commandDirs)
-      .catch((err) => this.logger.warn('Failed to load commands', err));
-
-    const presetAgentCount = Object.keys(this.agentRegistry.getAll()).length;
-    console.log(`SubAgents initialized: ${presetAgentCount} preset agent(s)`);
+    await Promise.all([
+      this.agentRegistry
+        .loadAgents(agentDirs)
+        .catch((err) => this.logger.warn('Failed to load agents', err)),
+    ]);
 
     const hooksConfigPath = path.join(workingDir, '.claude', 'hooks.json');
     try {
@@ -211,6 +208,11 @@ export class Application {
           this.streamingQueryManager.queueMessage(message);
         }
       },
+    });
+
+    // Handle slash commands
+    this.ui.on('command', async (command: string) => {
+      await this.handleCommand(command, session);
     });
 
     this.streamingQueryManager = new StreamingQueryManager({
@@ -313,9 +315,17 @@ export class Application {
   }
 
   private async handleUserMessage(message: string, session: Session): Promise<void> {
+    // Check if it's a built-in command
     if (message.startsWith('/')) {
-      await this.handleCommand(message, session);
-      return;
+      const parts = message.slice(1).split(/\s+/);
+      const cmdName = parts[0].toLowerCase();
+      const builtInCommands = ['help', 'sessions', 'config', 'permissions', 'mcp', 'clear', 'exit', 'quit'];
+
+      if (builtInCommands.includes(cmdName)) {
+        await this.handleCommand(message, session);
+        return;
+      }
+      // Non-built-in slash commands are passed to SDK
     }
 
     try {
@@ -351,10 +361,9 @@ export class Application {
     }
   }
 
-  private async handleCommand(command: string, _session: Session): Promise<void> {
+  private async handleCommand(command: string, session: Session): Promise<void> {
     const parts = command.slice(1).split(/\s+/);
     const cmdName = parts[0].toLowerCase();
-    const cmdArgs = parts.slice(1).join(' ');
 
     switch (cmdName) {
       case 'help':
@@ -382,12 +391,8 @@ export class Application {
         }
         break;
       default: {
-        const customCmd = this.commandManager.getCommand(cmdName);
-        if (customCmd) {
-          await this.commandManager.executeCommand(cmdName, cmdArgs);
-        } else if (this.ui) {
-          this.ui.displayError(`Unknown command: ${cmdName}. Type /help for available commands.`);
-        }
+        // Unknown commands are treated as slash commands and passed to SDK
+        await this.handleUserMessage(command, session);
       }
     }
   }
@@ -402,14 +407,6 @@ Available commands:
   /mcp         - Show MCP server status
   /clear       - Clear screen
   /exit        - Exit program
-
-Custom commands:
-${
-  this.commandManager
-    .listCommands()
-    .map((c) => `  /${c.name} - ${c.description}`)
-    .join('\n') || '  (none)'
-}
 `.trim();
 
     console.log(helpText);
