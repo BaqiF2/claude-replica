@@ -174,6 +174,8 @@ export class MessageRouter {
   private readonly imageHandlerCache: Map<string, ImageHandler> = new Map();
   /** 默认工作目录 */
   private defaultWorkingDirectory: string = process.cwd();
+  /** 当前加载的 MCP 服务器配置 */
+  private mcpServers?: Record<string, McpServerConfig>;
 
   constructor(options: MessageRouterOptions) {
     this.configManager = options.configManager;
@@ -197,6 +199,15 @@ export class MessageRouter {
   setWorkingDirectory(workingDirectory: string): void {
     this.defaultWorkingDirectory = workingDirectory;
     // 无需预创建实例，getImageHandler() 会按需创建并缓存
+  }
+
+  /**
+   * 设置 MCP 服务器配置
+   *
+   * @param servers - MCP 服务器配置映射
+   */
+  setMcpServers(servers?: Record<string, McpServerConfig>): void {
+    this.mcpServers = servers;
   }
 
   /**
@@ -645,8 +656,8 @@ export class MessageRouter {
     };
 
     // 添加 MCP 服务器配置
-    if (mergedConfig.mcpServers && Object.keys(mergedConfig.mcpServers).length > 0) {
-      options.mcpServers = mergedConfig.mcpServers;
+    if (this.mcpServers && Object.keys(this.mcpServers).length > 0) {
+      options.mcpServers = this.mcpServers;
     }
 
     return options;

@@ -553,13 +553,13 @@ interface McpStdioServerConfig {
 }
 
 interface McpSSEServerConfig {
-  transport: 'sse';
+  type: 'sse';
   url: string;
   headers?: Record<string, string>;
 }
 
 interface McpHttpServerConfig {
-  transport: 'http';
+  type: 'http';
   url: string;
   headers?: Record<string, string>;
 }
@@ -568,6 +568,51 @@ type McpServerConfig =
   | McpStdioServerConfig
   | McpSSEServerConfig
   | McpHttpServerConfig;
+```
+
+#### MCP 配置文件格式
+
+`.mcp.json` 文件支持两种格式：
+
+**MCP 规范格式（推荐）：**
+```json
+{
+  "mcpServers": {
+    "server-name": {
+      "command": "npx",
+      "args": ["-y", "@package/server"],
+      "env": {
+        "KEY": "${ENV_VAR}"
+      }
+    }
+  }
+}
+```
+
+**直接映射格式（向后兼容）：**
+```json
+{
+  "server-name": {
+    "command": "npx",
+    "args": ["-y", "@package/server"]
+  }
+}
+```
+
+**迁移说明：** 从 v1.x 升级的用户请注意，MCP SSE/HTTP 服务器配置中的 `transport` 字段已重命名为 `type` 以符合官方规范。旧版本的 `transport` 字段仍然支持，但会输出弃用警告，建议尽快迁移。该向后兼容支持将在 v2.0 版本中移除。
+
+```typescript
+// 旧版本 (已弃用)
+{
+  "transport": "sse",
+  "url": "https://example.com"
+}
+
+// 新版本 (推荐)
+{
+  "type": "sse",
+  "url": "https://example.com"
+}
 ```
 
 ### RewindManager

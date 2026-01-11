@@ -1,19 +1,37 @@
 /**
- * 文件功能：MCP（Model Context Protocol）服务器管理模块，负责配置、加载和验证 MCP 服务器
+ * 文件功能：MCP 配置加载与验证核心，按官方单一配置源要求从项目根目录的 .mcp.json 读取服务器定义、展开环境变量并确保结构合法。
  *
  * 核心类：
- * - MCPManager: MCP 服务器管理器核心类
+ * - MCPManager: 维护 MCP 服务器缓存并提供验证/展开等公共能力
  *
- * 核心方法：
- * - loadServersFromConfig(): 从配置文件加载 MCP 服务器
- * - listServers(): 列出所有已配置的服务器
- * - validateConfig(): 验证 MCP 服务器配置
- * - startServer(): 启动指定服务器
- * - stopServer(): 停止指定服务器
+ * 核心方法（保留）：
+ * - loadServersFromConfig(): 从指定的 .mcp.json 解析并缓存服务器配置
+ * - getServersConfig(): 提供原始缓存配置供上层业务使用
+ * - getServersInfo(): 生成含传输类型的服务器信息列表以便展示
+ * - validateConfig(): 逐个校验服务器配置结构并反馈错误
+ * - expandEnvironmentVariables(): 展开配置中的 `${ENV}` 占位符
+ * - getExpandedServersConfig(): 获取展开后的所有配置用于 SDK 调用
+ * - getTransportType(): 根据字段判断传输类型以辅助路由和展示
+ *
+ * 新增方法（单一配置资源）：
+ * - loadFromProjectRoot(): 向上查找 .git，锁定项目根并加载其 .mcp.json
+ * - getConfigPath(): 返回当前工作目录所属项目根下的 .mcp.json 路径
+ *
+ * 移除的旧方法（由于采用官方推荐的单一配置源及编辑器流程而弃用）：
+ * - tryLoadFromPaths(): 统一只读项目根 .mcp.json，取消多路径搜索
+ * - addServer()/removeServer(): 运行时直接修改配置改为由 /mcp edit 编辑器命令处理
+ * - merge(): 依赖配置文件本身及 MCPService 进行合并，移除运行时合并逻辑
+ * - saveToFile(): 保存责任交给编辑器流程，不再内部写文件
+ * - filterByTransport(): 该辅助方法未使用且被展示层替代
+ * - clear(): 不再支持运行时清空配置，避免误删
+ * - fromJSON()/toJSON(): 序列化需求由配置文件天然提供，删掉冗余实现
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+
+const MCP_CONFIG_FILENAME = '.mcp.json';
+const GIT_DIRECTORY_NAME = '.git';
 
 /**
  * stdio 传输配置
@@ -32,7 +50,7 @@ export interface McpStdioServerConfig {
  */
 export interface McpSSEServerConfig {
   /** 传输类型 */
-  transport: 'sse';
+  type: 'sse';
   /** 服务器 URL */
   url: string;
   /** HTTP 头 */
@@ -44,7 +62,7 @@ export interface McpSSEServerConfig {
  */
 export interface McpHttpServerConfig {
   /** 传输类型 */
-  transport: 'http';
+  type: 'http';
   /** 服务器 URL */
   url: string;
   /** HTTP 头 */
@@ -78,7 +96,7 @@ export interface ServerInfo {
   /** 服务器名称 */
   name: string;
   /** 传输类型 */
-  transport: 'stdio' | 'sse' | 'http';
+  type: 'stdio' | 'sse' | 'http';
   /** 配置详情 */
   config: McpServerConfig;
 }
@@ -109,9 +127,34 @@ export class MCPManager {
   }
 
   /**
+   * 从项目根目录加载 MCP 配置
+   *
+   * @param workingDir 当前工作目录
+   */
+  async loadFromProjectRoot(workingDir: string): Promise<void> {
+    const configPath = await this.getConfigPath(workingDir);
+    if (!(await this.pathExists(configPath))) {
+      this.config = {};
+      return;
+    }
+    await this.loadServersFromConfig(configPath);
+  }
+
+  /**
+   * 获取项目根目录下的 MCP 配置路径
+   *
+   * @param workingDir 当前工作目录
+   * @returns MCP 配置文件路径
+   */
+  async getConfigPath(workingDir: string): Promise<string> {
+    const projectRoot = await this.findProjectRoot(workingDir);
+    return path.join(projectRoot, MCP_CONFIG_FILENAME);
+  }
+
+  /**
    * 从配置文件加载 MCP 服务器
    *
-   * @param configPath 配置文件路径（.mcp.json 或 mcp.json）
+   * @param configPath 配置文件路径（.mcp.json）
    * @throws 如果文件不存在或格式无效
    */
   async loadServersFromConfig(configPath: string): Promise<void> {
@@ -124,15 +167,35 @@ export class MCPManager {
         throw new Error('MCP configuration must be an object');
       }
 
+      if (!('mcpServers' in parsed)) {
+        throw new Error('MCP configuration must include "mcpServers" object');
+      }
+
+      if (typeof parsed.mcpServers !== 'object' || parsed.mcpServers === null) {
+        throw new Error('MCP configuration "mcpServers" must be an object');
+      }
+
+      if (Array.isArray(parsed.mcpServers)) {
+        throw new Error('MCP configuration "mcpServers" must be an object');
+      }
+
+      const serverConfigs = parsed.mcpServers as Record<string, unknown>;
+
+      // 规范化所有配置（转换 transport -> type）
+      const normalized: MCPServerConfigMap = {};
+      for (const [name, config] of Object.entries(serverConfigs)) {
+        normalized[name] = this.normalizeConfig(config as McpServerConfig);
+      }
+
       // 如果启用严格模式，验证所有配置
       if (this.strictMode) {
-        const validation = this.validateAllConfigs(parsed);
+        const validation = this.validateAllConfigs(normalized);
         if (!validation.valid) {
           throw new Error(`MCP configuration validation failed:\n${validation.errors.join('\n')}`);
         }
       }
 
-      this.config = parsed as MCPServerConfigMap;
+      this.config = normalized;
 
       if (this.debug) {
         console.log(`Loaded ${Object.keys(this.config).length} MCP server configurations`);
@@ -146,77 +209,6 @@ export class MCPManager {
       }
       throw error;
     }
-  }
-
-  /**
-   * 尝试从多个可能的路径加载配置
-   *
-   * @param basePath 基础路径
-   * @returns 是否成功加载
-   */
-  async tryLoadFromPaths(basePath: string): Promise<boolean> {
-    const possiblePaths = [
-      path.join(basePath, '.mcp.json'),
-      path.join(basePath, 'mcp.json'),
-      path.join(basePath, '.claude', 'mcp.json'),
-    ];
-
-    for (const configPath of possiblePaths) {
-      try {
-        await this.loadServersFromConfig(configPath);
-        if (this.debug) {
-          console.log(`Loaded MCP configuration from ${configPath}`);
-        }
-        return true;
-      } catch {
-        // 继续尝试下一个路径
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * 添加 MCP 服务器
-   *
-   * @param name 服务器名称
-   * @param config 服务器配置
-   * @throws 如果启用严格模式且配置无效
-   */
-  addServer(name: string, config: McpServerConfig): void {
-    if (!name || typeof name !== 'string') {
-      throw new Error('Server name must be a non-empty string');
-    }
-
-    if (this.strictMode) {
-      const validation = this.validateConfig(config);
-      if (!validation.valid) {
-        throw new Error(`Server "${name}" configuration invalid:\n${validation.errors.join('\n')}`);
-      }
-    }
-
-    this.config[name] = config;
-
-    if (this.debug) {
-      console.log(`MCP server added: ${name}`);
-    }
-  }
-
-  /**
-   * 移除 MCP 服务器
-   *
-   * @param name 服务器名称
-   * @returns 是否成功移除
-   */
-  removeServer(name: string): boolean {
-    if (Object.prototype.hasOwnProperty.call(this.config, name)) {
-      delete this.config[name];
-      if (this.debug) {
-        console.log(`MCP server removed: ${name}`);
-      }
-      return true;
-    }
-    return false;
   }
 
   /**
@@ -274,7 +266,7 @@ export class MCPManager {
   getServersInfo(): ServerInfo[] {
     return Object.entries(this.config).map(([name, config]) => ({
       name,
-      transport: this.getTransportType(config),
+      type: this.getTransportType(config),
       config,
     }));
   }
@@ -286,8 +278,8 @@ export class MCPManager {
    * @returns 传输类型
    */
   getTransportType(config: McpServerConfig): 'stdio' | 'sse' | 'http' {
-    if ('transport' in config) {
-      return config.transport;
+    if ('type' in config) {
+      return config.type;
     }
     // 如果有 command 字段，则是 stdio 类型
     if ('command' in config) {
@@ -325,15 +317,59 @@ export class MCPManager {
       return this.validateHttpConfig(config);
     }
 
-    // 检查是否有 transport 字段但值不正确
-    if ('transport' in config) {
-      const transport = (config as { transport: string }).transport;
-      errors.push(`Unknown transport type: ${transport}`);
+    // 检查是否有 type 字段但值不正确
+    if ('type' in config) {
+      const type = (config as { type: string }).type;
+      errors.push(`Unknown type value: ${type}`);
       return { valid: false, errors };
     }
 
-    errors.push('Config must contain command (stdio) or transport (sse/http) field');
+    errors.push('Config must contain command (stdio) or type (sse/http) field');
     return { valid: false, errors };
+  }
+
+  /**
+   * 规范化配置：将旧的 transport 字段转换为新的 type 字段
+   *
+   * @param config 原始配置
+   * @returns 规范化后的配置
+   */
+  private normalizeConfig(config: McpServerConfig): McpServerConfig {
+    // 如果是 stdio 配置，不需要转换
+    if ('command' in config) {
+      return config;
+    }
+
+    // 检查是否需要转换
+    const configAny = config as unknown as Record<string, unknown>;
+
+    // 情况1：同时存在 type 和 transport，优先使用 type
+    if ('type' in configAny && 'transport' in configAny) {
+      console.warn(
+        'DEPRECATED: Configuration contains both "type" and "transport" fields. ' +
+          'Using "type" field. Please remove the deprecated "transport" field. ' +
+          'The "transport" field will be removed in v2.0.'
+      );
+      // 移除 transport 字段
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { transport: _transport, ...rest } = configAny;
+      return rest as unknown as McpServerConfig;
+    }
+
+    // 情况2：只有 transport 字段，需要转换为 type
+    if ('transport' in configAny && !('type' in configAny)) {
+      const transportValue = configAny.transport;
+      console.warn(
+        `DEPRECATED: Configuration field "transport" is deprecated. ` +
+          `Please use "type" instead. Example: { "type": "${transportValue}", ... }. ` +
+          `The "transport" field will be removed in v2.0.`
+      );
+      const { transport, ...rest } = configAny;
+      return { type: transport, ...rest } as McpServerConfig;
+    }
+
+    // 情况3：只有 type 字段或都没有，直接返回
+    return config;
   }
 
   /**
@@ -347,14 +383,14 @@ export class MCPManager {
    * 类型守卫：检查是否是 SSE 配置
    */
   private isSSEConfig(config: McpServerConfig): config is McpSSEServerConfig {
-    return 'transport' in config && (config as McpSSEServerConfig).transport === 'sse';
+    return 'type' in config && (config as McpSSEServerConfig).type === 'sse';
   }
 
   /**
    * 类型守卫：检查是否是 HTTP 配置
    */
   private isHttpConfig(config: McpServerConfig): config is McpHttpServerConfig {
-    return 'transport' in config && (config as McpHttpServerConfig).transport === 'http';
+    return 'type' in config && (config as McpHttpServerConfig).type === 'http';
   }
 
   /**
@@ -398,8 +434,8 @@ export class MCPManager {
   private validateSSEConfig(config: McpSSEServerConfig): ConfigValidationResult {
     const errors: string[] = [];
 
-    if (config.transport !== 'sse') {
-      errors.push('transport must be "sse"');
+    if (config.type !== 'sse') {
+      errors.push('type must be "sse"');
     }
 
     if (typeof config.url !== 'string' || config.url.trim() === '') {
@@ -433,8 +469,8 @@ export class MCPManager {
   private validateHttpConfig(config: McpHttpServerConfig): ConfigValidationResult {
     const errors: string[] = [];
 
-    if (config.transport !== 'http') {
-      errors.push('transport must be "http"');
+    if (config.type !== 'http') {
+      errors.push('type must be "http"');
     }
 
     if (typeof config.url !== 'string' || config.url.trim() === '') {
@@ -503,7 +539,10 @@ export class MCPManager {
    * @returns 展开后的配置
    */
   expandEnvironmentVariables(config: McpServerConfig): McpServerConfig {
-    const expandValue = (value: string): string => {
+    const expandValue = (value: string | undefined): string => {
+      if (typeof value !== 'string') {
+        return '';
+      }
       return value.replace(/\$\{([^}]+)\}/g, (_, varName) => {
         return process.env[varName] || '';
       });
@@ -524,11 +563,11 @@ export class MCPManager {
       return expanded;
     }
 
-    if ('transport' in config) {
-      if (config.transport === 'sse') {
+    if ('type' in config) {
+      if (config.type === 'sse') {
         const sseConfig = config as McpSSEServerConfig;
         const expanded: McpSSEServerConfig = {
-          transport: 'sse',
+          type: 'sse',
           url: expandValue(sseConfig.url),
         };
         if (sseConfig.headers) {
@@ -540,10 +579,10 @@ export class MCPManager {
         return expanded;
       }
 
-      if (config.transport === 'http') {
+      if (config.type === 'http') {
         const httpConfig = config as McpHttpServerConfig;
         const expanded: McpHttpServerConfig = {
-          transport: 'http',
+          type: 'http',
           url: expandValue(httpConfig.url),
         };
         if (httpConfig.headers) {
@@ -573,59 +612,6 @@ export class MCPManager {
   }
 
   /**
-   * 清除所有服务器配置
-   */
-  clear(): void {
-    this.config = {};
-    if (this.debug) {
-      console.log('All MCP server configurations cleared');
-    }
-  }
-
-  /**
-   * 合并另一个配置
-   *
-   * @param other 要合并的配置
-   * @param overwrite 是否覆盖已存在的配置
-   */
-  merge(other: MCPServerConfigMap, overwrite: boolean = true): void {
-    for (const [name, config] of Object.entries(other)) {
-      if (overwrite || !(name in this.config)) {
-        this.config[name] = config;
-      }
-    }
-  }
-
-  /**
-   * 保存配置到文件
-   *
-   * @param configPath 配置文件路径
-   */
-  async saveToFile(configPath: string): Promise<void> {
-    const content = JSON.stringify(this.config, null, 2);
-    await fs.writeFile(configPath, content, 'utf-8');
-    if (this.debug) {
-      console.log(`MCP configuration saved to ${configPath}`);
-    }
-  }
-
-  /**
-   * 按传输类型筛选服务器
-   *
-   * @param transport 传输类型
-   * @returns 匹配的服务器配置映射
-   */
-  filterByTransport(transport: 'stdio' | 'sse' | 'http'): MCPServerConfigMap {
-    const filtered: MCPServerConfigMap = {};
-    for (const [name, config] of Object.entries(this.config)) {
-      if (this.getTransportType(config) === transport) {
-        filtered[name] = config;
-      }
-    }
-    return filtered;
-  }
-
-  /**
    * 静态方法：验证配置对象
    *
    * @param config 配置对象
@@ -636,25 +622,40 @@ export class MCPManager {
     return manager.validateConfig(config as McpServerConfig);
   }
 
-  /**
-   * 静态方法：从 JSON 字符串解析配置
-   *
-   * @param json JSON 字符串
-   * @returns MCPManager 实例
-   */
-  static fromJSON(json: string): MCPManager {
-    const manager = new MCPManager();
-    const parsed = JSON.parse(json);
-    manager.config = parsed as MCPServerConfigMap;
-    return manager;
+  private async findProjectRoot(workingDir: string): Promise<string> {
+    const resolvedWorkingDir = path.resolve(workingDir);
+    let currentDir = resolvedWorkingDir;
+
+    while (true) {
+      const gitPath = path.join(currentDir, GIT_DIRECTORY_NAME);
+      try {
+        await fs.stat(gitPath);
+        return currentDir;
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err.code && err.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) {
+        return resolvedWorkingDir;
+      }
+      currentDir = parentDir;
+    }
   }
 
-  /**
-   * 转换为 JSON 字符串
-   *
-   * @returns JSON 字符串
-   */
-  toJSON(): string {
-    return JSON.stringify(this.config, null, 2);
+  private async pathExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
   }
 }

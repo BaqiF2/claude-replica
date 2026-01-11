@@ -15,7 +15,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { ProjectConfig, McpServerConfig } from '../config';
+import { ProjectConfig } from '../config';
 
 /**
  * 配置模板接口
@@ -176,43 +176,8 @@ export class CollaborationManager {
   private sanitizeConfig(config: ProjectConfig): ProjectConfig {
     const sanitized = { ...config };
 
-    // 移除可能包含敏感信息的字段
-    if (sanitized.mcpServers) {
-      sanitized.mcpServers = this.sanitizeMcpServers(sanitized.mcpServers) as Record<
-        string,
-        McpServerConfig
-      >;
-    }
-
-    return sanitized;
-  }
-
-  /**
-   * 清理 MCP 服务器配置中的敏感信息
-   */
-  private sanitizeMcpServers(servers: Record<string, unknown>): Record<string, unknown> {
-    const sanitized: Record<string, unknown> = {};
-
-    for (const [name, config] of Object.entries(servers)) {
-      const serverConfig = config as Record<string, unknown>;
-      sanitized[name] = { ...serverConfig };
-
-      // 清理环境变量中的敏感值
-      if (serverConfig.env) {
-        const env = serverConfig.env as Record<string, string>;
-        const sanitizedEnv: Record<string, string> = {};
-
-        for (const [key, value] of Object.entries(env)) {
-          // 保留环境变量引用，但移除实际值
-          if (value.startsWith('${') && value.endsWith('}')) {
-            sanitizedEnv[key] = value;
-          } else {
-            sanitizedEnv[key] = `\${${key}}`;
-          }
-        }
-
-        (sanitized[name] as Record<string, unknown>).env = sanitizedEnv;
-      }
+    if (Object.prototype.hasOwnProperty.call(sanitized, 'mcpServers')) {
+      delete (sanitized as Record<string, unknown>).mcpServers;
     }
 
     return sanitized;
@@ -279,7 +244,6 @@ export class CollaborationManager {
       ...base,
       ...override,
       // 深度合并对象类型字段
-      mcpServers: { ...base.mcpServers, ...override.mcpServers },
       agents: { ...base.agents, ...override.agents },
       hooks: this.mergeHooks(base.hooks, override.hooks),
       sandbox: { ...base.sandbox, ...override.sandbox },
@@ -588,15 +552,6 @@ export class CollaborationManager {
       }
     }
 
-    // 验证 MCP 服务器配置
-    if (config.mcpServers) {
-      for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
-        const validation = this.validateMcpServerConfig(name, serverConfig);
-        errors.push(...validation.errors);
-        warnings.push(...validation.warnings);
-      }
-    }
-
     // 检查敏感信息
     const sensitiveCheck = this.checkSensitiveInfo(config);
     warnings.push(...sensitiveCheck);
@@ -611,68 +566,6 @@ export class CollaborationManager {
   /**
    * 验证 MCP 服务器配置
    */
-  private validateMcpServerConfig(
-    name: string,
-    config: unknown
-  ): { errors: ValidationError[]; warnings: ValidationWarning[] } {
-    const errors: ValidationError[] = [];
-    const warnings: ValidationWarning[] = [];
-    const serverConfig = config as Record<string, unknown>;
-
-    // 检查 stdio 配置
-    if ('command' in serverConfig) {
-      if (typeof serverConfig.command !== 'string') {
-        errors.push({
-          type: 'invalid',
-          path: `mcpServers.${name}.command`,
-          message: 'command must be a string',
-        });
-      }
-      if (!Array.isArray(serverConfig.args)) {
-        errors.push({
-          type: 'invalid',
-          path: `mcpServers.${name}.args`,
-          message: 'args must be an array',
-        });
-      }
-    }
-
-    // 检查 SSE/HTTP 配置
-    if ('transport' in serverConfig) {
-      const transport = serverConfig.transport as string;
-      if (!['sse', 'http'].includes(transport)) {
-        errors.push({
-          type: 'invalid',
-          path: `mcpServers.${name}.transport`,
-          message: `Invalid transport type: ${transport}`,
-        });
-      }
-      if (typeof serverConfig.url !== 'string') {
-        errors.push({
-          type: 'invalid',
-          path: `mcpServers.${name}.url`,
-          message: 'url must be a string',
-        });
-      }
-    }
-
-    // 检查环境变量中的硬编码值
-    if (serverConfig.env) {
-      const env = serverConfig.env as Record<string, string>;
-      for (const [key, value] of Object.entries(env)) {
-        if (!value.startsWith('${') && this.looksLikeSensitive(key, value)) {
-          warnings.push({
-            type: 'recommendation',
-            path: `mcpServers.${name}.env.${key}`,
-            message: `Recommend using environment variable reference instead of hardcoded value: \${${key}}`,
-          });
-        }
-      }
-    }
-
-    return { errors, warnings };
-  }
-
   /**
    * 检查配置中的敏感信息
    */
@@ -699,20 +592,6 @@ export class CollaborationManager {
     }
 
     return warnings;
-  }
-
-  /**
-   * 判断值是否看起来像敏感信息
-   */
-  private looksLikeSensitive(key: string, value: string): boolean {
-    const sensitiveKeys = ['key', 'token', 'secret', 'password', 'credential', 'auth'];
-    const keyLower = key.toLowerCase();
-
-    return (
-      sensitiveKeys.some((k) => keyLower.includes(k)) &&
-      value.length > 10 &&
-      !value.startsWith('${')
-    );
   }
 
   /**

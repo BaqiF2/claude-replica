@@ -94,7 +94,7 @@ export interface McpStdioServerConfig {
  * MCP 服务器配置 - SSE 传输
  */
 export interface McpSSEServerConfig {
-  transport: 'sse';
+  type: 'sse';
   url: string;
   headers?: Record<string, string>;
 }
@@ -103,7 +103,7 @@ export interface McpSSEServerConfig {
  * MCP 服务器配置 - HTTP 传输
  */
 export interface McpHttpServerConfig {
-  transport: 'http';
+  type: 'http';
   url: string;
   headers?: Record<string, string>;
 }
@@ -174,6 +174,8 @@ export interface SDKOptions {
   sandbox?: SandboxSettings;
 }
 
+const MCP_DOC_URL = 'https://platform.claude.com/docs/zh-CN/agent-sdk/mcp';
+
 /**
  * 用户/项目配置接口（从配置文件加载的原始格式）
  */
@@ -185,7 +187,8 @@ export interface UserConfig {
   allowedTools?: string[];
   disallowedTools?: string[];
   permissionMode?: PermissionMode;
-  mcpServers?: Record<string, McpServerConfig>;
+  /** 存在旧版 settings.json 中的 mcpServers 字段时设为 true */
+  legacyMcpServers?: boolean;
   agents?: Record<string, AgentDefinition>;
   hooks?: Partial<Record<HookEvent, HookConfig[]>>;
   sandbox?: SandboxSettings;
@@ -315,7 +318,7 @@ export class SDKConfigLoader {
    */
   private parseConfig(content: string): UserConfig {
     const json = JSON.parse(content);
-
+    const hasLegacyMcpServers = Object.prototype.hasOwnProperty.call(json, 'mcpServers');
     return {
       model: json.model,
       maxTurns: json.maxTurns,
@@ -324,7 +327,7 @@ export class SDKConfigLoader {
       allowedTools: json.allowedTools,
       disallowedTools: json.disallowedTools,
       permissionMode: json.permissionMode,
-      mcpServers: json.mcpServers,
+      legacyMcpServers: hasLegacyMcpServers,
       agents: json.agents,
       hooks: json.hooks,
       sandbox: json.sandbox,
@@ -342,6 +345,8 @@ export class SDKConfigLoader {
    * @returns 合并后的配置
    */
   mergeConfigs(userConfig: UserConfig, projectConfig: UserConfig): UserConfig {
+    this.warnLegacyMcpServers(userConfig, projectConfig);
+
     return {
       // 基本配置：项目覆盖用户
       model: projectConfig.model ?? userConfig.model,
@@ -357,9 +362,6 @@ export class SDKConfigLoader {
 
       // disallowedTools 合并（两者都禁用的工具）
       disallowedTools: this.mergeArrays(userConfig.disallowedTools, projectConfig.disallowedTools),
-
-      // 对象类型深度合并
-      mcpServers: this.mergeObjects(userConfig.mcpServers, projectConfig.mcpServers),
 
       agents: this.mergeObjects(userConfig.agents, projectConfig.agents),
 
@@ -535,5 +537,31 @@ export class SDKConfigLoader {
     } catch {
       return false;
     }
+  }
+
+  private warnLegacyMcpServers(userConfig: UserConfig, projectConfig: UserConfig): void {
+    const sources: string[] = [];
+    if (userConfig.legacyMcpServers) {
+      sources.push(`User settings (${path.join(this.userConfigDir, 'settings.json')})`);
+    }
+    if (projectConfig.legacyMcpServers) {
+      sources.push('Project settings (.claude/settings.json)');
+    }
+    if (sources.length === 0) {
+      return;
+    }
+
+    console.warn(
+      '[MCP] Deprecated mcpServers detected in settings.json. Please migrate to .mcp.json per single-source policy.'
+    );
+    console.warn(`[MCP] Detected in: ${sources.join(', ')}`);
+    console.warn(
+      '[MCP] Migration steps:\n' +
+        '  1. Create a project root .mcp.json with { "mcpServers": {} }.\n' +
+        '  2. Move the mcpServers block from settings.json into .mcp.json, keeping server names/transports.\n' +
+        '  3. Remove the mcpServers field from settings.json to avoid repeated warnings.\n' +
+        `  4. Restart Claude Replica and verify .mcp.json is loaded (see ${MCP_DOC_URL}).\n` +
+        '  5. Keep all MCP configuration within .mcp.json going forward.'
+    );
   }
 }

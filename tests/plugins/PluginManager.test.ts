@@ -578,7 +578,9 @@ describe('PluginManager', () => {
             expect(plugin!.agents!.length).toBe(uniqueAgents.length);
 
             for (const expectedAgent of uniqueAgents) {
-              const loadedAgent = plugin!.agents!.find(a => a.description === expectedAgent.description);
+              const loadedAgent = plugin!.agents!.find(
+                (a) => a.description === expectedAgent.description && a.prompt === expectedAgent.prompt
+              );
               expect(loadedAgent).toBeDefined();
               expect(loadedAgent!.prompt).toBe(expectedAgent.prompt);
               expect(loadedAgent!.model).toBe(expectedAgent.model);
