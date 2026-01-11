@@ -32,7 +32,7 @@ export interface McpStdioServerConfig {
  */
 export interface McpSSEServerConfig {
   /** 传输类型 */
-  transport: 'sse';
+  type: 'sse';
   /** 服务器 URL */
   url: string;
   /** HTTP 头 */
@@ -44,7 +44,7 @@ export interface McpSSEServerConfig {
  */
 export interface McpHttpServerConfig {
   /** 传输类型 */
-  transport: 'http';
+  type: 'http';
   /** 服务器 URL */
   url: string;
   /** HTTP 头 */
@@ -78,7 +78,7 @@ export interface ServerInfo {
   /** 服务器名称 */
   name: string;
   /** 传输类型 */
-  transport: 'stdio' | 'sse' | 'http';
+  type: 'stdio' | 'sse' | 'http';
   /** 配置详情 */
   config: McpServerConfig;
 }
@@ -124,15 +124,33 @@ export class MCPManager {
         throw new Error('MCP configuration must be an object');
       }
 
+      // 支持 MCP 规范格式：{ "mcpServers": { ... } }
+      // 同时向后兼容直接映射格式：{ "serverName": { ... } }
+      let serverConfigs: Record<string, unknown>;
+
+      if ('mcpServers' in parsed && typeof parsed.mcpServers === 'object') {
+        // 使用 mcpServers 嵌套结构（MCP 规范格式）
+        serverConfigs = parsed.mcpServers as Record<string, unknown>;
+      } else {
+        // 使用根级别（向后兼容）
+        serverConfigs = parsed;
+      }
+
+      // 规范化所有配置（转换 transport -> type）
+      const normalized: MCPServerConfigMap = {};
+      for (const [name, config] of Object.entries(serverConfigs)) {
+        normalized[name] = this.normalizeConfig(config as McpServerConfig);
+      }
+
       // 如果启用严格模式，验证所有配置
       if (this.strictMode) {
-        const validation = this.validateAllConfigs(parsed);
+        const validation = this.validateAllConfigs(normalized);
         if (!validation.valid) {
           throw new Error(`MCP configuration validation failed:\n${validation.errors.join('\n')}`);
         }
       }
 
-      this.config = parsed as MCPServerConfigMap;
+      this.config = normalized;
 
       if (this.debug) {
         console.log(`Loaded ${Object.keys(this.config).length} MCP server configurations`);
@@ -188,14 +206,17 @@ export class MCPManager {
       throw new Error('Server name must be a non-empty string');
     }
 
+    // 规范化配置（转换 transport -> type）
+    const normalizedConfig = this.normalizeConfig(config);
+
     if (this.strictMode) {
-      const validation = this.validateConfig(config);
+      const validation = this.validateConfig(normalizedConfig);
       if (!validation.valid) {
         throw new Error(`Server "${name}" configuration invalid:\n${validation.errors.join('\n')}`);
       }
     }
 
-    this.config[name] = config;
+    this.config[name] = normalizedConfig;
 
     if (this.debug) {
       console.log(`MCP server added: ${name}`);
@@ -274,7 +295,7 @@ export class MCPManager {
   getServersInfo(): ServerInfo[] {
     return Object.entries(this.config).map(([name, config]) => ({
       name,
-      transport: this.getTransportType(config),
+      type: this.getTransportType(config),
       config,
     }));
   }
@@ -286,8 +307,8 @@ export class MCPManager {
    * @returns 传输类型
    */
   getTransportType(config: McpServerConfig): 'stdio' | 'sse' | 'http' {
-    if ('transport' in config) {
-      return config.transport;
+    if ('type' in config) {
+      return config.type;
     }
     // 如果有 command 字段，则是 stdio 类型
     if ('command' in config) {
@@ -325,15 +346,59 @@ export class MCPManager {
       return this.validateHttpConfig(config);
     }
 
-    // 检查是否有 transport 字段但值不正确
-    if ('transport' in config) {
-      const transport = (config as { transport: string }).transport;
-      errors.push(`Unknown transport type: ${transport}`);
+    // 检查是否有 type 字段但值不正确
+    if ('type' in config) {
+      const type = (config as { type: string }).type;
+      errors.push(`Unknown type value: ${type}`);
       return { valid: false, errors };
     }
 
-    errors.push('Config must contain command (stdio) or transport (sse/http) field');
+    errors.push('Config must contain command (stdio) or type (sse/http) field');
     return { valid: false, errors };
+  }
+
+  /**
+   * 规范化配置：将旧的 transport 字段转换为新的 type 字段
+   *
+   * @param config 原始配置
+   * @returns 规范化后的配置
+   */
+  private normalizeConfig(config: McpServerConfig): McpServerConfig {
+    // 如果是 stdio 配置，不需要转换
+    if ('command' in config) {
+      return config;
+    }
+
+    // 检查是否需要转换
+    const configAny = config as unknown as Record<string, unknown>;
+
+    // 情况1：同时存在 type 和 transport，优先使用 type
+    if ('type' in configAny && 'transport' in configAny) {
+      console.warn(
+        'DEPRECATED: Configuration contains both "type" and "transport" fields. ' +
+          'Using "type" field. Please remove the deprecated "transport" field. ' +
+          'The "transport" field will be removed in v2.0.'
+      );
+      // 移除 transport 字段
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { transport: _transport, ...rest } = configAny;
+      return rest as unknown as McpServerConfig;
+    }
+
+    // 情况2：只有 transport 字段，需要转换为 type
+    if ('transport' in configAny && !('type' in configAny)) {
+      const transportValue = configAny.transport;
+      console.warn(
+        `DEPRECATED: Configuration field "transport" is deprecated. ` +
+          `Please use "type" instead. Example: { "type": "${transportValue}", ... }. ` +
+          `The "transport" field will be removed in v2.0.`
+      );
+      const { transport, ...rest } = configAny;
+      return { type: transport, ...rest } as McpServerConfig;
+    }
+
+    // 情况3：只有 type 字段或都没有，直接返回
+    return config;
   }
 
   /**
@@ -347,14 +412,14 @@ export class MCPManager {
    * 类型守卫：检查是否是 SSE 配置
    */
   private isSSEConfig(config: McpServerConfig): config is McpSSEServerConfig {
-    return 'transport' in config && (config as McpSSEServerConfig).transport === 'sse';
+    return 'type' in config && (config as McpSSEServerConfig).type === 'sse';
   }
 
   /**
    * 类型守卫：检查是否是 HTTP 配置
    */
   private isHttpConfig(config: McpServerConfig): config is McpHttpServerConfig {
-    return 'transport' in config && (config as McpHttpServerConfig).transport === 'http';
+    return 'type' in config && (config as McpHttpServerConfig).type === 'http';
   }
 
   /**
@@ -398,8 +463,8 @@ export class MCPManager {
   private validateSSEConfig(config: McpSSEServerConfig): ConfigValidationResult {
     const errors: string[] = [];
 
-    if (config.transport !== 'sse') {
-      errors.push('transport must be "sse"');
+    if (config.type !== 'sse') {
+      errors.push('type must be "sse"');
     }
 
     if (typeof config.url !== 'string' || config.url.trim() === '') {
@@ -433,8 +498,8 @@ export class MCPManager {
   private validateHttpConfig(config: McpHttpServerConfig): ConfigValidationResult {
     const errors: string[] = [];
 
-    if (config.transport !== 'http') {
-      errors.push('transport must be "http"');
+    if (config.type !== 'http') {
+      errors.push('type must be "http"');
     }
 
     if (typeof config.url !== 'string' || config.url.trim() === '') {
@@ -524,11 +589,11 @@ export class MCPManager {
       return expanded;
     }
 
-    if ('transport' in config) {
-      if (config.transport === 'sse') {
+    if ('type' in config) {
+      if (config.type === 'sse') {
         const sseConfig = config as McpSSEServerConfig;
         const expanded: McpSSEServerConfig = {
-          transport: 'sse',
+          type: 'sse',
           url: expandValue(sseConfig.url),
         };
         if (sseConfig.headers) {
@@ -540,10 +605,10 @@ export class MCPManager {
         return expanded;
       }
 
-      if (config.transport === 'http') {
+      if (config.type === 'http') {
         const httpConfig = config as McpHttpServerConfig;
         const expanded: McpHttpServerConfig = {
-          transport: 'http',
+          type: 'http',
           url: expandValue(httpConfig.url),
         };
         if (httpConfig.headers) {

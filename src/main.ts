@@ -13,7 +13,6 @@ dotenv.config({ quiet: process.env.DOTENV_QUIET === 'true' });
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 
 import { CLIParser, CLIOptions } from './cli/CLIParser';
 import { ConfigManager } from './config';
@@ -23,7 +22,6 @@ import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
 import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
-import { AgentRegistry } from './agents/AgentRegistry';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
 import { RewindManager, Snapshot as RewindSnapshot } from './rewind/RewindManager';
@@ -40,7 +38,6 @@ import { ErrorHandler } from './errors/ErrorHandler';
 
 const VERSION = process.env.VERSION || '0.1.0';
 
-
 export class Application {
   private readonly cliParser: CLIParser;
   private readonly configManager: ConfigManager;
@@ -48,7 +45,6 @@ export class Application {
   private readonly errorHandler: ErrorHandler;
   private readonly sessionManager: SessionManager;
   private readonly toolRegistry: ToolRegistry;
-  private readonly agentRegistry: AgentRegistry;
   private readonly hookManager: HookManager;
   private readonly mcpManager: MCPManager;
   private readonly outputFormatter: OutputFormatter;
@@ -72,7 +68,6 @@ export class Application {
     this.errorHandler = new ErrorHandler();
     this.sessionManager = new SessionManager();
     this.toolRegistry = new ToolRegistry();
-    this.agentRegistry = new AgentRegistry();
     this.hookManager = new HookManager();
     this.mcpManager = new MCPManager();
     this.outputFormatter = new OutputFormatter();
@@ -147,16 +142,7 @@ export class Application {
 
   private async loadCustomExtensions(workingDir: string): Promise<void> {
     await this.logger.debug('Loading extensions...');
-    const agentDirs = [
-      path.join(os.homedir(), '.claude', 'agents'),
-      path.join(workingDir, '.claude', 'agents'),
-    ];
-
-    await Promise.all([
-      this.agentRegistry
-        .loadAgents(agentDirs)
-        .catch((err) => this.logger.warn('Failed to load agents', err)),
-    ]);
+    // 预设代理已通过 getPresetAgents() 自动加载，无需调用 loadAgents
 
     const hooksConfigPath = path.join(workingDir, '.claude', 'hooks.json');
     try {
@@ -319,7 +305,16 @@ export class Application {
     if (message.startsWith('/')) {
       const parts = message.slice(1).split(/\s+/);
       const cmdName = parts[0].toLowerCase();
-      const builtInCommands = ['help', 'sessions', 'config', 'permissions', 'mcp', 'clear', 'exit', 'quit'];
+      const builtInCommands = [
+        'help',
+        'sessions',
+        'config',
+        'permissions',
+        'mcp',
+        'clear',
+        'exit',
+        'quit',
+      ];
 
       if (builtInCommands.includes(cmdName)) {
         await this.handleCommand(message, session);

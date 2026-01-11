@@ -94,7 +94,7 @@ export interface McpStdioServerConfig {
  * MCP 服务器配置 - SSE 传输
  */
 export interface McpSSEServerConfig {
-  transport: 'sse';
+  type: 'sse';
   url: string;
   headers?: Record<string, string>;
 }
@@ -103,7 +103,7 @@ export interface McpSSEServerConfig {
  * MCP 服务器配置 - HTTP 传输
  */
 export interface McpHttpServerConfig {
-  transport: 'http';
+  type: 'http';
   url: string;
   headers?: Record<string, string>;
 }

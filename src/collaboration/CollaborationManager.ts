@@ -638,13 +638,13 @@ export class CollaborationManager {
     }
 
     // 检查 SSE/HTTP 配置
-    if ('transport' in serverConfig) {
-      const transport = serverConfig.transport as string;
-      if (!['sse', 'http'].includes(transport)) {
+    if ('type' in serverConfig) {
+      const type = serverConfig.type as string;
+      if (!['sse', 'http'].includes(type)) {
         errors.push({
           type: 'invalid',
-          path: `mcpServers.${name}.transport`,
-          message: `Invalid transport type: ${transport}`,
+          path: `mcpServers.${name}.type`,
+          message: `Invalid type value: ${type}`,
         });
       }
       if (typeof serverConfig.url !== 'string') {

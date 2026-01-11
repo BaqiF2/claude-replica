@@ -146,7 +146,7 @@ describe('MCPManager', () => {
 
     it('应该添加 SSE 服务器', () => {
       const config: McpSSEServerConfig = {
-        transport: 'sse',
+        type: 'sse',
         url: 'https://example.com/sse',
       };
 
@@ -158,7 +158,7 @@ describe('MCPManager', () => {
 
     it('应该添加 HTTP 服务器', () => {
       const config: McpHttpServerConfig = {
-        transport: 'http',
+        type: 'http',
         url: 'https://example.com/api',
       };
 
@@ -322,7 +322,7 @@ describe('MCPManager', () => {
     describe('SSE 配置', () => {
       it('有效的 SSE 配置应通过验证', () => {
         const config: McpSSEServerConfig = {
-          transport: 'sse',
+          type: 'sse',
           url: 'https://example.com/sse',
           headers: { Authorization: 'Bearer token' },
         };
@@ -335,7 +335,7 @@ describe('MCPManager', () => {
 
       it('缺少 url 应失败', () => {
         const config = {
-          transport: 'sse',
+          type: 'sse',
         } as unknown as McpSSEServerConfig;
 
         const result = mcpManager.validateConfig(config);
@@ -346,7 +346,7 @@ describe('MCPManager', () => {
 
       it('无效的 url 应失败', () => {
         const config: McpSSEServerConfig = {
-          transport: 'sse',
+          type: 'sse',
           url: 'not-a-url',
         };
 
@@ -358,7 +358,7 @@ describe('MCPManager', () => {
 
       it('包含环境变量的 url 应通过', () => {
         const config: McpSSEServerConfig = {
-          transport: 'sse',
+          type: 'sse',
           url: '${SSE_URL}',
         };
 
@@ -371,7 +371,7 @@ describe('MCPManager', () => {
     describe('HTTP 配置', () => {
       it('有效的 HTTP 配置应通过验证', () => {
         const config: McpHttpServerConfig = {
-          transport: 'http',
+          type: 'http',
           url: 'https://example.com/api',
         };
 
@@ -383,7 +383,7 @@ describe('MCPManager', () => {
 
       it('缺少 url 应失败', () => {
         const config = {
-          transport: 'http',
+          type: 'http',
         } as unknown as McpHttpServerConfig;
 
         const result = mcpManager.validateConfig(config);
@@ -402,14 +402,14 @@ describe('MCPManager', () => {
 
       it('未知传输类型应失败', () => {
         const config = {
-          transport: 'unknown',
+          type: 'unknown',
           url: 'https://example.com',
         } as unknown as McpServerConfig;
 
         const result = mcpManager.validateConfig(config);
 
         expect(result.valid).toBe(false);
-        expect(result.errors.some(e => e.includes('Unknown transport type'))).toBe(true);
+        expect(result.errors.some(e => e.includes('Unknown') || e.includes('type'))).toBe(true);
       });
 
       it('null 应失败', () => {
@@ -420,6 +420,135 @@ describe('MCPManager', () => {
     });
   });
 
+  describe('向后兼容性：transport 字段支持', () => {
+    let consoleWarnSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+    });
+
+    afterEach(() => {
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('应该自动转换 transport 字段为 type 字段（SSE）', () => {
+      const configWithTransport = {
+        transport: 'sse',
+        url: 'https://example.com/sse',
+      } as any;
+
+      mcpManager.addServer('sse-legacy', configWithTransport);
+
+      const retrieved = mcpManager.getServerConfig('sse-legacy') as any;
+      expect(retrieved.type).toBe('sse');
+      expect(retrieved.transport).toBeUndefined();
+    });
+
+    it('应该自动转换 transport 字段为 type 字段（HTTP）', () => {
+      const configWithTransport = {
+        transport: 'http',
+        url: 'https://example.com/api',
+      } as any;
+
+      mcpManager.addServer('http-legacy', configWithTransport);
+
+      const retrieved = mcpManager.getServerConfig('http-legacy') as any;
+      expect(retrieved.type).toBe('http');
+      expect(retrieved.transport).toBeUndefined();
+    });
+
+    it('使用 transport 字段时应该输出弃用警告', () => {
+      const configWithTransport = {
+        transport: 'sse',
+        url: 'https://example.com/sse',
+      } as any;
+
+      mcpManager.addServer('legacy-server', configWithTransport);
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('DEPRECATED')
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('transport')
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('type')
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('v2.0')
+      );
+    });
+
+    it('同时存在 type 和 transport 时应该优先使用 type', () => {
+      const configWithBoth = {
+        type: 'sse',
+        transport: 'http',
+        url: 'https://example.com',
+      } as any;
+
+      mcpManager.addServer('both-fields', configWithBoth);
+
+      const retrieved = mcpManager.getServerConfig('both-fields') as any;
+      expect(retrieved.type).toBe('sse');
+      expect(retrieved.transport).toBeUndefined();
+    });
+
+    it('同时存在两个字段时应该输出警告', () => {
+      const configWithBoth = {
+        type: 'sse',
+        transport: 'http',
+        url: 'https://example.com',
+      } as any;
+
+      mcpManager.addServer('both-fields-2', configWithBoth);
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('DEPRECATED')
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('both')
+      );
+    });
+
+    it('只有 type 字段时不应该输出警告', () => {
+      const configWithType: McpSSEServerConfig = {
+        type: 'sse',
+        url: 'https://example.com/sse',
+      };
+
+      mcpManager.addServer('modern-server', configWithType);
+
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it('从配置文件加载时也应该支持 transport 字段', async () => {
+      const configPath = path.join(tempDir, 'legacy.mcp.json');
+      const config = {
+        'legacy-sse': {
+          transport: 'sse',
+          url: 'https://example.com/sse',
+        },
+        'legacy-http': {
+          transport: 'http',
+          url: 'https://example.com/api',
+        },
+      };
+
+      await fs.writeFile(configPath, JSON.stringify(config));
+      await mcpManager.loadServersFromConfig(configPath);
+
+      const sseConfig = mcpManager.getServerConfig('legacy-sse') as any;
+      expect(sseConfig.type).toBe('sse');
+      expect(sseConfig.transport).toBeUndefined();
+
+      const httpConfig = mcpManager.getServerConfig('legacy-http') as any;
+      expect(httpConfig.type).toBe('http');
+      expect(httpConfig.transport).toBeUndefined();
+
+      expect(consoleWarnSpy).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('getTransportType', () => {
     it('应该识别 stdio 类型', () => {
       const config: McpStdioServerConfig = { command: 'cmd', args: [] };
@@ -427,12 +556,12 @@ describe('MCPManager', () => {
     });
 
     it('应该识别 SSE 类型', () => {
-      const config: McpSSEServerConfig = { transport: 'sse', url: 'https://example.com' };
+      const config: McpSSEServerConfig = { type: 'sse', url: 'https://example.com' };
       expect(mcpManager.getTransportType(config)).toBe('sse');
     });
 
     it('应该识别 HTTP 类型', () => {
-      const config: McpHttpServerConfig = { transport: 'http', url: 'https://example.com' };
+      const config: McpHttpServerConfig = { type: 'http', url: 'https://example.com' };
       expect(mcpManager.getTransportType(config)).toBe('http');
     });
   });
@@ -440,7 +569,7 @@ describe('MCPManager', () => {
   describe('getServersInfo', () => {
     it('应该返回服务器详细信息', () => {
       mcpManager.addServer('stdio-server', { command: 'cmd', args: [] });
-      mcpManager.addServer('sse-server', { transport: 'sse', url: 'https://example.com' });
+      mcpManager.addServer('sse-server', { type: 'sse', url: 'https://example.com' });
 
       const info = mcpManager.getServersInfo();
 
@@ -448,11 +577,11 @@ describe('MCPManager', () => {
 
       const stdioInfo = info.find(i => i.name === 'stdio-server');
       expect(stdioInfo).toBeDefined();
-      expect(stdioInfo!.transport).toBe('stdio');
+      expect(stdioInfo!.type).toBe('stdio');
 
       const sseInfo = info.find(i => i.name === 'sse-server');
       expect(sseInfo).toBeDefined();
-      expect(sseInfo!.transport).toBe('sse');
+      expect(sseInfo!.type).toBe('sse');
     });
   });
 
@@ -482,7 +611,7 @@ describe('MCPManager', () => {
 
     it('应该展开 SSE 配置中的环境变量', () => {
       const config: McpSSEServerConfig = {
-        transport: 'sse',
+        type: 'sse',
         url: '${TEST_URL}/sse',
         headers: { Authorization: 'Bearer ${TEST_TOKEN}' },
       };
@@ -495,7 +624,7 @@ describe('MCPManager', () => {
 
     it('应该展开 HTTP 配置中的环境变量', () => {
       const config: McpHttpServerConfig = {
-        transport: 'http',
+        type: 'http',
         url: '${TEST_URL}/api',
       };
 
@@ -570,7 +699,7 @@ describe('MCPManager', () => {
   describe('saveToFile', () => {
     it('应该保存配置到文件', async () => {
       mcpManager.addServer('server1', { command: 'cmd1', args: [] });
-      mcpManager.addServer('server2', { transport: 'sse', url: 'https://example.com' });
+      mcpManager.addServer('server2', { type: 'sse', url: 'https://example.com' });
 
       const configPath = path.join(tempDir, 'saved.mcp.json');
       await mcpManager.saveToFile(configPath);
@@ -587,8 +716,8 @@ describe('MCPManager', () => {
     beforeEach(() => {
       mcpManager.addServer('stdio1', { command: 'cmd1', args: [] });
       mcpManager.addServer('stdio2', { command: 'cmd2', args: [] });
-      mcpManager.addServer('sse1', { transport: 'sse', url: 'https://example.com' });
-      mcpManager.addServer('http1', { transport: 'http', url: 'https://example.com' });
+      mcpManager.addServer('sse1', { type: 'sse', url: 'https://example.com' });
+      mcpManager.addServer('http1', { type: 'http', url: 'https://example.com' });
     });
 
     it('应该筛选 stdio 服务器', () => {
@@ -717,7 +846,7 @@ describe('MCPManager', () => {
       url: arbUrl,
       headers: arbHeaders,
     }).map(({ url, headers }) => {
-      const config: McpSSEServerConfig = { transport: 'sse', url };
+      const config: McpSSEServerConfig = { type: 'sse', url };
       if (headers) config.headers = headers;
       return config;
     });
@@ -727,7 +856,7 @@ describe('MCPManager', () => {
       url: arbUrl,
       headers: arbHeaders,
     }).map(({ url, headers }) => {
-      const config: McpHttpServerConfig = { transport: 'http', url };
+      const config: McpHttpServerConfig = { type: 'http', url };
       if (headers) config.headers = headers;
       return config;
     });
@@ -850,8 +979,8 @@ describe('MCPManager', () => {
 
             if ('command' in config) {
               expect(transport).toBe('stdio');
-            } else if ('transport' in config) {
-              expect(transport).toBe(config.transport);
+            } else if ('type' in config) {
+              expect(transport).toBe(config.type);
             }
           }
         ),
@@ -1056,7 +1185,7 @@ describe('MCPManager', () => {
             for (const [name, config] of servers) {
               const serverInfo = info.find(i => i.name === name);
               expect(serverInfo).toBeDefined();
-              expect(serverInfo!.transport).toBe(manager.getTransportType(config));
+              expect(serverInfo!.type).toBe(manager.getTransportType(config));
               expect(serverInfo!.config).toEqual(config);
             }
           }

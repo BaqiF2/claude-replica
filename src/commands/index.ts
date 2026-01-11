@@ -4,7 +4,4 @@
  * 注意：CommandManager已被移除，此处仅导出类型定义以保持向后兼容性
  */
 
-export {
-  Command,
-  CommandExecutionResult,
-} from './types';
+export { Command, CommandExecutionResult } from './types';

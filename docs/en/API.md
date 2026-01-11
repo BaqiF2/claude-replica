@@ -553,13 +553,13 @@ interface McpStdioServerConfig {
 }
 
 interface McpSSEServerConfig {
-  transport: 'sse';
+  type: 'sse';
   url: string;
   headers?: Record<string, string>;
 }
 
 interface McpHttpServerConfig {
-  transport: 'http';
+  type: 'http';
   url: string;
   headers?: Record<string, string>;
 }
@@ -568,6 +568,51 @@ type McpServerConfig =
   | McpStdioServerConfig
   | McpSSEServerConfig
   | McpHttpServerConfig;
+```
+
+#### MCP Configuration File Format
+
+The `.mcp.json` file supports two formats:
+
+**MCP Specification Format (Recommended):**
+```json
+{
+  "mcpServers": {
+    "server-name": {
+      "command": "npx",
+      "args": ["-y", "@package/server"],
+      "env": {
+        "KEY": "${ENV_VAR}"
+      }
+    }
+  }
+}
+```
+
+**Direct Mapping Format (Backward Compatible):**
+```json
+{
+  "server-name": {
+    "command": "npx",
+    "args": ["-y", "@package/server"]
+  }
+}
+```
+
+**Migration Note:** Users upgrading from v1.x should note that the `transport` field in MCP SSE/HTTP server configurations has been renamed to `type` to comply with official specifications. The legacy `transport` field is still supported but will emit a deprecation warning. We recommend migrating as soon as possible. This backward compatibility support will be removed in v2.0.
+
+```typescript
+// Legacy format (deprecated)
+{
+  "transport": "sse",
+  "url": "https://example.com"
+}
+
+// New format (recommended)
+{
+  "type": "sse",
+  "url": "https://example.com"
+}
 ```
 
 ### RewindManager
