@@ -295,14 +295,8 @@ JSON output structure:
 ### Test Organization
 - Unit tests: `tests/unit/`
 - Integration tests: `tests/integration/`
-- Terminal tests: `tests/terminal/` (uses node-pty for real terminal emulation)
 - Property tests: `tests/**/*.property.test.ts` (fast-check)
-
-### Terminal Tests
-Use `tests/terminal/` for testing actual terminal interactions:
-- Real terminal emulation via node-pty
-- 30-second timeout (computationally expensive)
-- Separate npm scripts for CI/watch/report modes
+- Terminal interaction tests: removed (terminal CLI emulation suite deprecated)
 
 ## Common Workflows
 
@@ -348,7 +342,6 @@ When modifying the codebase, understand these choke points:
 
 ### Core
 - `@anthropic-ai/claude-agent-sdk` (^0.1.76) - Claude Agent SDK
-- `node-pty` (^1.1.0) - Terminal emulation
 - `diff` (^8.0.2) - File diff utilities
 - `ajv` (^8.17.1) - JSON schema validation
 

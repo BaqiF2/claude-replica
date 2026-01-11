@@ -9,7 +9,7 @@
  * - 权限组件：PermissionManager, PermissionConfig 等
  * - 配置组件：ConfigManager, SDKConfigLoader 等
  * - 扩展组件：AgentRegistry 等
- * - 其他组件：HookManager, MCPManager, OutputFormatter 等
+ * - 其他组件：HookManager, MCPManager, MCPService, OutputFormatter 等
  */
 
 // 主程序入口
@@ -49,7 +49,9 @@ export { ToolRegistry } from './tools/ToolRegistry';
 export {
   PermissionManager,
   PermissionConfig,
+  PermissionRecord,
   CanUseTool,
+  PromptUserCallback,
   ToolUseParams,
   ToolUseContext,
   PermissionMode,
@@ -94,6 +96,7 @@ export {
 // MCP 组件
 export {
   MCPManager,
+  MCPService,
   McpStdioServerConfig,
   McpSSEServerConfig,
   McpHttpServerConfig,
@@ -102,6 +105,11 @@ export {
   ConfigValidationResult,
   ServerInfo,
   MCPManagerOptions,
+  MCPServiceOptions,
+  MCPConfigListResult,
+  MCPConfigEditResult,
+  MCPConfigValidationError,
+  MCPConfigValidationResult,
 } from './mcp';
 
 // 回退组件

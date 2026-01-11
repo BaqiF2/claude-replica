@@ -156,26 +156,6 @@ describe('SDKConfigLoader', () => {
     });
 
     describe('对象类型深度合并', () => {
-      it('mcpServers 应深度合并', () => {
-        const userConfig: UserConfig = {
-          mcpServers: {
-            github: { command: 'npx', args: ['-y', 'github-mcp'] },
-          },
-        };
-        const projectConfig: UserConfig = {
-          mcpServers: {
-            database: { command: 'python', args: ['-m', 'db-mcp'] },
-          },
-        };
-
-        const merged = loader.mergeConfigs(userConfig, projectConfig);
-
-        expect(merged.mcpServers).toEqual({
-          github: { command: 'npx', args: ['-y', 'github-mcp'] },
-          database: { command: 'python', args: ['-m', 'db-mcp'] },
-        });
-      });
-
       it('agents 应深度合并', () => {
         const userConfig: UserConfig = {
           agents: {
@@ -195,25 +175,37 @@ describe('SDKConfigLoader', () => {
           tester: { description: '测试专家', prompt: '编写测试' },
         });
       });
+    });
 
-      it('项目配置的同名对象应覆盖用户配置', () => {
-        const userConfig: UserConfig = {
-          mcpServers: {
-            github: { command: 'old-command', args: ['old'] },
-          },
-        };
-        const projectConfig: UserConfig = {
-          mcpServers: {
-            github: { command: 'new-command', args: ['new'] },
-          },
-        };
+    describe('Legacy MCP 检测', () => {
+      it('解析 mcpServers 字段应标记为 legacy', () => {
+        const parser = (loader as unknown as { parseConfig: (content: string) => UserConfig }).parseConfig;
+        const parsed = parser.call(loader, JSON.stringify({ mcpServers: {} }));
 
-        const merged = loader.mergeConfigs(userConfig, projectConfig);
+        expect(parsed.legacyMcpServers).toBe(true);
+      });
 
-        expect(merged.mcpServers?.github).toEqual({
-          command: 'new-command',
-          args: ['new'],
-        });
+      it('当 mcpServers 缺失时不标记为 legacy', () => {
+        const parser = (loader as unknown as { parseConfig: (content: string) => UserConfig }).parseConfig;
+        const parsed = parser.call(loader, JSON.stringify({}));
+
+        expect(parsed.legacyMcpServers).toBeFalsy();
+      });
+
+      it('合并时检测到 legacy 配置应输出警告', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        loader.mergeConfigs({ legacyMcpServers: true }, {});
+
+        expect(warnSpy).toHaveBeenCalled();
+        warnSpy.mockRestore();
+      });
+
+      it('没有 legacy 配置时不输出警告', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        loader.mergeConfigs({}, {});
+
+        expect(warnSpy).not.toHaveBeenCalled();
+        warnSpy.mockRestore();
       });
     });
 

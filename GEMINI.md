@@ -116,15 +116,10 @@ npm run clean              # Remove dist/ directory
 npm test                   # Run all tests with Jest
 npm run test:watch         # Run tests in watch mode
 npm run test:coverage      # Generate coverage report
-
-# Terminal interaction tests
-npm run test:terminal      # Run terminal tests (30s timeout)
-npm run test:terminal:watch
-npm run test:terminal:ci   # CI mode with junit reporter
-
-# Property-based tests
 npm run test:property      # Run fast-check property tests (60s timeout)
 ```
+
+Terminal interaction tests (node-pty CLI emulation suite) have been removed and are no longer exposed via npm scripts.
 
 ### Code Quality
 ```bash
@@ -296,14 +291,8 @@ JSON output structure:
 ### Test Organization
 - Unit tests: `tests/unit/`
 - Integration tests: `tests/integration/`
-- Terminal tests: `tests/terminal/` (uses node-pty for real terminal emulation)
 - Property tests: `tests/**/*.property.test.ts` (fast-check)
-
-### Terminal Tests
-Use `tests/terminal/` for testing actual terminal interactions:
-- Real terminal emulation via node-pty
-- 30-second timeout (computationally expensive)
-- Separate npm scripts for CI/watch/report modes
+- Terminal interaction tests: removed (CLI emulation suite deprecated)
 
 ## Common Workflows
 
@@ -349,7 +338,6 @@ When modifying the codebase, understand these choke points:
 
 ### Core
 - `@anthropic-ai/claude-agent-sdk` (^0.1.76) - Claude Agent SDK
-- `node-pty` (^1.1.0) - Terminal emulation
 - `diff` (^8.0.2) - File diff utilities
 - `ajv` (^8.17.1) - JSON schema validation
 

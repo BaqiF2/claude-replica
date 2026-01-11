@@ -29,7 +29,8 @@ import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
 import { HookManager } from './hooks/HookManager';
-import { MCPManager } from './mcp/MCPManager';
+import { MCPManager, McpServerConfig } from './mcp/MCPManager';
+import { MCPService } from './mcp/MCPService';
 import { RewindManager, Snapshot as RewindSnapshot } from './rewind/RewindManager';
 import {
   OutputFormatter,
@@ -56,6 +57,7 @@ export class Application {
   private readonly toolRegistry: ToolRegistry;
   private readonly hookManager: HookManager;
   private readonly mcpManager: MCPManager;
+  private readonly mcpService: MCPService;
   private readonly outputFormatter: OutputFormatter;
   private readonly securityManager: SecurityManager;
   private readonly sdkExecutor: SDKQueryExecutor;
@@ -79,6 +81,7 @@ export class Application {
     this.toolRegistry = new ToolRegistry();
     this.hookManager = new HookManager();
     this.mcpManager = new MCPManager();
+    this.mcpService = new MCPService({ mcpManager: this.mcpManager });
     this.outputFormatter = new OutputFormatter();
     this.securityManager = new SecurityManager();
     this.sdkExecutor = new SDKQueryExecutor();
@@ -124,12 +127,7 @@ export class Application {
     const mergedConfig = this.configBuilder.build(options, baseConfig);
 
     const permissionConfig = this.configBuilder.buildPermissionConfig(options, mergedConfig);
-
-    // Create PermissionUI implementation and inject into PermissionManager
-    const { PermissionUIImpl } = await import('./ui/PermissionUIImpl');
-    const permissionUI = new PermissionUIImpl();
-
-    this.permissionManager = new PermissionManager(permissionConfig, permissionUI, this.toolRegistry);
+    this.permissionManager = new PermissionManager(permissionConfig, this.toolRegistry);
 
     this.messageRouter = new MessageRouter({
       configManager: this.configManager,
@@ -197,21 +195,28 @@ export class Application {
   }
 
   private async loadMCPServers(workingDir: string): Promise<void> {
-    const mcpConfigPaths = [path.join(workingDir, '.mcp.json'), path.join(workingDir, 'mcp.json')];
-    for (const configPath of mcpConfigPaths) {
-      try {
-        await this.mcpManager.loadServersFromConfig(configPath);
-        await this.logger.debug('MCP server config loaded', { path: configPath });
-        break;
-      } catch {
-        // 配置文件不存在，继续尝试下一个
-      }
+    let expandedConfig: Record<string, McpServerConfig> | undefined;
+
+    try {
+      await this.mcpManager.loadFromProjectRoot(workingDir);
+      expandedConfig = this.mcpManager.getExpandedServersConfig();
+      const configPath = await this.mcpManager.getConfigPath(workingDir);
+      await this.logger.debug('MCP server config loaded', { path: configPath });
+    } catch {
+      expandedConfig = this.mcpManager.getExpandedServersConfig();
+      // 配置文件不存在或无效，忽略
+    } finally {
+      this.messageRouter.setMcpServers(expandedConfig);
     }
   }
 
   private async runInteractive(options: CLIOptions): Promise<number> {
     await this.logger.info('Starting interactive mode');
     const session = await this.getOrCreateSession(options);
+
+    this.permissionManager.setPromptUserCallback(async (message: string) => {
+      return this.ui ? this.ui.promptConfirmation(message) : false;
+    });
 
     this.ui = new InteractiveUI({
       onMessage: async (message: string) => {
@@ -224,11 +229,7 @@ export class Application {
       },
       onInterrupt: () => this.handleInterrupt(),
       onRewind: async () => await this.handleRewind(session),
-      onPermissionModeChange: async (mode: PermissionMode) => {
-        if (this.streamingQueryManager) {
-          await this.streamingQueryManager.setPermissionMode(mode);
-        }
-      },
+      onPermissionModeChange: (mode: PermissionMode) => this.permissionManager.setMode(mode),
       onQueueMessage: (message: string) => {
         if (this.streamingQueryManager) {
           this.streamingQueryManager.queueMessage(message);
@@ -256,25 +257,9 @@ export class Application {
           this.ui.displayToolUse(info.name, info.input);
         }
       },
-      onToolResult: async (info) => {
+      onToolResult: (info) => {
         if (this.ui) {
           this.ui.displayToolResult(info.name || 'unknown', info.content, info.isError);
-        }
-
-        // 检测 ExitPlanMode 工具执行成功，自动切换权限模式
-        if (info.name === 'ExitPlanMode' && !info.isError && this.streamingQueryManager) {
-          const previousMode = this.permissionManager.getMode();
-          if (previousMode === 'plan') {
-            // 切换到 acceptEdits 模式（默认模式）
-            await this.streamingQueryManager.setPermissionMode('acceptEdits');
-
-            // 更新 UI 显示
-            if (this.ui) {
-              this.ui.setPermissionMode('acceptEdits');
-            }
-
-            await this.logger.info('Exited plan mode, switched to acceptEdits mode');
-          }
         }
       },
       onAssistantText: (text) => {
@@ -430,7 +415,7 @@ export class Application {
         this.showPermissions();
         break;
       case 'mcp':
-        this.showMCPStatus();
+        await this.handleMCPCommand(parts);
         break;
       case 'clear':
         console.clear();
@@ -456,6 +441,9 @@ Available commands:
   /config      - Show current configuration
   /permissions - Show permission settings
   /mcp         - Show MCP server status
+  /mcp list    - Show MCP server status
+  /mcp edit    - Edit MCP configuration
+  /mcp validate - Validate MCP configuration
   /clear       - Clear screen
   /exit        - Exit program
 `.trim();
@@ -502,19 +490,119 @@ Available commands:
     console.log('');
   }
 
-  private showMCPStatus(): void {
-    const servers = this.mcpManager.listServers();
+  private async handleMCPCommand(parts: string[]): Promise<void> {
+    const subcommand = parts[1]?.toLowerCase();
 
-    if (servers.length === 0) {
-      console.log('No MCP servers configured');
+    if (!subcommand || subcommand === 'list') {
+      await this.showMCPConfig();
       return;
     }
 
-    console.log('\nMCP Servers:');
-    for (const server of servers) {
-      console.log(`  ${server}`);
+    if (subcommand === 'edit') {
+      await this.editMCPConfig();
+      return;
     }
-    console.log('');
+
+    if (subcommand === 'validate') {
+      await this.validateMCPConfig();
+      return;
+    }
+
+    this.showMCPCommandHelp(subcommand);
+  }
+
+  private showMCPCommandHelp(subcommand?: string): void {
+    if (subcommand) {
+      console.log(`Unknown MCP subcommand: ${subcommand}`);
+    }
+
+    const helpText = `
+MCP commands:
+  /mcp           - Show MCP server status
+  /mcp list      - Show MCP server status
+  /mcp edit      - Edit MCP configuration
+  /mcp validate  - Validate MCP configuration
+`.trim();
+
+    console.log(helpText);
+  }
+
+  private async showMCPConfig(): Promise<void> {
+    try {
+      const result = await this.mcpService.listServerConfig(process.cwd());
+      if (result.servers.length === 0) {
+        console.log(`No MCP servers configured at ${result.configPath}`);
+        console.log('Use /mcp edit to add MCP servers.');
+        console.log('Use /mcp validate to validate MCP configuration.');
+        return;
+      }
+
+      console.log(`\nMCP configuration: ${result.configPath}`);
+      console.log('MCP servers:');
+      for (const server of result.servers) {
+        console.log(`\n- ${server.name}`);
+        console.log(`  Transport: ${server.type}`);
+        console.log('  Config:');
+        const configLines = JSON.stringify(server.config, null, 2).split('\n');
+        for (const line of configLines) {
+          console.log(`    ${line}`);
+        }
+      }
+
+      console.log('\nCommands:');
+      console.log('  /mcp edit     - Edit MCP configuration');
+      console.log('  /mcp validate - Validate MCP configuration');
+      console.log('');
+    } catch (error) {
+      await this.logger.error('Failed to show MCP configuration', error);
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private async editMCPConfig(): Promise<void> {
+    try {
+      const result = await this.mcpService.editConfig(process.cwd());
+      console.log(`MCP configuration updated: ${result.configPath}`);
+      console.log('Reload the application to apply the updated configuration.');
+    } catch (error) {
+      await this.logger.error('MCP config edit failed', error);
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private async validateMCPConfig(): Promise<void> {
+    try {
+      const result = await this.mcpService.validateConfig(process.cwd());
+
+      if (result.valid) {
+        console.log(`MCP configuration is valid. Servers: ${result.serverCount}`);
+        console.log(
+          `Transports: stdio ${result.transportCounts.stdio}, sse ${result.transportCounts.sse}, http ${result.transportCounts.http}`
+        );
+        return;
+      }
+
+      console.log(
+        `MCP configuration is invalid. Errors: ${result.errors.length}, Path: ${result.configPath}`
+      );
+      for (const error of result.errors) {
+        const details: string[] = [];
+        if (error.path) {
+          details.push(`path: ${error.path}`);
+        }
+        if (typeof error.line === 'number') {
+          details.push(`line: ${error.line}`);
+        }
+        if (typeof error.column === 'number') {
+          details.push(`column: ${error.column}`);
+        }
+        const suffix = details.length > 0 ? ` (${details.join(', ')})` : '';
+        console.log(`- ${error.message}${suffix}`);
+      }
+    } catch (error) {
+      await this.logger.error('MCP config validation failed', error);
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+    }
   }
 
   private async executeQuery(

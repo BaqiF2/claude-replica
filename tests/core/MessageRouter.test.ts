@@ -17,8 +17,6 @@ import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager, PermissionConfig } from '../../src/permissions/PermissionManager';
 import { Session, SessionContext } from '../../src/core/SessionManager';
 import { getPresetAgents } from '../../src/agents/PresetAgents';
-import { PermissionUI, QuestionAnswers } from '../../src/permissions/PermissionUI';
-import { PermissionUIResult } from '../../src/permissions/types';
 
 // 模拟会话创建辅助函数
 function createMockSession(overrides: Partial<Session> = {}): Session {
@@ -44,36 +42,26 @@ function createMockSession(overrides: Partial<Session> = {}): Session {
 // 模拟配置管理器
 function createMockConfigManager(claudeMd: string | null = null): ConfigManager {
   const configManager = new ConfigManager();
-
+  
   // 模拟 loadClaudeMd 方法
   jest.spyOn(configManager, 'loadClaudeMd').mockResolvedValue(claudeMd);
-
+  
   return configManager;
-}
-
-// 模拟 PermissionUI
-function createMockPermissionUI(): PermissionUI {
-  return {
-    promptToolPermission: jest.fn().mockResolvedValue({ approved: true } as PermissionUIResult),
-    promptUserQuestions: jest.fn().mockResolvedValue({} as QuestionAnswers),
-  };
 }
 
 describe('MessageRouter', () => {
   let toolRegistry: ToolRegistry;
   let configManager: ConfigManager;
   let permissionManager: PermissionManager;
-  let mockPermissionUI: PermissionUI;
 
   beforeEach(() => {
     toolRegistry = new ToolRegistry();
     configManager = createMockConfigManager();
-    mockPermissionUI = createMockPermissionUI();
-
+    
     const permissionConfig: PermissionConfig = {
       mode: 'default',
     };
-    permissionManager = new PermissionManager(permissionConfig, mockPermissionUI, toolRegistry);
+    permissionManager = new PermissionManager(permissionConfig, toolRegistry);
   });
 
   describe('构造函数', () => {
@@ -272,7 +260,6 @@ describe('MessageRouter', () => {
       // 使用 bypassPermissions 模式以便测试
       const bypassPermissionManager = new PermissionManager(
         { mode: 'bypassPermissions' },
-        mockPermissionUI,
         toolRegistry
       );
 
@@ -300,7 +287,6 @@ describe('MessageRouter', () => {
     it('权限处理函数应该处理空 toolUseID 的工具调用', async () => {
       const bypassPermissionManager = new PermissionManager(
         { mode: 'bypassPermissions' },
-        mockPermissionUI,
         toolRegistry
       );
 
@@ -331,7 +317,6 @@ describe('MessageRouter', () => {
           mode: 'default',
           disallowedTools: ['Bash'],
         },
-        mockPermissionUI,
         toolRegistry
       );
 
@@ -541,17 +526,17 @@ describe('MessageRouter', () => {
         permissionManager,
       });
 
+      router.setMcpServers({
+        github: {
+          command: 'npx',
+          args: ['-y', '@modelcontextprotocol/server-github'],
+        },
+      });
+
       const session = createMockSession({
         context: {
           workingDirectory: '/test/project',
-          projectConfig: {
-            mcpServers: {
-              github: {
-                command: 'npx',
-                args: ['-y', '@modelcontextprotocol/server-github'],
-              },
-            },
-          },
+          projectConfig: {},
           userConfig: {},
           activeAgents: [],
         },
@@ -674,7 +659,6 @@ describe('MessageRouter - 流式消息构建', () => {
   let toolRegistry: ToolRegistry;
   let configManager: ConfigManager;
   let permissionManager: PermissionManager;
-  let mockPermissionUI: PermissionUI;
   let fs: typeof import('fs/promises');
   let path: typeof import('path');
   let os: typeof import('os');
@@ -689,8 +673,7 @@ describe('MessageRouter - 流式消息构建', () => {
   beforeEach(async () => {
     toolRegistry = new ToolRegistry();
     configManager = createMockConfigManager();
-    mockPermissionUI = createMockPermissionUI();
-    permissionManager = new PermissionManager({ mode: 'default' }, mockPermissionUI, toolRegistry);
+    permissionManager = new PermissionManager({ mode: 'default' }, toolRegistry);
 
     // 创建临时目录用于测试
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'router-test-'));
@@ -894,13 +877,11 @@ describe('MessageRouter - Options 接口构建', () => {
   let toolRegistry: ToolRegistry;
   let configManager: ConfigManager;
   let permissionManager: PermissionManager;
-  let mockPermissionUI: PermissionUI;
 
   beforeEach(() => {
     toolRegistry = new ToolRegistry();
     configManager = createMockConfigManager();
-    mockPermissionUI = createMockPermissionUI();
-    permissionManager = new PermissionManager({ mode: 'default' }, mockPermissionUI, toolRegistry);
+    permissionManager = new PermissionManager({ mode: 'default' }, toolRegistry);
   });
 
   it('应该包含所有必需的 Options 字段', async () => {
@@ -980,7 +961,6 @@ describe('MessageRouter - 边缘情况和缓存测试', () => {
   let toolRegistry: ToolRegistry;
   let configManager: ConfigManager;
   let permissionManager: PermissionManager;
-  let mockPermissionUI: PermissionUI;
   let fs: typeof import('fs/promises');
   let path: typeof import('path');
   let os: typeof import('os');
@@ -995,8 +975,7 @@ describe('MessageRouter - 边缘情况和缓存测试', () => {
   beforeEach(async () => {
     toolRegistry = new ToolRegistry();
     configManager = createMockConfigManager();
-    mockPermissionUI = createMockPermissionUI();
-    permissionManager = new PermissionManager({ mode: 'default' }, mockPermissionUI, toolRegistry);
+    permissionManager = new PermissionManager({ mode: 'default' }, toolRegistry);
 
     // 创建临时目录用于测试
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'router-edge-test-'));

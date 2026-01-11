@@ -538,21 +538,34 @@ describe('端到端集成测试', () => {
     });
 
     it('应该正确集成 MCP 管理器', async () => {
+      const workspace = path.join(testDir, 'mcp-workspace-a');
+      await fs.mkdir(workspace, { recursive: true });
+      const mcpPath = path.join(workspace, '.mcp.json');
+      await fs.writeFile(
+        mcpPath,
+        JSON.stringify(
+          {
+            mcpServers: {
+              testServer: {
+                command: 'echo',
+                args: ['hello'],
+              },
+            },
+          },
+          null,
+          2
+        )
+      );
+
       const mcpManager = new MCPManager();
-      
-      // 添加测试服务器
-      mcpManager.addServer('test-server', {
-        command: 'echo',
-        args: ['test'],
-      });
-      
-      // 验证服务器已添加
-      const servers = mcpManager.listServers();
-      expect(servers).toContain('test-server');
-      
-      // 验证配置
-      const config = mcpManager.getServersConfig();
-      expect(config['test-server']).toBeDefined();
+      try {
+        await mcpManager.loadFromProjectRoot(workspace);
+        expect(mcpManager.listServers()).toContain('testServer');
+        const config = mcpManager.getServersConfig();
+        expect(config['testServer']).toBeDefined();
+      } finally {
+        await fs.rm(workspace, { recursive: true, force: true });
+      }
     });
 
     it('应该正确集成回退管理器', async () => {

@@ -27,7 +27,6 @@
 | 语言 | TypeScript | 5.9+ |
 | 运行时 | Node.js | 20.0.0+ |
 | 核心依赖 | @anthropic-ai/claude-agent-sdk | ^0.1.76 |
-| 终端模拟 | node-pty | ^1.1.0 |
 | 测试框架 | Jest | 29+ |
 | 属性测试 | fast-check | ^3.23.2 |
 | 构建工具 | TypeScript Compiler | - |
@@ -676,7 +675,6 @@ canUseTool(params) {
 tests/
 ├── unit/           # 单元测试 (各管理器类)
 ├── integration/    # 集成测试 (多模块协作)
-├── terminal/       # 终端模拟测试 (node-pty)
 ├── testing/        # 测试框架自身测试
 └── *.property.test.ts  # 属性测试 (fast-check)
 ```
@@ -687,15 +685,14 @@ tests/
 # 所有测试
 npm test
 
-# 终端测试 (30s 超时)
-npm run test:terminal
-
 # 属性测试 (60s 超时)
 npm run test:property
 
 # 覆盖率报告
 npm run test:coverage
 ```
+
+终端交互测试 (node-pty 模拟) 已移除，对应的 npm 脚本不再提供。
 
 ---
 
