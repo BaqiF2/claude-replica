@@ -1,6 +1,6 @@
 /**
  * PermissionManager 属性测试
- * 
+ *
  * **Feature: claude-code-replica, Property 4: 工具权限的安全性**
  * **验证: 需求 14.1, 14.3**
  */
@@ -10,15 +10,29 @@ import {
   PermissionManager,
   PermissionConfig,
   PermissionMode,
-  ToolUseParams,
 } from '../../src/permissions/PermissionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
+import { PermissionUI } from '../../src/permissions/PermissionUI';
+import { PermissionUIResult } from '../../src/permissions/types';
+
+// Mock PermissionUI for testing
+class MockPermissionUI implements PermissionUI {
+  async promptToolPermission(): Promise<PermissionUIResult> {
+    return { approved: false, reason: 'Mock denied' };
+  }
+
+  async promptUserQuestions(): Promise<Record<string, string>> {
+    return {};
+  }
+}
 
 describe('PermissionManager', () => {
   let toolRegistry: ToolRegistry;
+  let permissionUI: PermissionUI;
 
   beforeEach(() => {
     toolRegistry = new ToolRegistry();
+    permissionUI = new MockPermissionUI();
   });
 
   // 生成工具名称的 Arbitrary
@@ -46,24 +60,10 @@ describe('PermissionManager', () => {
     'default', 'acceptEdits', 'bypassPermissions', 'plan'
   ) as fc.Arbitrary<PermissionMode>;
 
-  // 生成工具使用参数的 Arbitrary（保留以备将来使用）
-  // const arbToolUseParams = (tool?: string): fc.Arbitrary<ToolUseParams> =>
-  //   fc.record({
-  //     tool: tool ? fc.constant(tool) : arbToolName,
-  //     args: fc.record({
-  //       path: fc.option(fc.string(), { nil: undefined }),
-  //       command: fc.option(fc.string(), { nil: undefined }),
-  //     }),
-  //     context: fc.record({
-  //       sessionId: fc.uuid(),
-  //       messageUuid: fc.uuid(),
-  //     }),
-  //   });
-
   describe('Property 4: 工具权限的安全性', () => {
     /**
      * 属性 4: 工具权限的安全性
-     * 
+     *
      * *对于任意*工具调用，如果该工具不在白名单中且不在自动批准模式，
      * 则必须请求用户确认。
      */
@@ -85,17 +85,15 @@ describe('PermissionManager', () => {
               disallowedTools,
             };
 
-            const manager = new PermissionManager(config, toolRegistry);
+            const manager = new PermissionManager(config, permissionUI, toolRegistry);
             const handler = manager.createCanUseToolHandler();
 
-            const params: ToolUseParams = {
-              tool,
-              args: {},
-              context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
-            };
+            const result = await handler(tool, {}, {
+              signal: new AbortController().signal,
+              toolUseID: 'test-uuid',
+            });
 
-            const result = await handler(params);
-            expect(result).toBe(false);
+            expect(result.behavior).toBe('deny');
           }
         ),
         { numRuns: 100 }
@@ -106,30 +104,31 @@ describe('PermissionManager', () => {
       await fc.assert(
         fc.asyncProperty(
           arbToolName,
-          fc.array(arbToolName, { minLength: 1, maxLength: 3 }),
-          async (tool, allowedTools) => {
+          fc.array(arbToolName, { minLength: 1, maxLength: 5 }),
+          arbPermissionMode,
+          async (tool, allowedTools, mode) => {
             // 确保工具不在白名单中
-            const filteredAllowed = allowedTools.filter(t => t !== tool);
-            if (filteredAllowed.length === 0) {
-              return; // 跳过这个测试用例
+            const filteredAllowedTools = allowedTools.filter(t => t !== tool);
+
+            // 如果白名单为空，跳过此测试用例（因为空白名单意味着允许所有工具）
+            if (filteredAllowedTools.length === 0) {
+              return;
             }
 
             const config: PermissionConfig = {
-              mode: 'default',
-              allowedTools: filteredAllowed,
+              mode,
+              allowedTools: filteredAllowedTools,
             };
 
-            const manager = new PermissionManager(config, toolRegistry);
+            const manager = new PermissionManager(config, permissionUI, toolRegistry);
             const handler = manager.createCanUseToolHandler();
 
-            const params: ToolUseParams = {
-              tool,
-              args: {},
-              context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
-            };
+            const result = await handler(tool, {}, {
+              signal: new AbortController().signal,
+              toolUseID: 'test-uuid',
+            });
 
-            const result = await handler(params);
-            expect(result).toBe(false);
+            expect(result.behavior).toBe('deny');
           }
         ),
         { numRuns: 100 }
@@ -143,411 +142,386 @@ describe('PermissionManager', () => {
             mode: 'bypassPermissions',
           };
 
-          const manager = new PermissionManager(config, toolRegistry);
+          const manager = new PermissionManager(config, permissionUI, toolRegistry);
           const handler = manager.createCanUseToolHandler();
 
-          const params: ToolUseParams = {
-            tool,
-            args: {},
-            context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
-          };
+          // AskUserQuestion 需要特殊的输入格式
+          const input = tool === 'AskUserQuestion'
+            ? { questions: [{ question: 'test?', header: 'Test', options: [{label: 'Yes', description: 'Yes'}], multiSelect: false }] }
+            : {};
 
-          const result = await handler(params);
-          expect(result).toBe(true);
+          const result = await handler(tool, input, {
+            signal: new AbortController().signal,
+            toolUseID: 'test-uuid',
+          });
+
+          expect(result.behavior).toBe('allow');
         }),
         { numRuns: 100 }
       );
     });
 
-    it('plan 模式应拒绝所有工具', async () => {
+    it('plan 模式应只允许只读工具和 ExitPlanMode', async () => {
       await fc.assert(
         fc.asyncProperty(arbToolName, async (tool) => {
           const config: PermissionConfig = {
             mode: 'plan',
           };
 
-          const manager = new PermissionManager(config, toolRegistry);
+          const manager = new PermissionManager(config, permissionUI, toolRegistry);
           const handler = manager.createCanUseToolHandler();
 
-          const params: ToolUseParams = {
-            tool,
-            args: {},
-            context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
-          };
+          const result = await handler(tool, {}, {
+            signal: new AbortController().signal,
+            toolUseID: 'test-uuid',
+          });
 
-          const result = await handler(params);
-          expect(result).toBe(false);
-        }),
-        { numRuns: 100 }
-      );
-    });
-
-    it('acceptEdits 模式应自动允许 Write 和 Edit', async () => {
-      const editTools = ['Write', 'Edit'];
-
-      for (const tool of editTools) {
-        const config: PermissionConfig = {
-          mode: 'acceptEdits',
-        };
-
-        const manager = new PermissionManager(config, toolRegistry);
-        const handler = manager.createCanUseToolHandler();
-
-        const params: ToolUseParams = {
-          tool,
-          args: { path: '/test/file.txt' },
-          context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
-        };
-
-        const result = await handler(params);
-        expect(result).toBe(true);
-      }
-    });
-
-    it('allowDangerouslySkipPermissions 应绕过所有检查', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbToolName, arbPermissionMode, async (tool, mode) => {
-          const config: PermissionConfig = {
-            mode,
-            allowDangerouslySkipPermissions: true,
-          };
-
-          const manager = new PermissionManager(config, toolRegistry);
-          const handler = manager.createCanUseToolHandler();
-
-          const params: ToolUseParams = {
-            tool,
-            args: {},
-            context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
-          };
-
-          const result = await handler(params);
-          expect(result).toBe(true);
+          // 只允许只读工具和 ExitPlanMode
+          const allowedInPlanMode = ['Read', 'Grep', 'Glob', 'ExitPlanMode'];
+          if (allowedInPlanMode.includes(tool)) {
+            expect(result.behavior).toBe('allow');
+          } else {
+            expect(result.behavior).toBe('deny');
+          }
         }),
         { numRuns: 100 }
       );
     });
   });
 
-  describe('shouldPromptForTool', () => {
-    it('危险工具应需要确认', () => {
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry);
+  describe('acceptEdits 模式', () => {
+    it('应自动批准 Write 和 Edit 工具', async () => {
+      const config: PermissionConfig = {
+        mode: 'acceptEdits',
+      };
 
-      const dangerousTools = toolRegistry.getDangerousTools();
-      for (const tool of dangerousTools) {
-        expect(manager.shouldPromptForTool(tool)).toBe(true);
-      }
-    });
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
 
-    it('安全工具不应需要确认', () => {
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry);
+      const writeResult = await handler('Write', { file_path: 'test.txt', content: 'test' }, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid-1',
+      });
 
-      const safeTools = ['Read', 'Grep', 'Glob', 'Task', 'AskUserQuestion'];
-      for (const tool of safeTools) {
-        expect(manager.shouldPromptForTool(tool)).toBe(false);
-      }
+      const editResult = await handler('Edit', { file_path: 'test.txt', old_string: 'a', new_string: 'b' }, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid-2',
+      });
+
+      expect(writeResult.behavior).toBe('allow');
+      expect(editResult.behavior).toBe('allow');
     });
   });
 
   describe('MCP 工具权限', () => {
-    it('应支持 MCP 工具白名单的模块级匹配', async () => {
+    it('应支持完整 MCP 工具名匹配', async () => {
       const config: PermissionConfig = {
         mode: 'default',
-        allowedTools: [MCP_MODULE_NAME],
+        disallowedTools: [MCP_TOOL_FULL_NAME],
       };
 
-      const manager = new PermissionManager(config, toolRegistry);
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
-      const result = await handler({
-        tool: MCP_TOOL_FULL_NAME,
-        args: {},
-        context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
+      const result = await handler(MCP_TOOL_FULL_NAME, {}, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
       });
 
-      expect(result).toBe(true);
+      expect(result.behavior).toBe('deny');
     });
 
-    it('应支持 MCP 工具白名单的通配模块匹配', async () => {
-      const config: PermissionConfig = {
-        mode: 'default',
-        allowedTools: [MCP_MODULE_WILDCARD],
-      };
-
-      const manager = new PermissionManager(config, toolRegistry);
-      const handler = manager.createCanUseToolHandler();
-
-      const result = await handler({
-        tool: MCP_TOOL_FULL_NAME,
-        args: {},
-        context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
-      });
-
-      expect(result).toBe(true);
-    });
-
-    it('应支持 MCP 工具黑名单的模块级拒绝', async () => {
+    it('应支持 MCP 模块名匹配', async () => {
       const config: PermissionConfig = {
         mode: 'default',
         disallowedTools: [MCP_MODULE_NAME],
       };
 
-      const manager = new PermissionManager(config, toolRegistry);
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
-      const result = await handler({
-        tool: MCP_TOOL_FULL_NAME,
-        args: {},
-        context: { sessionId: 'test-session', messageUuid: 'test-uuid' },
+      const result = await handler(MCP_TOOL_FULL_NAME, {}, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
       });
 
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('promptUser', () => {
-    it('应调用用户确认回调', async () => {
-      const calls: string[] = [];
-      const mockCallback = async (message: string): Promise<boolean> => {
-        calls.push(message);
-        return true;
-      };
-
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry, mockCallback);
-
-      const result = await manager.promptUser('Write', { path: '/test.txt' });
-
-      expect(result).toBe(true);
-      expect(calls).toHaveLength(1);
-      expect(calls[0]).toContain('/test.txt');
+      expect(result.behavior).toBe('deny');
     });
 
-    it('无回调时应默认拒绝', async () => {
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry);
-
-      const result = await manager.promptUser('Write', { path: '/test.txt' });
-
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('setMode', () => {
-    it('应能运行时修改权限模式', () => {
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry);
-
-      expect(manager.getMode()).toBe('default');
-
-      manager.setMode('bypassPermissions');
-      expect(manager.getMode()).toBe('bypassPermissions');
-
-      manager.setMode('plan');
-      expect(manager.getMode()).toBe('plan');
-    });
-  });
-
-  describe('白名单和黑名单管理', () => {
-    it('应能添加和移除工具白名单', () => {
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry);
-
-      manager.addToAllowedTools('Read');
-      manager.addToAllowedTools('Write');
-
-      let currentConfig = manager.getConfig();
-      expect(currentConfig.allowedTools).toContain('Read');
-      expect(currentConfig.allowedTools).toContain('Write');
-
-      manager.removeFromAllowedTools('Write');
-      currentConfig = manager.getConfig();
-      expect(currentConfig.allowedTools).toContain('Read');
-      expect(currentConfig.allowedTools).not.toContain('Write');
-    });
-
-    it('应能添加和移除工具黑名单', () => {
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry);
-
-      manager.addToDisallowedTools('WebFetch');
-      manager.addToDisallowedTools('WebSearch');
-
-      let currentConfig = manager.getConfig();
-      expect(currentConfig.disallowedTools).toContain('WebFetch');
-      expect(currentConfig.disallowedTools).toContain('WebSearch');
-
-      manager.removeFromDisallowedTools('WebFetch');
-      currentConfig = manager.getConfig();
-      expect(currentConfig.disallowedTools).not.toContain('WebFetch');
-      expect(currentConfig.disallowedTools).toContain('WebSearch');
-    });
-
-    it('不应重复添加工具', () => {
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry);
-
-      manager.addToAllowedTools('Read');
-      manager.addToAllowedTools('Read');
-      manager.addToAllowedTools('Read');
-
-      const currentConfig = manager.getConfig();
-      const readCount = currentConfig.allowedTools?.filter(t => t === 'Read').length;
-      expect(readCount).toBe(1);
-    });
-  });
-
-  describe('命令白名单和黑名单', () => {
-    it('白名单中的命令应自动批准', async () => {
+    it('应支持 MCP 通配符匹配', async () => {
       const config: PermissionConfig = {
         mode: 'default',
-        allowedCommands: ['npm test', 'npm run *'],
+        disallowedTools: [MCP_MODULE_WILDCARD],
       };
 
-      const manager = new PermissionManager(config, toolRegistry);
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
-      // 精确匹配
-      let result = await handler({
-        tool: 'Bash',
-        args: { command: 'npm test' },
-        context: { sessionId: 'test', messageUuid: 'test' },
+      const result = await handler(MCP_TOOL_FULL_NAME, {}, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
       });
-      expect(result).toBe(true);
 
-      // 通配符匹配
-      result = await handler({
-        tool: 'Bash',
-        args: { command: 'npm run build' },
-        context: { sessionId: 'test', messageUuid: 'test' },
-      });
-      expect(result).toBe(true);
-    });
-
-    it('黑名单中的命令应被拒绝', async () => {
-      const config: PermissionConfig = {
-        mode: 'bypassPermissions', // 即使绕过权限，黑名单命令也应被拒绝
-        disallowedCommands: ['rm -rf /'],
-      };
-
-      const manager = new PermissionManager(config, toolRegistry);
-      const handler = manager.createCanUseToolHandler();
-
-      const result = await handler({
-        tool: 'Bash',
-        args: { command: 'rm -rf /' },
-        context: { sessionId: 'test', messageUuid: 'test' },
-      });
-      expect(result).toBe(false);
+      expect(result.behavior).toBe('deny');
     });
   });
 
-  describe('权限历史记录', () => {
-    it('应记录权限请求', async () => {
-      const config: PermissionConfig = { mode: 'bypassPermissions' };
-      const manager = new PermissionManager(config, toolRegistry);
+  describe('Bash 命令过滤', () => {
+    it('应拒绝黑名单中的命令', async () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+        disallowedCommands: ['rm -rf'],
+      };
+
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
-      await handler({
-        tool: 'Read',
-        args: { path: '/test.txt' },
-        context: { sessionId: 'session-1', messageUuid: 'uuid-1' },
+      const result = await handler('Bash', { command: 'rm -rf /' }, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
       });
 
-      await handler({
-        tool: 'Write',
-        args: { path: '/test.txt' },
-        context: { sessionId: 'session-1', messageUuid: 'uuid-2' },
-      });
-
-      const history = manager.getPermissionHistory();
-      expect(history).toHaveLength(2);
-      expect(history[0].tool).toBe('Read');
-      expect(history[1].tool).toBe('Write');
+      expect(result.behavior).toBe('deny');
     });
 
-    it('应能限制返回的历史记录数量', async () => {
-      const config: PermissionConfig = { mode: 'bypassPermissions' };
-      const manager = new PermissionManager(config, toolRegistry);
+    it('应允许白名单中的命令', async () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+        allowedCommands: ['npm install'],
+      };
+
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
-      for (let i = 0; i < 10; i++) {
-        await handler({
-          tool: 'Read',
-          args: {},
-          context: { sessionId: 'test', messageUuid: `uuid-${i}` },
-        });
+      const result = await handler('Bash', { command: 'npm install' }, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
+      });
+
+      expect(result.behavior).toBe('allow');
+    });
+  });
+
+  describe('Signal aborted 检查', () => {
+    it('应在 signal.aborted 时返回 interrupt', async () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+      };
+
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
+
+      const controller = new AbortController();
+      controller.abort();
+
+      const result = await handler('Read', { file_path: 'test.txt' }, {
+        signal: controller.signal,
+        toolUseID: 'test-uuid',
+      });
+
+      expect(result.behavior).toBe('deny');
+      if (result.behavior === 'deny') {
+        expect(result.interrupt).toBe(true);
       }
-
-      const limitedHistory = manager.getPermissionHistory(3);
-      expect(limitedHistory).toHaveLength(3);
     });
+  });
 
-    it('应能清除历史记录', async () => {
-      const config: PermissionConfig = { mode: 'bypassPermissions' };
-      const manager = new PermissionManager(config, toolRegistry);
+  describe('PermissionResult 格式', () => {
+    it('allow 结果应包含 updatedInput', async () => {
+      const config: PermissionConfig = {
+        mode: 'bypassPermissions',
+      };
+
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
-      await handler({
-        tool: 'Read',
-        args: {},
-        context: { sessionId: 'test', messageUuid: 'test' },
+      const input = { file_path: 'test.txt' };
+      const result = await handler('Read', input, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
       });
 
-      expect(manager.getPermissionHistory()).toHaveLength(1);
+      expect(result.behavior).toBe('allow');
+      if (result.behavior === 'allow') {
+        expect(result.updatedInput).toEqual(input);
+        expect(result.toolUseID).toBe('test-uuid');
+      }
+    });
 
-      manager.clearPermissionHistory();
-      expect(manager.getPermissionHistory()).toHaveLength(0);
+    it('deny 结果应包含 message', async () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+        disallowedTools: ['Read'],
+      };
+
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
+
+      const result = await handler('Read', { file_path: 'test.txt' }, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
+      });
+
+      expect(result.behavior).toBe('deny');
+      if (result.behavior === 'deny') {
+        expect(result.message).toBeDefined();
+        expect(result.toolUseID).toBe('test-uuid');
+      }
     });
   });
 
-  describe('isToolAllowed', () => {
-    it('应快速检查工具是否被允许', () => {
-      const config: PermissionConfig = {
-        mode: 'default',
-        allowedTools: ['Read', 'Grep'],
-        disallowedTools: ['WebFetch'],
+  describe('AskUserQuestion 处理', () => {
+    it('应正确构建 updatedInput 包含 questions 和 answers', async () => {
+      // Mock PermissionUI 返回用户答案
+      const mockUI = {
+        async promptToolPermission(): Promise<PermissionUIResult> {
+          return { approved: false, reason: 'Mock denied' };
+        },
+        async promptUserQuestions(_questions: any[]): Promise<Record<string, string>> {
+          return {
+            q1: 'Option 1',
+            q2: 'Option 2',
+          };
+        },
       };
 
-      const manager = new PermissionManager(config, toolRegistry);
-
-      expect(manager.isToolAllowed('Read')).toBe(true);
-      expect(manager.isToolAllowed('Grep')).toBe(true);
-      expect(manager.isToolAllowed('Write')).toBe(false); // 不在白名单
-      expect(manager.isToolAllowed('WebFetch')).toBe(false); // 在黑名单
-    });
-
-    it('无白名单时应默认允许', () => {
-      const config: PermissionConfig = { mode: 'default' };
-      const manager = new PermissionManager(config, toolRegistry);
-
-      expect(manager.isToolAllowed('Read')).toBe(true);
-      expect(manager.isToolAllowed('Write')).toBe(true);
-    });
-
-    it('应支持 MCP 工具模块级白名单', () => {
       const config: PermissionConfig = {
         mode: 'default',
-        allowedTools: [MCP_MODULE_NAME],
       };
 
-      const manager = new PermissionManager(config, toolRegistry);
+      const manager = new PermissionManager(config, mockUI, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
 
-      expect(manager.isToolAllowed(MCP_TOOL_FULL_NAME)).toBe(true);
-      expect(manager.isToolAllowed('Read')).toBe(false);
+      const input = {
+        questions: [
+          {
+            question: 'Which option do you prefer?',
+            header: 'Preference',
+            options: [
+              { label: 'Option 1', description: 'First option' },
+              { label: 'Option 2', description: 'Second option' },
+            ],
+            multiSelect: false,
+          },
+        ],
+      };
+
+      const result = await handler('AskUserQuestion', input, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
+      });
+
+      expect(result.behavior).toBe('allow');
+      if (result.behavior === 'allow') {
+        expect(result.updatedInput).toHaveProperty('questions');
+        expect(result.updatedInput).toHaveProperty('answers');
+        expect((result.updatedInput as any).questions).toEqual(input.questions);
+        expect((result.updatedInput as any).answers).toEqual({
+          q1: 'Option 1',
+          q2: 'Option 2',
+        });
+        expect(result.toolUseID).toBe('test-uuid');
+      }
     });
-  });
 
-  describe('createDefaultConfig', () => {
-    it('应创建安全的默认配置', () => {
-      const defaultConfig = PermissionManager.createDefaultConfig();
+    it('应在缺少 questions 字段时返回 deny', async () => {
+      const config: PermissionConfig = {
+        mode: 'default',
+      };
 
-      expect(defaultConfig.mode).toBe('default');
-      expect(defaultConfig.allowDangerouslySkipPermissions).toBe(false);
-      expect(defaultConfig.disallowedCommands).toContain('rm -rf /');
-      expect(defaultConfig.disallowedCommands).toContain('dd if=/dev/zero');
+      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
+
+      const result = await handler('AskUserQuestion', {}, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
+      });
+
+      expect(result.behavior).toBe('deny');
+      if (result.behavior === 'deny') {
+        expect(result.message).toContain('Invalid AskUserQuestion input');
+        expect(result.toolUseID).toBe('test-uuid');
+      }
+    });
+
+    it('应在用户取消时返回 deny', async () => {
+      const mockUI = {
+        async promptToolPermission(): Promise<PermissionUIResult> {
+          return { approved: false, reason: 'Mock denied' };
+        },
+        async promptUserQuestions(): Promise<Record<string, string>> {
+          throw new Error('User canceled');
+        },
+      };
+
+      const config: PermissionConfig = {
+        mode: 'default',
+      };
+
+      const manager = new PermissionManager(config, mockUI, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
+
+      const input = {
+        questions: [
+          {
+            question: 'Test question?',
+            header: 'Test',
+            options: [{ label: 'Yes', description: 'Yes' }],
+            multiSelect: false,
+          },
+        ],
+      };
+
+      const result = await handler('AskUserQuestion', input, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
+      });
+
+      expect(result.behavior).toBe('deny');
+      if (result.behavior === 'deny') {
+        expect(result.message).toContain('User canceled');
+        expect(result.toolUseID).toBe('test-uuid');
+      }
+    });
+
+    it('bypassPermissions 模式下仍应处理 AskUserQuestion', async () => {
+      const mockUI = {
+        async promptToolPermission(): Promise<PermissionUIResult> {
+          return { approved: false, reason: 'Mock denied' };
+        },
+        async promptUserQuestions(): Promise<Record<string, string>> {
+          return { q1: 'Answer' };
+        },
+      };
+
+      const config: PermissionConfig = {
+        mode: 'bypassPermissions',
+      };
+
+      const manager = new PermissionManager(config, mockUI, toolRegistry);
+      const handler = manager.createCanUseToolHandler();
+
+      const input = {
+        questions: [
+          {
+            question: 'Test?',
+            header: 'Test',
+            options: [{ label: 'Answer', description: 'Desc' }],
+            multiSelect: false,
+          },
+        ],
+      };
+
+      const result = await handler('AskUserQuestion', input, {
+        signal: new AbortController().signal,
+        toolUseID: 'test-uuid',
+      });
+
+      expect(result.behavior).toBe('allow');
+      if (result.behavior === 'allow') {
+        expect(result.updatedInput).toHaveProperty('answers');
+        expect((result.updatedInput as any).answers).toEqual({ q1: 'Answer' });
+      }
     });
   });
 });

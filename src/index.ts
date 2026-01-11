@@ -49,9 +49,7 @@ export { ToolRegistry } from './tools/ToolRegistry';
 export {
   PermissionManager,
   PermissionConfig,
-  PermissionRecord,
   CanUseTool,
-  PromptUserCallback,
   ToolUseParams,
   ToolUseContext,
   PermissionMode,

@@ -14,6 +14,8 @@
  * - getEnabledToolNames(): 获取启用的工具列表
  * - createPermissionHandler(): 创建权限处理函数
  * - getAgentDefinitions(): 获取子代理定义
+ * - setQueryInstance(): 设置 Query 实例引用（用于动态权限切换）
+ * - setPermissionMode(): 设置权限模式并同步到 SDK
  */
 
 import { ConfigManager } from '../config/ConfigManager';
@@ -26,12 +28,13 @@ import {
   HookCallbackMatcher,
 } from '../config/SDKConfigLoader';
 import { ToolRegistry } from '../tools/ToolRegistry';
-import { PermissionManager, ToolUseParams } from '../permissions/PermissionManager';
+import { PermissionManager } from '../permissions/PermissionManager';
 import { Session, ContentBlock } from './SessionManager';
 import { ImageHandler, ImageData } from '../image/ImageHandler';
 import { getPresetAgents } from '../agents/PresetAgents';
 import { StreamContentBlock, TextContentBlock, ImageContentBlock } from '../sdk/SDKQueryExecutor';
-import type { CanUseTool as SDKCanUseTool, PermissionResult } from '@anthropic-ai/claude-agent-sdk';
+import type { CanUseTool as SDKCanUseTool } from '@anthropic-ai/claude-agent-sdk';
+import type { Query } from '@anthropic-ai/claude-agent-sdk';
 
 /**
  * 消息接口
@@ -174,6 +177,8 @@ export class MessageRouter {
   private readonly imageHandlerCache: Map<string, ImageHandler> = new Map();
   /** 默认工作目录 */
   private defaultWorkingDirectory: string = process.cwd();
+  /** Query 实例引用（用于动态权限切换） */
+  private queryInstance: Query | null = null;
 
   constructor(options: MessageRouterOptions) {
     this.configManager = options.configManager;
@@ -308,8 +313,15 @@ export class MessageRouter {
   ): Promise<StreamMessageBuildResult> {
     const imageHandler = this.getImageHandler(session.workingDirectory);
 
+    // 在 plan 模式下，为消息添加前缀提示
+    let messageToProcess = rawMessage;
+    if (this.permissionManager.getMode() === 'plan') {
+      const planModePrefix = `[SYSTEM: You are in Plan Mode. Use Read/Grep/Glob to explore, then use ExitPlanMode when ready to implement. Write/Edit/Bash are disabled.]\n\n`;
+      messageToProcess = planModePrefix + rawMessage;
+    }
+
     // 处理图像引用
-    const processResult = await imageHandler.processTextWithImages(rawMessage);
+    const processResult = await imageHandler.processTextWithImages(messageToProcess);
 
     // 构建内容块
     const contentBlocks: StreamContentBlock[] = [];
@@ -458,58 +470,12 @@ export class MessageRouter {
    * @param session - 当前会话
    * @returns 权限处理函数
    */
-  createPermissionHandler(session: Session): SDKCanUseTool {
+  createPermissionHandler(_session: Session): SDKCanUseTool {
     // 使用权限管理器创建处理函数
     const baseHandler = this.permissionManager.createCanUseToolHandler();
 
-    // 包装处理函数以添加会话上下文
-    return async (
-      toolName: string,
-      input: Record<string, unknown>,
-      options
-    ): Promise<PermissionResult> => {
-      if (options.signal.aborted) {
-        return {
-          behavior: 'deny',
-          message: 'Permission request aborted.',
-          interrupt: true,
-          toolUseID: options.toolUseID,
-        };
-      }
-
-      const enrichedParams: ToolUseParams = {
-        tool: toolName,
-        args: input,
-        context: {
-          sessionId: session.id,
-          messageUuid: options.toolUseID || '',
-        },
-      };
-
-      try {
-        const allowed = await baseHandler(enrichedParams);
-        if (allowed) {
-          return {
-            behavior: 'allow',
-            updatedInput: input,
-            toolUseID: options.toolUseID,
-          };
-        }
-
-        return {
-          behavior: 'deny',
-          message: `Permission denied for tool: ${toolName}.`,
-          toolUseID: options.toolUseID,
-        };
-      } catch (error) {
-        return {
-          behavior: 'deny',
-          message:
-            error instanceof Error ? error.message : 'Permission check failed unexpectedly.',
-          toolUseID: options.toolUseID,
-        };
-      }
-    };
+    // 直接返回 baseHandler，它已经是符合 SDK 规范的 SDKCanUseTool
+    return baseHandler;
   }
 
   /**
@@ -545,6 +511,34 @@ export class MessageRouter {
   }
 
   /**
+   * 设置 Query 实例引用
+   *
+   * 用于存储 SDK query 实例，以便后续调用其控制方法（如 setPermissionMode）
+   *
+   * @param instance - Query 实例
+   */
+  setQueryInstance(instance: Query | null): void {
+    this.queryInstance = instance;
+  }
+
+  /**
+   * 设置权限模式
+   *
+   * 本地同步更新权限模式，并异步调用 SDK query 实例的 setPermissionMode 方法
+   *
+   * @param mode - 新的权限模式
+   */
+  async setPermissionMode(mode: PermissionMode): Promise<void> {
+    // 1. 本地同步更新
+    this.permissionManager.setMode(mode);
+
+    // 2. 如果 queryInstance 存在，异步调用 SDK 的 setPermissionMode
+    if (this.queryInstance) {
+      await this.queryInstance.setPermissionMode(mode);
+    }
+  }
+
+  /**
    * 获取系统提示词选项（SDK 预设格式）
    *
    * 返回 SDK 预设格式的系统提示词配置，使用 claude_code 预设。
@@ -572,12 +566,43 @@ export class MessageRouter {
    *
    * Skills 现在由 SDK Agent Skills API 自动管理，无需在系统提示词中注入。
    * CLAUDE.md 由 SDK 通过 settingSources 自动加载。
+   * 根据当前权限模式，可能添加特定模式的指导。
    *
    * @param _session - 当前会话
-   * @returns 追加的提示词，当前始终返回 undefined
+   * @returns 追加的提示词
    */
   buildAppendPrompt(_session: Session): string | undefined {
     // Skills 由 SDK Agent Skills API 自动管理
+
+    // 根据权限模式添加提示词
+    const currentMode = this.permissionManager.getMode();
+
+    if (currentMode === 'plan') {
+      return `
+# Plan Mode Active
+
+You are currently in **Plan Mode**. In this mode:
+
+## Allowed Tools
+- **Read**: Read files to understand the codebase
+- **Grep**: Search for patterns in files
+- **Glob**: Find files by pattern
+- **ExitPlanMode**: Exit plan mode to begin implementation
+
+## Workflow
+1. **Explore**: Use Read, Grep, and Glob to explore the codebase and understand the task
+2. **Plan**: Create a detailed implementation plan
+3. **Exit**: Use ExitPlanMode to exit plan mode and begin implementation
+
+## Restrictions
+- You CANNOT use Write, Edit, Bash, or any other modification tools in plan mode
+- All implementation tools will return "Plan mode: tool execution disabled"
+- Focus on understanding and planning, not implementing
+
+When you're ready to implement your plan, use the ExitPlanMode tool.
+`.trim();
+    }
+
     return undefined;
   }
 

@@ -57,7 +57,7 @@ export class ConfigBuilder {
    */
   buildPermissionConfig(options: CLIOptions, config: ProjectConfig): PermissionConfig {
     return {
-      mode: options.permissionMode || config.permissionMode || 'default',
+      mode: options.permissionMode || config.permissionMode || 'acceptEdits',
       allowedTools: options.allowedTools || config.allowedTools,
       disallowedTools: options.disallowedTools || config.disallowedTools,
       allowDangerouslySkipPermissions: options.allowDangerouslySkipPermissions || false,

@@ -41,7 +41,7 @@ export interface InteractiveUIOptions {
   /** 回退回调 */
   onRewind: () => Promise<void>;
   /** 权限模式变更回调 */
-  onPermissionModeChange?: (mode: PermissionMode) => void;
+  onPermissionModeChange?: (mode: PermissionMode) => void | Promise<void>;
   /** 消息队列回调 - 当正在处理消息时，新消息通过此回调进入队列 */
   onQueueMessage?: (message: string) => void;
   /** 输入流（默认 stdin） */
@@ -112,6 +112,16 @@ const PermissionModeLabels: Record<PermissionMode, string> = {
 };
 
 /**
+ * 权限模式 emoji 映射
+ */
+const PermissionModeEmojis: Record<PermissionMode, string> = {
+  default: '🟢',
+  acceptEdits: '🟡',
+  bypassPermissions: '🔴',
+  plan: '🔵',
+};
+
+/**
  * 交互式 UI 类
  *
  * 提供完整的终端交互功能：
@@ -129,7 +139,7 @@ export class InteractiveUI extends EventEmitter {
   private readonly onMessage: (message: string) => Promise<void>;
   private readonly onInterrupt: () => void;
   private readonly onRewind: () => Promise<void>;
-  private readonly onPermissionModeChange?: (mode: PermissionMode) => void;
+  private readonly onPermissionModeChange?: (mode: PermissionMode) => void | Promise<void>;
   private readonly onQueueMessage?: (message: string) => void;
   private readonly input: NodeJS.ReadableStream;
   private readonly output: NodeJS.WritableStream;
@@ -471,6 +481,20 @@ export class InteractiveUI extends EventEmitter {
   }
 
   /**
+   * 运行时设置权限模式（带通知）
+   *
+   * @param mode - 新的权限模式
+   */
+  setPermissionMode(mode: PermissionMode): void {
+    this.currentPermissionMode = mode;
+
+    // 显示切换通知
+    const label = PermissionModeLabels[mode];
+    const emoji = PermissionModeEmojis[mode];
+    this.displayInfo(`Switched to: ${emoji} ${label}`);
+  }
+
+  /**
    * 设置按键监听器
    */
   private setupKeyListener(): void {
@@ -489,10 +513,11 @@ export class InteractiveUI extends EventEmitter {
         const newMode = this.cyclePermissionMode();
         const label = PermissionModeLabels[newMode];
         const color = PermissionModeColors[newMode];
+        const emoji = PermissionModeEmojis[newMode];
 
         // 显示模式切换通知
         this.writeLine('');
-        this.writeLine(this.colorize(`ℹ️ Switched to permission mode: ${label}`, color));
+        this.writeLine(this.colorize(`ℹ️ Switched to: ${emoji} ${label}`, color));
 
         // 重置缓冲区
         this.shiftTabBuffer = '';
@@ -585,6 +610,13 @@ export class InteractiveUI extends EventEmitter {
   }
 
   /**
+   * 获取权限模式对应的 emoji
+   */
+  private getPermissionEmoji(): string {
+    return PermissionModeEmojis[this.currentPermissionMode];
+  }
+
+  /**
    * 获取用户输入
    *
    * 简洁的输入提示，分隔线由外部控制显示
@@ -596,7 +628,8 @@ export class InteractiveUI extends EventEmitter {
         return;
       }
 
-      const promptStr = this.colorize('> ', 'cyan');
+      const emoji = this.getPermissionEmoji();
+      const promptStr = `${this.colorize('> ', 'cyan')}${emoji} `;
 
       // 使用一次性监听器，避免内存泄漏
       const closeHandler = () => {

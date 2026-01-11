@@ -124,7 +124,12 @@ export class Application {
     const mergedConfig = this.configBuilder.build(options, baseConfig);
 
     const permissionConfig = this.configBuilder.buildPermissionConfig(options, mergedConfig);
-    this.permissionManager = new PermissionManager(permissionConfig, this.toolRegistry);
+
+    // Create PermissionUI implementation and inject into PermissionManager
+    const { PermissionUIImpl } = await import('./ui/PermissionUIImpl');
+    const permissionUI = new PermissionUIImpl();
+
+    this.permissionManager = new PermissionManager(permissionConfig, permissionUI, this.toolRegistry);
 
     this.messageRouter = new MessageRouter({
       configManager: this.configManager,
@@ -208,10 +213,6 @@ export class Application {
     await this.logger.info('Starting interactive mode');
     const session = await this.getOrCreateSession(options);
 
-    this.permissionManager.setPromptUserCallback(async (message: string) => {
-      return this.ui ? this.ui.promptConfirmation(message) : false;
-    });
-
     this.ui = new InteractiveUI({
       onMessage: async (message: string) => {
         this.ui!.setProcessingState(true);
@@ -223,7 +224,11 @@ export class Application {
       },
       onInterrupt: () => this.handleInterrupt(),
       onRewind: async () => await this.handleRewind(session),
-      onPermissionModeChange: (mode: PermissionMode) => this.permissionManager.setMode(mode),
+      onPermissionModeChange: async (mode: PermissionMode) => {
+        if (this.streamingQueryManager) {
+          await this.streamingQueryManager.setPermissionMode(mode);
+        }
+      },
       onQueueMessage: (message: string) => {
         if (this.streamingQueryManager) {
           this.streamingQueryManager.queueMessage(message);
@@ -251,9 +256,25 @@ export class Application {
           this.ui.displayToolUse(info.name, info.input);
         }
       },
-      onToolResult: (info) => {
+      onToolResult: async (info) => {
         if (this.ui) {
           this.ui.displayToolResult(info.name || 'unknown', info.content, info.isError);
+        }
+
+        // 检测 ExitPlanMode 工具执行成功，自动切换权限模式
+        if (info.name === 'ExitPlanMode' && !info.isError && this.streamingQueryManager) {
+          const previousMode = this.permissionManager.getMode();
+          if (previousMode === 'plan') {
+            // 切换到 acceptEdits 模式（默认模式）
+            await this.streamingQueryManager.setPermissionMode('acceptEdits');
+
+            // 更新 UI 显示
+            if (this.ui) {
+              this.ui.setPermissionMode('acceptEdits');
+            }
+
+            await this.logger.info('Exited plan mode, switched to acceptEdits mode');
+          }
         }
       },
       onAssistantText: (text) => {

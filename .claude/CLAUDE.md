@@ -145,16 +145,68 @@ Sessions auto-save after each operation. Expired sessions are cleaned up automat
 - MCP: ListMcpResources, ReadMcpResource
 
 ### Permission Management (`src/permissions/`)
-Modes: `default`, `acceptEdits`, `bypassPermissions`, `plan`
 
-Permission flow:
-1. Check disallowedTools blacklist
-2. Check allowedTools whitelist
-3. Check bypass flag
-4. Check Bash command filters
-5. Prompt user (if mode requires)
+**Architecture Overview**
 
-All permission checks flow through `PermissionManager.createCanUseToolHandler()`.
+The permission system follows a clean separation between UI layer and permission logic layer:
+- **Permission Logic**: `PermissionManager` implements SDK `canUseTool` callback, returns `PermissionResult` objects
+- **UI Layer**: `PermissionUI` interface with `PermissionUIImpl` adapter, handles terminal interactions
+- **Components**: `PermissionPanel` (tool permission prompts), `QuestionMenu` (AskUserQuestion interactive menus)
+
+**Permission Modes**
+
+Four permission modes with different behaviors:
+- `default`: Prompt user for all tools (except whitelisted)
+- `acceptEdits` (default): Auto-approve Read/Write/Edit/Grep/Glob, prompt for others
+- `bypassPermissions`: Auto-approve all tools (no prompts)
+- `plan`: Allow only Read/Grep/Glob/ExitPlanMode, deny all write operations
+
+**Permission Flow**
+
+1. Tool use triggers `canUseTool` callback → `PermissionManager.createCanUseToolHandler()`
+2. Check `disallowedTools` blacklist → Return `{behavior: 'deny'}`
+3. Check `allowedTools` whitelist → Return `{behavior: 'allow'}`
+4. Check permission mode and tool type:
+   - `bypassPermissions`: Allow all
+   - `plan` mode: Allow only Read/Grep/Glob/ExitPlanMode
+   - `acceptEdits`: Auto-allow Read/Write/Edit/Grep/Glob
+   - `default`: Prompt user via `PermissionUI`
+5. Special handling for `AskUserQuestion`: Call `handleAskUserQuestion()` → Return `updatedInput` with collected answers
+
+**PermissionUI Interface**
+
+```typescript
+interface PermissionUI {
+  promptToolPermission(request: ToolPermissionRequest): Promise<PermissionUIResult>;
+  promptUserQuestions(questions: QuestionInput[]): Promise<QuestionAnswers>;
+}
+```
+
+- `PermissionPanel.show()`: Displays tool permission request in terminal bottom panel, waits for y/n/Esc input
+- `QuestionMenu.show()`: Renders interactive menu with arrow key navigation, Space (multi-select), Enter (confirm)
+
+**Dynamic Permission Switching**
+
+Users can switch permission modes at runtime:
+- Press `Shift+Tab` in interactive mode → Cycles through modes
+- Emoji indicators in prompt: 🟢 default, 🟡 acceptEdits, 🔴 bypassPermissions, 🔵 plan
+- Changes propagate: `InteractiveUI` → `StreamingQueryManager.setPermissionMode()` → `MessageRouter` → SDK async update
+
+**AskUserQuestion Handling**
+
+When Claude uses `AskUserQuestion` tool:
+1. `PermissionManager.handleAskUserQuestion()` extracts questions from input
+2. `PermissionUI.promptUserQuestions()` displays interactive menus for each question
+3. Collected answers are injected into `updatedInput.answers` field
+4. Tool receives pre-filled answers, no prompt modification needed
+
+**Key Files**
+
+- `src/permissions/types.ts` - Core types: `PermissionResult`, `SDKCanUseTool`, `ToolPermissionRequest`
+- `src/permissions/PermissionUI.ts` - UI interface and components: `PermissionPanel`, `QuestionMenu`
+- `src/permissions/PermissionManager.ts` - Permission logic and `canUseTool` handler
+- `src/ui/PermissionUIImpl.ts` - Adapter implementing `PermissionUI` interface
+- `src/ui/InteractiveUI.ts` - Permission mode switching and emoji display
 
 ## Key Design Patterns
 

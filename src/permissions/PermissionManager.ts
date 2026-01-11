@@ -6,13 +6,14 @@
  *
  * 核心方法：
  * - createCanUseToolHandler(): 创建 SDK 兼容的权限检查函数
- * - setPromptUserCallback(): 设置用户确认回调函数
+ * - setMode(): 运行时修改权限模式
  * - getConfig(): 获取当前权限配置
- * - checkPermission(): 检查指定工具的使用权限
- * - promptUser(): 提示用户确认危险操作
+ * - promptUser(): 提示用户确认危险操作（待重构）
  */
 
 import { ToolRegistry } from '../tools/ToolRegistry';
+import { PermissionUI } from './PermissionUI';
+import { PermissionResult, SDKCanUseTool } from './types';
 
 const MCP_TOOL_PREFIX = 'mcp__';
 const MCP_TOOL_SEPARATOR = '__';
@@ -51,11 +52,6 @@ export interface ToolUseParams {
 export type CanUseTool = (params: ToolUseParams) => boolean | Promise<boolean>;
 
 /**
- * 用户确认回调函数类型
- */
-export type PromptUserCallback = (message: string) => Promise<boolean>;
-
-/**
  * 权限配置接口
  */
 export interface PermissionConfig {
@@ -74,22 +70,6 @@ export interface PermissionConfig {
 }
 
 /**
- * 权限请求记录
- */
-export interface PermissionRecord {
-  /** 时间戳 */
-  timestamp: Date;
-  /** 工具名称 */
-  tool: string;
-  /** 工具参数 */
-  args: Record<string, unknown>;
-  /** 是否批准 */
-  approved: boolean;
-  /** 会话 ID */
-  sessionId: string;
-}
-
-/**
  * 权限管理器类
  *
  * 负责管理工具执行权限，创建 SDK 兼容的权限处理函数
@@ -99,71 +79,108 @@ export class PermissionManager {
   private config: PermissionConfig;
   /** 工具注册表 */
   private toolRegistry: ToolRegistry;
-  /** 用户确认回调 */
-  private promptUserCallback?: PromptUserCallback;
-  /** 权限请求历史 */
-  private permissionHistory: PermissionRecord[] = [];
-  /** 最大历史记录数 */
-  private readonly maxHistorySize = 100;
+  /** 权限 UI 接口 */
+  private permissionUI: PermissionUI;
 
   constructor(
     config: PermissionConfig,
-    toolRegistry?: ToolRegistry,
-    promptUserCallback?: PromptUserCallback
+    permissionUI: PermissionUI,
+    toolRegistry?: ToolRegistry
   ) {
     this.config = { ...config };
+    this.permissionUI = permissionUI;
     this.toolRegistry = toolRegistry || new ToolRegistry();
-    this.promptUserCallback = promptUserCallback;
   }
 
   /**
    * 创建 SDK 兼容的权限处理函数
    *
-   * @returns CanUseTool 函数
+   * @returns SDKCanUseTool 函数
    */
-  createCanUseToolHandler(): CanUseTool {
-    return async ({ tool, args, context }: ToolUseParams): Promise<boolean> => {
-      // 1. 检查黑名单
-      if (this.isToolInList(tool, this.config.disallowedTools)) {
-        this.recordPermission(tool, args, false, context.sessionId);
-        return false;
+  createCanUseToolHandler(): SDKCanUseTool {
+    return async (
+      toolName: string,
+      input: unknown,
+      options: { signal: AbortSignal; toolUseID: string }
+    ): Promise<PermissionResult> => {
+      const { signal, toolUseID } = options;
+
+      // 1. 检查 signal.aborted
+      if (signal.aborted) {
+        return {
+          behavior: 'deny',
+          interrupt: true,
+          message: 'Request aborted',
+          toolUseID,
+        };
       }
 
-      // 2. 检查白名单（如果设置了白名单，则只允许白名单中的工具）
+      // 2. 将 input 转换为 args 格式
+      const args = (input as Record<string, unknown>) || {};
+
+      // 3. 检查黑名单
+      if (this.isToolInList(toolName, this.config.disallowedTools)) {
+        return {
+          behavior: 'deny',
+          message: `Tool '${toolName}' is in disallowed list`,
+          toolUseID,
+        };
+      }
+
+      // 4. 检查白名单（如果设置了白名单，则只允许白名单中的工具）
       if (this.config.allowedTools && this.config.allowedTools.length > 0) {
-        if (!this.isToolInList(tool, this.config.allowedTools)) {
-          this.recordPermission(tool, args, false, context.sessionId);
-          return false;
+        if (!this.isToolInList(toolName, this.config.allowedTools)) {
+          return {
+            behavior: 'deny',
+            message: `Tool '${toolName}' is not in allowed list`,
+            toolUseID,
+          };
         }
       }
 
-      // 3. 危险模式：跳过所有检查
+      // 5. 危险模式：跳过所有检查
       if (this.config.allowDangerouslySkipPermissions) {
-        this.recordPermission(tool, args, true, context.sessionId);
-        return true;
+        // AskUserQuestion 仍需特殊处理以收集用户输入
+        if (toolName === 'AskUserQuestion') {
+          return this.handleAskUserQuestion(input, options);
+        }
+        return {
+          behavior: 'allow',
+          updatedInput: args,
+          toolUseID,
+        };
       }
 
-      // 4. 检查 Bash 命令的白名单/黑名单
-      if (tool === 'Bash' && args.command) {
+      // 6. 特殊处理 AskUserQuestion 工具（非 bypass 模式下）
+      if (toolName === 'AskUserQuestion') {
+        return this.handleAskUserQuestion(input, options);
+      }
+
+      // 7. 检查 Bash 命令的白名单/黑名单
+      if (toolName === 'Bash' && args.command) {
         const command = String(args.command);
 
         // 检查命令黑名单
         if (this.isCommandDisallowed(command)) {
-          this.recordPermission(tool, args, false, context.sessionId);
-          return false;
+          return {
+            behavior: 'deny',
+            message: `Command '${command}' is disallowed`,
+            toolUseID,
+          };
         }
 
         // 检查命令白名单
         if (this.isCommandAllowed(command)) {
-          this.recordPermission(tool, args, true, context.sessionId);
-          return true;
+          return {
+            behavior: 'allow',
+            updatedInput: args,
+            toolUseID,
+          };
         }
       }
 
-      // 5. 根据权限模式决定
-      const result = await this.checkPermissionByMode(tool, args, context);
-      this.recordPermission(tool, args, result, context.sessionId);
-      return result;
+      // 8. 根据权限模式决定
+      return this.checkPermissionByMode(toolName, args, toolUseID);
     };
   }
 
@@ -173,31 +190,54 @@ export class PermissionManager {
   private async checkPermissionByMode(
     tool: string,
     args: Record<string, unknown>,
-    _context: ToolUseContext
-  ): Promise<boolean> {
+    toolUseID: string
+  ): Promise<PermissionResult> {
     switch (this.config.mode) {
       case 'bypassPermissions':
         // 绕过所有权限检查
-        return true;
+        return {
+          behavior: 'allow',
+          updatedInput: args,
+          toolUseID,
+        };
 
       case 'acceptEdits':
         // 自动接受文件编辑，其他需要确认
         if (['Write', 'Edit'].includes(tool)) {
-          return true;
+          return {
+            behavior: 'allow',
+            updatedInput: args,
+            toolUseID,
+          };
         }
-        return this.promptUserForTool(tool, args);
+        return this.promptUserForTool(tool, args, toolUseID);
 
       case 'plan':
-        // 计划模式：不执行任何工具
-        return false;
+        // 计划模式：只允许只读工具（Read, Grep, Glob）和 ExitPlanMode
+        if (['Read', 'Grep', 'Glob', 'ExitPlanMode'].includes(tool)) {
+          return {
+            behavior: 'allow',
+            updatedInput: args,
+            toolUseID,
+          };
+        }
+        return {
+          behavior: 'deny',
+          message: 'Plan mode: tool execution disabled',
+          toolUseID,
+        };
 
       case 'default':
       default:
         // 默认模式：某些工具需要确认
         if (this.shouldPromptForTool(tool)) {
-          return this.promptUserForTool(tool, args);
+          return this.promptUserForTool(tool, args, toolUseID);
         }
-        return true;
+        return {
+          behavior: 'allow',
+          updatedInput: args,
+          toolUseID,
+        };
     }
   }
 
@@ -216,46 +256,84 @@ export class PermissionManager {
    * 请求用户确认
    *
    * @param tool 工具名称
-   * @param args 工具参数
    * @returns 用户是否批准
    */
-  async promptUser(tool: string, args: Record<string, unknown>): Promise<boolean> {
-    if (!this.promptUserCallback) {
-      // 如果没有设置回调，默认拒绝
-      console.warn(
-        `Permission request: ${tool}, but user confirmation callback not set, denying by default`
-      );
-      return false;
-    }
-
-    const message = this.formatPermissionRequest(tool, args);
-    return this.promptUserCallback(message);
+  async promptUser(tool: string, _args: Record<string, unknown>): Promise<boolean> {
+    // TODO: 这个方法将在后续任务中被重构，暂时保留默认拒绝逻辑
+    console.warn(
+      `Permission request: ${tool}, but user confirmation callback not set, denying by default`
+    );
+    return false;
   }
 
   /**
    * 请求用户确认工具使用
    */
-  private async promptUserForTool(tool: string, args: Record<string, unknown>): Promise<boolean> {
-    return this.promptUser(tool, args);
+  private async promptUserForTool(
+    tool: string,
+    args: Record<string, unknown>,
+    toolUseID: string
+  ): Promise<PermissionResult> {
+    const result = await this.permissionUI.promptToolPermission({
+      toolName: tool,
+      toolUseID,
+      input: args,
+      timestamp: new Date(),
+    });
+
+    if (result.approved) {
+      return {
+        behavior: 'allow',
+        updatedInput: args,
+        toolUseID,
+      };
+    } else {
+      return {
+        behavior: 'deny',
+        message: result.reason || 'User denied permission',
+        toolUseID,
+      };
+    }
   }
 
   /**
-   * 格式化权限请求消息
+   * 处理 AskUserQuestion 工具
    */
-  private formatPermissionRequest(tool: string, args: Record<string, unknown>): string {
-    switch (tool) {
-      case 'Write':
-        return `Allow writing file: ${args.path}?`;
-      case 'Edit':
-        return `Allow editing file: ${args.path}?`;
-      case 'Bash':
-        return `Allow executing command: ${args.command}?`;
-      case 'KillBash':
-        return `Allow killing process: ${args.pid || 'background process'}?`;
-      case 'NotebookEdit':
-        return `Allow editing notebook: ${args.path}?`;
-      default:
-        return `Allow using tool ${tool}?`;
+  private async handleAskUserQuestion(
+    input: unknown,
+    options: { toolUseID: string; signal: AbortSignal }
+  ): Promise<PermissionResult> {
+    const { toolUseID } = options;
+
+    // 提取问题列表
+    const inputObj = input as { questions?: unknown[] };
+    if (!inputObj.questions || !Array.isArray(inputObj.questions)) {
+      return {
+        behavior: 'deny',
+        message: 'Invalid AskUserQuestion input: missing questions array',
+        toolUseID,
+      };
+    }
+
+    try {
+      // 调用 UI 层收集用户答案
+      const answers = await this.permissionUI.promptUserQuestions(inputObj.questions as any);
+
+      // 构建 PermissionResult with updatedInput
+      return {
+        behavior: 'allow',
+        updatedInput: {
+          questions: inputObj.questions,
+          answers,
+        },
+        toolUseID,
+      };
+    } catch (error) {
+      return {
+        behavior: 'deny',
+        message: error instanceof Error ? error.message : 'User canceled AskUserQuestion',
+        toolUseID,
+      };
     }
   }
 
@@ -295,31 +373,6 @@ export class PermissionManager {
       // 精确匹配或包含匹配
       return command === pattern || command.includes(pattern);
     });
-  }
-
-  /**
-   * 记录权限请求
-   */
-  private recordPermission(
-    tool: string,
-    args: Record<string, unknown>,
-    approved: boolean,
-    sessionId: string
-  ): void {
-    const record: PermissionRecord = {
-      timestamp: new Date(),
-      tool,
-      args,
-      approved,
-      sessionId,
-    };
-
-    this.permissionHistory.push(record);
-
-    // 限制历史记录大小
-    if (this.permissionHistory.length > this.maxHistorySize) {
-      this.permissionHistory.shift();
-    }
   }
 
   /**
@@ -443,35 +496,6 @@ export class PermissionManager {
     if (this.config.disallowedCommands) {
       this.config.disallowedCommands = this.config.disallowedCommands.filter((c) => c !== command);
     }
-  }
-
-  /**
-   * 设置用户确认回调
-   *
-   * @param callback 回调函数
-   */
-  setPromptUserCallback(callback: PromptUserCallback): void {
-    this.promptUserCallback = callback;
-  }
-
-  /**
-   * 获取权限请求历史
-   *
-   * @param limit 返回的最大记录数
-   * @returns 权限请求记录数组
-   */
-  getPermissionHistory(limit?: number): PermissionRecord[] {
-    if (limit && limit > 0) {
-      return this.permissionHistory.slice(-limit);
-    }
-    return [...this.permissionHistory];
-  }
-
-  /**
-   * 清除权限请求历史
-   */
-  clearPermissionHistory(): void {
-    this.permissionHistory = [];
   }
 
   /**

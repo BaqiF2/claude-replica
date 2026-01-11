@@ -9,3 +9,5 @@ export {
   MessageRole,
   MenuItem,
 } from './InteractiveUI';
+
+export { PermissionUIImpl } from './PermissionUIImpl';

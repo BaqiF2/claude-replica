@@ -151,6 +151,8 @@ export interface SDKQueryOptions {
   forkSession?: boolean;
   /** 消息回调 - 用于实时接收 SDK 消息（工具调用、结果等） */
   onMessage?: SDKMessageCallback;
+  /** Query 实例创建回调 - 用于获取 query generator 实例以支持动态权限切换 */
+  onQueryCreated?: (queryInstance: any) => void;
 }
 
 /**
@@ -498,6 +500,11 @@ export class SDKQueryExecutor {
         prompt: sdkMessageGenerator,
         options: sdkOptions,
       });
+
+      // 如果提供了 onQueryCreated 回调，传递 query 实例
+      if (options.onQueryCreated) {
+        options.onQueryCreated(queryGenerator);
+      }
 
       // 迭代处理消息流
       // 关键修复：在流式输入模式下，不在收到 result 后立即 return

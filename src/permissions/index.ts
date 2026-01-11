@@ -6,9 +6,7 @@ export {
   PermissionManager,
   PermissionMode,
   PermissionConfig,
-  PermissionRecord,
   CanUseTool,
-  PromptUserCallback,
   ToolUseParams,
   ToolUseContext,
 } from './PermissionManager';

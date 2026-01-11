@@ -21,6 +21,7 @@ import {
   StreamContentBlock,
 } from './SDKQueryExecutor';
 import type { SDKMessage, SDKAssistantMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { PermissionMode } from '../config/SDKConfigLoader';
 
 /**
  * 流式会话状态
@@ -265,6 +266,8 @@ export class StreamingQueryManager {
   private executionPromise: Promise<SDKQueryResult> | null = null;
   /** 最新的 SDK 查询结果 */
   private lastResult: SDKQueryResult | null = null;
+  /** Query 实例引用（用于动态权限切换） */
+  private queryInstance: any | null = null;
 
   constructor(options: StreamingQueryManagerOptions) {
     this.messageRouter = options.messageRouter;
@@ -486,6 +489,25 @@ export class StreamingQueryManager {
   }
 
   /**
+   * 设置权限模式
+   *
+   * 实现动态权限切换：
+   * 1. 本地同步更新 - 调用 messageRouter.setPermissionMode(mode)
+   * 2. SDK 异步切换 - 如果 queryInstance 存在，调用其 setPermissionMode(mode)
+   *
+   * @param mode - 新的权限模式
+   */
+  async setPermissionMode(mode: PermissionMode): Promise<void> {
+    // 1. 本地同步更新
+    await this.messageRouter.setPermissionMode(mode);
+
+    // 2. SDK 异步切换（如果 query 实例存在）
+    if (this.queryInstance) {
+      await this.queryInstance.setPermissionMode(mode);
+    }
+  }
+
+  /**
    * 获取待处理的消息数量
    *
    * 包括生成器中待 yield 的消息
@@ -502,6 +524,10 @@ export class StreamingQueryManager {
    * 使用 LiveMessageGenerator 创建持久的消息流，
    * SDK 会持续处理生成器 yield 的消息直到生成器停止
    *
+   * 关键改动：
+   * - 保存 query generator 实例到 this.queryInstance
+   * - 通过 messageRouter.setQueryInstance() 传递给 MessageRouter
+   *
    * @returns SDK 查询结果 Promise
    */
   private async startExecution(): Promise<SDKQueryResult> {
@@ -516,7 +542,7 @@ export class StreamingQueryManager {
       // 使用 LiveMessageGenerator 创建持久消息流
       const messageGenerator = this.liveGenerator.generate();
 
-      // 执行流式查询
+      // 执行流式查询并保存 query 实例
       const sdkResult = await this.sdkExecutor.executeStreaming(messageGenerator, {
         model: queryOptions.model,
         systemPrompt: queryOptions.systemPrompt,
@@ -539,6 +565,11 @@ export class StreamingQueryManager {
         resume: this.activeSession.session.sdkSessionId,
         // 传递消息回调，用于实时输出工具调用信息
         onMessage: (message) => this.handleSDKMessage(message),
+        // 保存 query 实例的回调
+        onQueryCreated: (queryInstance) => {
+          this.queryInstance = queryInstance;
+          this.messageRouter.setQueryInstance(queryInstance);
+        },
       });
 
       // 保存结果
