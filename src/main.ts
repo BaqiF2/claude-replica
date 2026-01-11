@@ -28,6 +28,7 @@ import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
 import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
+import { PermissionUIImpl } from './ui/PermissionUIImpl';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager, McpServerConfig } from './mcp/MCPManager';
 import { MCPService } from './mcp/MCPService';
@@ -127,7 +128,8 @@ export class Application {
     const mergedConfig = this.configBuilder.build(options, baseConfig);
 
     const permissionConfig = this.configBuilder.buildPermissionConfig(options, mergedConfig);
-    this.permissionManager = new PermissionManager(permissionConfig, this.toolRegistry);
+    const permissionUI = new PermissionUIImpl();
+    this.permissionManager = new PermissionManager(permissionConfig, permissionUI, this.toolRegistry);
 
     this.messageRouter = new MessageRouter({
       configManager: this.configManager,
@@ -213,10 +215,6 @@ export class Application {
   private async runInteractive(options: CLIOptions): Promise<number> {
     await this.logger.info('Starting interactive mode');
     const session = await this.getOrCreateSession(options);
-
-    this.permissionManager.setPromptUserCallback(async (message: string) => {
-      return this.ui ? this.ui.promptConfirmation(message) : false;
-    });
 
     this.ui = new InteractiveUI({
       onMessage: async (message: string) => {

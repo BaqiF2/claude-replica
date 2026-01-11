@@ -49,13 +49,18 @@ export { ToolRegistry } from './tools/ToolRegistry';
 export {
   PermissionManager,
   PermissionConfig,
-  PermissionRecord,
   CanUseTool,
-  PromptUserCallback,
   ToolUseParams,
   ToolUseContext,
   PermissionMode,
 } from './permissions/PermissionManager';
+export {
+  PermissionResult,
+  SDKCanUseTool,
+  ToolPermissionRequest,
+  PermissionUIResult,
+} from './permissions/types';
+export { PermissionUI } from './permissions/PermissionUI';
 
 // 配置组件
 export {
