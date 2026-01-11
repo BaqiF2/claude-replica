@@ -14,6 +14,10 @@
 
 import { ToolRegistry } from '../tools/ToolRegistry';
 
+const MCP_TOOL_PREFIX = 'mcp__';
+const MCP_TOOL_SEPARATOR = '__';
+const MCP_TOOL_WILDCARD = '*';
+
 /**
  * SDK 权限模式类型
  */
@@ -120,14 +124,14 @@ export class PermissionManager {
   createCanUseToolHandler(): CanUseTool {
     return async ({ tool, args, context }: ToolUseParams): Promise<boolean> => {
       // 1. 检查黑名单
-      if (this.config.disallowedTools?.includes(tool)) {
+      if (this.isToolInList(tool, this.config.disallowedTools)) {
         this.recordPermission(tool, args, false, context.sessionId);
         return false;
       }
 
       // 2. 检查白名单（如果设置了白名单，则只允许白名单中的工具）
       if (this.config.allowedTools && this.config.allowedTools.length > 0) {
-        if (!this.config.allowedTools.includes(tool)) {
+        if (!this.isToolInList(tool, this.config.allowedTools)) {
           this.recordPermission(tool, args, false, context.sessionId);
           return false;
         }
@@ -478,13 +482,13 @@ export class PermissionManager {
    */
   isToolAllowed(tool: string): boolean {
     // 检查黑名单
-    if (this.config.disallowedTools?.includes(tool)) {
+    if (this.isToolInList(tool, this.config.disallowedTools)) {
       return false;
     }
 
     // 检查白名单
     if (this.config.allowedTools && this.config.allowedTools.length > 0) {
-      return this.config.allowedTools.includes(tool);
+      return this.isToolInList(tool, this.config.allowedTools);
     }
 
     // 默认允许
@@ -509,5 +513,48 @@ export class PermissionManager {
         ':(){:|:&};:', // fork bomb
       ],
     };
+  }
+
+  private isToolInList(tool: string, list?: string[]): boolean {
+    if (!list || list.length === 0) {
+      return false;
+    }
+
+    const keys = this.getToolPermissionKeys(tool);
+    return keys.some((key) => list.includes(key));
+  }
+
+  private getToolPermissionKeys(tool: string): string[] {
+    const mcpParts = this.parseMcpToolName(tool);
+    if (!mcpParts) {
+      return [tool];
+    }
+
+    const moduleKey = this.buildMcpModuleKey(mcpParts.server);
+    return [tool, moduleKey, `${moduleKey}${MCP_TOOL_SEPARATOR}${MCP_TOOL_WILDCARD}`];
+  }
+
+  private parseMcpToolName(tool: string): { server: string; tool: string } | null {
+    if (!tool.startsWith(MCP_TOOL_PREFIX)) {
+      return null;
+    }
+
+    const remainder = tool.slice(MCP_TOOL_PREFIX.length);
+    const separatorIndex = remainder.indexOf(MCP_TOOL_SEPARATOR);
+    if (separatorIndex <= 0) {
+      return null;
+    }
+
+    const server = remainder.slice(0, separatorIndex);
+    const toolName = remainder.slice(separatorIndex + MCP_TOOL_SEPARATOR.length);
+    if (!toolName) {
+      return null;
+    }
+
+    return { server, tool: toolName };
+  }
+
+  private buildMcpModuleKey(server: string): string {
+    return `${MCP_TOOL_PREFIX}${server}`;
   }
 }

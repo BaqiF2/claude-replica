@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * 文件功能：主程序入口，负责初始化应用程序、解析命令行参数、管理会话和执行查询
+ * 文件功能：主程序入口，负责初始化应用程序、解析命令行参数、管理会话和执行查询。
  *
- * 核心类：Logger、Application
+ * 核心类：
+ * - Application: CLI 应用生命周期与执行流程管理。
+ *
+ * 核心方法：
+ * - run(): 解析命令行参数并执行交互/非交互模式。
+ * - initialize(): 初始化配置、权限、扩展和工具。
+ * - main(): CLI 入口函数，创建 Application 并运行。
  */
 
 import * as dotenv from 'dotenv';
@@ -36,8 +42,11 @@ import { SDKQueryExecutor, SDKErrorType, ERROR_MESSAGES, StreamingQueryManager }
 import { Logger } from './logging/Logger';
 import { ConfigBuilder } from './config/ConfigBuilder';
 import { ErrorHandler } from './errors/ErrorHandler';
+import { CustomToolManager } from './custom-tools';
+import { calculatorTool } from './custom-tools/math';
 
 const VERSION = process.env.VERSION || '0.1.0';
+const CUSTOM_TOOL_MODULE_NAME = process.env.CUSTOM_TOOL_MODULE_NAME ?? 'math/calculators';
 
 export class Application {
   private readonly cliParser: CLIParser;
@@ -134,6 +143,7 @@ export class Application {
 
     await this.loadExtensions();
     await this.loadCustomExtensions(workingDir);
+    await this.initializeCustomTools();
     await this.loadMCPServers(workingDir);
 
     await this.logger.debug('Application initialized');
@@ -145,7 +155,6 @@ export class Application {
 
   private async loadCustomExtensions(workingDir: string): Promise<void> {
     await this.logger.debug('Loading extensions...');
-    // 预设代理已通过 getPresetAgents() 自动加载，无需调用 loadAgents
 
     const hooksConfigPath = path.join(workingDir, '.claude', 'hooks.json');
     try {
@@ -157,6 +166,32 @@ export class Application {
     }
 
     await this.logger.debug('Extensions loaded');
+  }
+
+  private async initializeCustomTools(): Promise<void> {
+    const customToolManager = new CustomToolManager();
+    const registration = customToolManager.registerModule(CUSTOM_TOOL_MODULE_NAME, [
+      calculatorTool,
+    ]);
+
+    if (!registration.valid) {
+      await this.logger.error('Custom tool module registration failed', {
+        module: CUSTOM_TOOL_MODULE_NAME,
+        errors: registration.errors,
+      });
+      return;
+    }
+
+    const customMcpServers = customToolManager.createMcpServers();
+    if (!Object.keys(customMcpServers).length) {
+      await this.logger.warn('No custom MCP servers created', { module: CUSTOM_TOOL_MODULE_NAME });
+      return;
+    }
+
+    this.sdkExecutor.setCustomMcpServers(customMcpServers);
+    await this.logger.info('Custom tool MCP servers registered', {
+      servers: Object.keys(customMcpServers),
+    });
   }
 
   private async loadMCPServers(workingDir: string): Promise<void> {
@@ -605,6 +640,7 @@ MCP commands:
         disallowedTools: queryResult.options.disallowedTools,
         cwd: queryResult.options.cwd,
         permissionMode: queryResult.options.permissionMode,
+        canUseTool: queryResult.options.canUseTool,
         maxTurns: queryResult.options.maxTurns,
         maxBudgetUsd: queryResult.options.maxBudgetUsd,
         maxThinkingTokens: queryResult.options.maxThinkingTokens,

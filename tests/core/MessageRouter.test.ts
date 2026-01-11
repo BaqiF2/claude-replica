@@ -203,6 +203,30 @@ describe('MessageRouter', () => {
       expect(tools).not.toContain('WebSearch');
     });
 
+    it('应该保留允许列表中的 MCP 工具名称', () => {
+      const router = new MessageRouter({
+        configManager,
+        toolRegistry,
+        permissionManager,
+      });
+
+      const session = createMockSession({
+        context: {
+          workingDirectory: '/test/project',
+          projectConfig: {
+            allowedTools: ['Read', 'mcp__custom-tools-math-calculators__calculator'],
+          },
+          userConfig: {},
+          activeAgents: [],
+        },
+      });
+
+      const tools = router.getEnabledToolNames(session);
+
+      expect(tools).toContain('Read');
+      expect(tools).toContain('mcp__custom-tools-math-calculators__calculator');
+    });
+
     it('应该默认包含 Skill 工具', () => {
       const router = new MessageRouter({
         configManager,
@@ -248,16 +272,43 @@ describe('MessageRouter', () => {
       const session = createMockSession();
       const handler = router.createPermissionHandler(session);
 
-      const result = await handler({
-        tool: 'Read',
-        args: { path: '/test/file.txt' },
-        context: {
-          sessionId: session.id,
-          messageUuid: 'test-uuid',
-        },
+      const result = await handler(
+        'Read',
+        { path: '/test/file.txt' },
+        {
+          signal: new AbortController().signal,
+          toolUseID: 'test-uuid',
+        }
+      );
+
+      expect(result.behavior).toBe('allow');
+    });
+
+    it('权限处理函数应该处理空 toolUseID 的工具调用', async () => {
+      const bypassPermissionManager = new PermissionManager(
+        { mode: 'bypassPermissions' },
+        toolRegistry
+      );
+
+      const router = new MessageRouter({
+        configManager,
+        toolRegistry,
+        permissionManager: bypassPermissionManager,
       });
 
-      expect(result).toBe(true);
+      const session = createMockSession();
+      const handler = router.createPermissionHandler(session);
+
+      const result = await handler(
+        'Read',
+        { path: '/test/file.txt' },
+        {
+          signal: new AbortController().signal,
+          toolUseID: '',
+        }
+      );
+
+      expect(result.behavior).toBe('allow');
     });
 
     it('权限处理函数应该拒绝黑名单中的工具', async () => {
@@ -278,16 +329,16 @@ describe('MessageRouter', () => {
       const session = createMockSession();
       const handler = router.createPermissionHandler(session);
 
-      const result = await handler({
-        tool: 'Bash',
-        args: { command: 'ls' },
-        context: {
-          sessionId: session.id,
-          messageUuid: 'test-uuid',
-        },
-      });
+      const result = await handler(
+        'Bash',
+        { command: 'ls' },
+        {
+          signal: new AbortController().signal,
+          toolUseID: 'test-uuid',
+        }
+      );
 
-      expect(result).toBe(false);
+      expect(result.behavior).toBe('deny');
     });
   });
 
@@ -400,8 +451,7 @@ describe('MessageRouter', () => {
       expect(options).toBeDefined();
       expect(options.model).toBe('claude-sonnet-4-5-20250929');
       expect(options.cwd).toBe('/test/project');
-      expect(options.allowedTools).toBeDefined();
-      expect(Array.isArray(options.allowedTools)).toBe(true);
+      expect(options.allowedTools).toBeUndefined();
     });
 
     it('应该使用默认模型当未指定时', async () => {
@@ -847,9 +897,9 @@ describe('MessageRouter - Options 接口构建', () => {
     // 验证必需字段
     expect(options).toHaveProperty('model');
     expect(options).toHaveProperty('systemPrompt');
-    expect(options).toHaveProperty('allowedTools');
     expect(options).toHaveProperty('cwd');
     expect(options).toHaveProperty('permissionMode');
+    expect(options.allowedTools).toBeUndefined();
   });
 
   it('应该正确处理沙箱配置', async () => {

@@ -27,7 +27,6 @@
 | Language | TypeScript | 5.9+ |
 | Runtime | Node.js | 20.0.0+ |
 | Core Dependency | @anthropic-ai/claude-agent-sdk | ^0.1.76 |
-| Terminal Emulation | node-pty | ^1.1.0 |
 | Testing Framework | Jest | 29+ |
 | Property Testing | fast-check | ^3.23.2 |
 | Build Tool | TypeScript Compiler | - |
@@ -525,15 +524,9 @@ When modifying the codebase, understand these choke points:
 
 - **Unit tests**: `tests/unit/`
 - **Integration tests**: `tests/integration/`
-- **Terminal tests**: `tests/terminal/` (uses node-pty for real terminal emulation)
 - **Property tests**: `tests/**/*.property.test.ts` (fast-check)
 
-### Terminal Tests
-
-Use `tests/terminal/` for testing actual terminal interactions:
-- Real terminal emulation via node-pty
-- 30-second timeout (computationally expensive)
-- Separate npm scripts for CI/watch/report modes
+Terminal interaction tests (node-pty CLI emulation suite) have been removed and are no longer part of the test matrix.
 
 ---
 

@@ -539,7 +539,10 @@ export class MCPManager {
    * @returns 展开后的配置
    */
   expandEnvironmentVariables(config: McpServerConfig): McpServerConfig {
-    const expandValue = (value: string): string => {
+    const expandValue = (value: string | undefined): string => {
+      if (typeof value !== 'string') {
+        return '';
+      }
       return value.replace(/\$\{([^}]+)\}/g, (_, varName) => {
         return process.env[varName] || '';
       });

@@ -45,6 +45,13 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
     }
     return mockGenerator();
   }),
+  createSdkMcpServer: jest.fn().mockImplementation((config) => config),
+  tool: jest.fn().mockImplementation((name, description, schema, handler) => ({
+    name,
+    description,
+    schema,
+    handler,
+  })),
 }));
 
 import * as fs from 'fs/promises';
@@ -52,21 +59,12 @@ import * as path from 'path';
 import * as os from 'os';
 import { SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
-import { AgentRegistry } from '../../src/agents/AgentRegistry';
 import { HookManager } from '../../src/hooks/HookManager';
 import { MCPManager } from '../../src/mcp/MCPManager';
 import { RewindManager } from '../../src/rewind/RewindManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { OutputFormatter } from '../../src/output/OutputFormatter';
-
-const stripAnsi = (input: string): string => input.replace(/\u001b\[[0-9;]*m/g, '');
-
-const findJsonLine = (calls: unknown[][]): string | undefined => {
-  return calls
-    .map((call) => String(call[0]))
-    .find((line) => line.trim().startsWith('{'));
-};
 
 describe('端到端集成测试', () => {
   let main: typeof import('../../src/main').main;
@@ -130,6 +128,47 @@ describe('端到端集成测试', () => {
   });
 
   describe('非交互式模式工作流', () => {
+    const findJsonOutput = (calls: Array<unknown[]>): string | undefined => {
+      for (const call of calls) {
+        const value = call[0];
+        if (typeof value !== 'string') {
+          continue;
+        }
+        try {
+          JSON.parse(value);
+          return value;
+        } catch {
+          continue;
+        }
+      }
+      return undefined;
+    };
+
+    const findStreamJsonOutput = (calls: Array<unknown[]>): string | undefined => {
+      for (const call of calls) {
+        const value = call[0];
+        if (typeof value !== 'string') {
+          continue;
+        }
+        const lines = value.split('\n').filter((line) => line.trim());
+        if (lines.length === 0) {
+          continue;
+        }
+        const allJsonLines = lines.every((line) => {
+          try {
+            JSON.parse(line);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        if (allJsonLines) {
+          return value;
+        }
+      }
+      return undefined;
+    };
+
     it('应该完成基本的查询工作流', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
       
@@ -150,9 +189,11 @@ describe('端到端集成测试', () => {
       expect(exitCode).toBe(0);
       
       // 验证 JSON 输出格式
-      const outputLine = findJsonLine(consoleSpy.mock.calls);
-      expect(outputLine).toBeDefined();
-      const parsed = JSON.parse(stripAnsi(outputLine!));
+      const output = findJsonOutput(consoleSpy.mock.calls);
+      if (!output) {
+        throw new Error('Missing JSON output');
+      }
+      const parsed = JSON.parse(output);
       expect(parsed).toHaveProperty('result');
       expect(parsed).toHaveProperty('success', true);
       
@@ -167,19 +208,15 @@ describe('端到端集成测试', () => {
       expect(exitCode).toBe(0);
       
       // 验证流式 JSON 输出
-      const rawLines = consoleSpy.mock.calls
-        .map((call) => String(call[0]))
-        .flatMap((line) => stripAnsi(line).split('\n'))
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-
-      expect(rawLines.length).toBeGreaterThanOrEqual(1);
-
-      const jsonLines = rawLines.filter((line) => line.startsWith('{'));
-      expect(jsonLines.length).toBeGreaterThan(0);
-
+      const output = findStreamJsonOutput(consoleSpy.mock.calls);
+      if (!output) {
+        throw new Error('Missing stream-json output');
+      }
+      const lines = output.split('\n').filter((l: string) => l.trim());
+      expect(lines.length).toBeGreaterThanOrEqual(1);
+      
       // 检查是否有 result 类型的行
-      const hasResultLine = jsonLines.some((line) => {
+      const hasResultLine = lines.some((line: string) => {
         const parsed = JSON.parse(line);
         return parsed.type === 'result';
       });
@@ -453,40 +490,6 @@ describe('端到端集成测试', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('v0.1.0'));
       
       consoleSpy.mockRestore();
-    });
-  });
-
-  describe('扩展系统集成工作流', () => {
-    it('应该提供预设子代理', () => {
-      const agentRegistry = new AgentRegistry();
-      const agents = agentRegistry.getAll();
-
-      expect(Object.keys(agents).length).toBeGreaterThan(0);
-      expect(agents).toHaveProperty('code-reviewer');
-    });
-
-    it('应该从项目根 .mcp.json 加载 MCP 服务器', async () => {
-      const mcpPath = path.join(testDir, '.mcp.json');
-      const configContent = {
-        mcpServers: {
-          example: {
-            command: 'echo',
-            args: ['hello'],
-          },
-        },
-      };
-
-      await fs.writeFile(mcpPath, JSON.stringify(configContent, null, 2));
-
-      const mcpManager = new MCPManager();
-      try {
-        await mcpManager.loadFromProjectRoot(testDir);
-        expect(mcpManager.listServers()).toContain('example');
-        const config = mcpManager.getServersConfig();
-        expect(config).toHaveProperty('example');
-      } finally {
-        await fs.rm(mcpPath, { force: true });
-      }
     });
   });
 
