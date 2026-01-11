@@ -114,6 +114,10 @@ export interface SessionMetadata {
  */
 const SESSION_EXPIRY_MS = parseInt(process.env.SESSION_EXPIRY_HOURS || '5', 10) * 60 * 60 * 1000;
 
+const SESSION_BASE_DIR =
+  process.env.CLAUDE_REPLICA_SESSIONS_DIR ||
+  path.join(os.homedir(), '.claude-replica', 'sessions');
+
 /**
  * 会话管理器
  *
@@ -124,7 +128,7 @@ export class SessionManager {
   private readonly sessionsDir: string;
 
   constructor(baseDir?: string) {
-    this.sessionsDir = baseDir || path.join(os.homedir(), '.claude-replica', 'sessions');
+    this.sessionsDir = baseDir || SESSION_BASE_DIR;
   }
 
   /**

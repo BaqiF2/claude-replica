@@ -60,6 +60,14 @@ import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { OutputFormatter } from '../../src/output/OutputFormatter';
 
+const stripAnsi = (input: string): string => input.replace(/\u001b\[[0-9;]*m/g, '');
+
+const findJsonLine = (calls: unknown[][]): string | undefined => {
+  return calls
+    .map((call) => String(call[0]))
+    .find((line) => line.trim().startsWith('{'));
+};
+
 describe('端到端集成测试', () => {
   let main: typeof import('../../src/main').main;
   let Application: typeof import('../../src/main').Application;
@@ -142,8 +150,9 @@ describe('端到端集成测试', () => {
       expect(exitCode).toBe(0);
       
       // 验证 JSON 输出格式
-      const output = consoleSpy.mock.calls[0][0];
-      const parsed = JSON.parse(output);
+      const outputLine = findJsonLine(consoleSpy.mock.calls);
+      expect(outputLine).toBeDefined();
+      const parsed = JSON.parse(stripAnsi(outputLine!));
       expect(parsed).toHaveProperty('result');
       expect(parsed).toHaveProperty('success', true);
       
@@ -158,12 +167,19 @@ describe('端到端集成测试', () => {
       expect(exitCode).toBe(0);
       
       // 验证流式 JSON 输出
-      const output = consoleSpy.mock.calls[0][0];
-      const lines = output.split('\n').filter((l: string) => l.trim());
-      expect(lines.length).toBeGreaterThanOrEqual(1);
-      
+      const rawLines = consoleSpy.mock.calls
+        .map((call) => String(call[0]))
+        .flatMap((line) => stripAnsi(line).split('\n'))
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      expect(rawLines.length).toBeGreaterThanOrEqual(1);
+
+      const jsonLines = rawLines.filter((line) => line.startsWith('{'));
+      expect(jsonLines.length).toBeGreaterThan(0);
+
       // 检查是否有 result 类型的行
-      const hasResultLine = lines.some((line: string) => {
+      const hasResultLine = jsonLines.some((line) => {
         const parsed = JSON.parse(line);
         return parsed.type === 'result';
       });
@@ -441,33 +457,36 @@ describe('端到端集成测试', () => {
   });
 
   describe('扩展系统集成工作流', () => {
-    let agentsDir: string;
+    it('应该提供预设子代理', () => {
+      const agentRegistry = new AgentRegistry();
+      const agents = agentRegistry.getAll();
 
-    beforeAll(async () => {
-      agentsDir = path.join(configDir, 'agents');
-      await fs.mkdir(agentsDir, { recursive: true });
+      expect(Object.keys(agents).length).toBeGreaterThan(0);
+      expect(agents).toHaveProperty('code-reviewer');
     });
 
-    it('应该加载代理文件', async () => {
-      // 创建测试代理文件
-      const agentContent = `---
-description: 测试代理
-model: sonnet
-tools:
-  - Read
-  - Grep
----
+    it('应该从项目根 .mcp.json 加载 MCP 服务器', async () => {
+      const mcpPath = path.join(testDir, '.mcp.json');
+      const configContent = {
+        mcpServers: {
+          example: {
+            command: 'echo',
+            args: ['hello'],
+          },
+        },
+      };
 
-你是一个测试代理。
-`;
-      await fs.writeFile(path.join(agentsDir, 'test-agent.agent.md'), agentContent);
-      
-      const agentRegistry = new AgentRegistry();
-      await agentRegistry.loadAgents([agentsDir]);
-      
-      const agents = agentRegistry.listAgents();
-      expect(agents.length).toBeGreaterThan(0);
-      expect(agents.some(a => a.name === 'test-agent')).toBe(true);
+      await fs.writeFile(mcpPath, JSON.stringify(configContent, null, 2));
+
+      const mcpManager = new MCPManager();
+      try {
+        await mcpManager.loadFromProjectRoot(testDir);
+        expect(mcpManager.listServers()).toContain('example');
+        const config = mcpManager.getServersConfig();
+        expect(config).toHaveProperty('example');
+      } finally {
+        await fs.rm(mcpPath, { force: true });
+      }
     });
   });
 
@@ -516,21 +535,34 @@ tools:
     });
 
     it('应该正确集成 MCP 管理器', async () => {
+      const workspace = path.join(testDir, 'mcp-workspace-a');
+      await fs.mkdir(workspace, { recursive: true });
+      const mcpPath = path.join(workspace, '.mcp.json');
+      await fs.writeFile(
+        mcpPath,
+        JSON.stringify(
+          {
+            mcpServers: {
+              testServer: {
+                command: 'echo',
+                args: ['hello'],
+              },
+            },
+          },
+          null,
+          2
+        )
+      );
+
       const mcpManager = new MCPManager();
-      
-      // 添加测试服务器
-      mcpManager.addServer('test-server', {
-        command: 'echo',
-        args: ['test'],
-      });
-      
-      // 验证服务器已添加
-      const servers = mcpManager.listServers();
-      expect(servers).toContain('test-server');
-      
-      // 验证配置
-      const config = mcpManager.getServersConfig();
-      expect(config['test-server']).toBeDefined();
+      try {
+        await mcpManager.loadFromProjectRoot(workspace);
+        expect(mcpManager.listServers()).toContain('testServer');
+        const config = mcpManager.getServersConfig();
+        expect(config['testServer']).toBeDefined();
+      } finally {
+        await fs.rm(workspace, { recursive: true, force: true });
+      }
     });
 
     it('应该正确集成回退管理器', async () => {

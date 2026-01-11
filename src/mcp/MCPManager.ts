@@ -1,19 +1,37 @@
 /**
- * 文件功能：MCP（Model Context Protocol）服务器管理模块，负责配置、加载和验证 MCP 服务器
+ * 文件功能：MCP 配置加载与验证核心，按官方单一配置源要求从项目根目录的 .mcp.json 读取服务器定义、展开环境变量并确保结构合法。
  *
  * 核心类：
- * - MCPManager: MCP 服务器管理器核心类
+ * - MCPManager: 维护 MCP 服务器缓存并提供验证/展开等公共能力
  *
- * 核心方法：
- * - loadServersFromConfig(): 从配置文件加载 MCP 服务器
- * - listServers(): 列出所有已配置的服务器
- * - validateConfig(): 验证 MCP 服务器配置
- * - startServer(): 启动指定服务器
- * - stopServer(): 停止指定服务器
+ * 核心方法（保留）：
+ * - loadServersFromConfig(): 从指定的 .mcp.json 解析并缓存服务器配置
+ * - getServersConfig(): 提供原始缓存配置供上层业务使用
+ * - getServersInfo(): 生成含传输类型的服务器信息列表以便展示
+ * - validateConfig(): 逐个校验服务器配置结构并反馈错误
+ * - expandEnvironmentVariables(): 展开配置中的 `${ENV}` 占位符
+ * - getExpandedServersConfig(): 获取展开后的所有配置用于 SDK 调用
+ * - getTransportType(): 根据字段判断传输类型以辅助路由和展示
+ *
+ * 新增方法（单一配置资源）：
+ * - loadFromProjectRoot(): 向上查找 .git，锁定项目根并加载其 .mcp.json
+ * - getConfigPath(): 返回当前工作目录所属项目根下的 .mcp.json 路径
+ *
+ * 移除的旧方法（由于采用官方推荐的单一配置源及编辑器流程而弃用）：
+ * - tryLoadFromPaths(): 统一只读项目根 .mcp.json，取消多路径搜索
+ * - addServer()/removeServer(): 运行时直接修改配置改为由 /mcp edit 编辑器命令处理
+ * - merge(): 依赖配置文件本身及 MCPService 进行合并，移除运行时合并逻辑
+ * - saveToFile(): 保存责任交给编辑器流程，不再内部写文件
+ * - filterByTransport(): 该辅助方法未使用且被展示层替代
+ * - clear(): 不再支持运行时清空配置，避免误删
+ * - fromJSON()/toJSON(): 序列化需求由配置文件天然提供，删掉冗余实现
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+
+const MCP_CONFIG_FILENAME = '.mcp.json';
+const GIT_DIRECTORY_NAME = '.git';
 
 /**
  * stdio 传输配置
@@ -109,9 +127,34 @@ export class MCPManager {
   }
 
   /**
+   * 从项目根目录加载 MCP 配置
+   *
+   * @param workingDir 当前工作目录
+   */
+  async loadFromProjectRoot(workingDir: string): Promise<void> {
+    const configPath = await this.getConfigPath(workingDir);
+    if (!(await this.pathExists(configPath))) {
+      this.config = {};
+      return;
+    }
+    await this.loadServersFromConfig(configPath);
+  }
+
+  /**
+   * 获取项目根目录下的 MCP 配置路径
+   *
+   * @param workingDir 当前工作目录
+   * @returns MCP 配置文件路径
+   */
+  async getConfigPath(workingDir: string): Promise<string> {
+    const projectRoot = await this.findProjectRoot(workingDir);
+    return path.join(projectRoot, MCP_CONFIG_FILENAME);
+  }
+
+  /**
    * 从配置文件加载 MCP 服务器
    *
-   * @param configPath 配置文件路径（.mcp.json 或 mcp.json）
+   * @param configPath 配置文件路径（.mcp.json）
    * @throws 如果文件不存在或格式无效
    */
   async loadServersFromConfig(configPath: string): Promise<void> {
@@ -124,17 +167,19 @@ export class MCPManager {
         throw new Error('MCP configuration must be an object');
       }
 
-      // 支持 MCP 规范格式：{ "mcpServers": { ... } }
-      // 同时向后兼容直接映射格式：{ "serverName": { ... } }
-      let serverConfigs: Record<string, unknown>;
-
-      if ('mcpServers' in parsed && typeof parsed.mcpServers === 'object') {
-        // 使用 mcpServers 嵌套结构（MCP 规范格式）
-        serverConfigs = parsed.mcpServers as Record<string, unknown>;
-      } else {
-        // 使用根级别（向后兼容）
-        serverConfigs = parsed;
+      if (!('mcpServers' in parsed)) {
+        throw new Error('MCP configuration must include "mcpServers" object');
       }
+
+      if (typeof parsed.mcpServers !== 'object' || parsed.mcpServers === null) {
+        throw new Error('MCP configuration "mcpServers" must be an object');
+      }
+
+      if (Array.isArray(parsed.mcpServers)) {
+        throw new Error('MCP configuration "mcpServers" must be an object');
+      }
+
+      const serverConfigs = parsed.mcpServers as Record<string, unknown>;
 
       // 规范化所有配置（转换 transport -> type）
       const normalized: MCPServerConfigMap = {};
@@ -164,80 +209,6 @@ export class MCPManager {
       }
       throw error;
     }
-  }
-
-  /**
-   * 尝试从多个可能的路径加载配置
-   *
-   * @param basePath 基础路径
-   * @returns 是否成功加载
-   */
-  async tryLoadFromPaths(basePath: string): Promise<boolean> {
-    const possiblePaths = [
-      path.join(basePath, '.mcp.json'),
-      path.join(basePath, 'mcp.json'),
-      path.join(basePath, '.claude', 'mcp.json'),
-    ];
-
-    for (const configPath of possiblePaths) {
-      try {
-        await this.loadServersFromConfig(configPath);
-        if (this.debug) {
-          console.log(`Loaded MCP configuration from ${configPath}`);
-        }
-        return true;
-      } catch {
-        // 继续尝试下一个路径
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * 添加 MCP 服务器
-   *
-   * @param name 服务器名称
-   * @param config 服务器配置
-   * @throws 如果启用严格模式且配置无效
-   */
-  addServer(name: string, config: McpServerConfig): void {
-    if (!name || typeof name !== 'string') {
-      throw new Error('Server name must be a non-empty string');
-    }
-
-    // 规范化配置（转换 transport -> type）
-    const normalizedConfig = this.normalizeConfig(config);
-
-    if (this.strictMode) {
-      const validation = this.validateConfig(normalizedConfig);
-      if (!validation.valid) {
-        throw new Error(`Server "${name}" configuration invalid:\n${validation.errors.join('\n')}`);
-      }
-    }
-
-    this.config[name] = normalizedConfig;
-
-    if (this.debug) {
-      console.log(`MCP server added: ${name}`);
-    }
-  }
-
-  /**
-   * 移除 MCP 服务器
-   *
-   * @param name 服务器名称
-   * @returns 是否成功移除
-   */
-  removeServer(name: string): boolean {
-    if (Object.prototype.hasOwnProperty.call(this.config, name)) {
-      delete this.config[name];
-      if (this.debug) {
-        console.log(`MCP server removed: ${name}`);
-      }
-      return true;
-    }
-    return false;
   }
 
   /**
@@ -638,59 +609,6 @@ export class MCPManager {
   }
 
   /**
-   * 清除所有服务器配置
-   */
-  clear(): void {
-    this.config = {};
-    if (this.debug) {
-      console.log('All MCP server configurations cleared');
-    }
-  }
-
-  /**
-   * 合并另一个配置
-   *
-   * @param other 要合并的配置
-   * @param overwrite 是否覆盖已存在的配置
-   */
-  merge(other: MCPServerConfigMap, overwrite: boolean = true): void {
-    for (const [name, config] of Object.entries(other)) {
-      if (overwrite || !(name in this.config)) {
-        this.config[name] = config;
-      }
-    }
-  }
-
-  /**
-   * 保存配置到文件
-   *
-   * @param configPath 配置文件路径
-   */
-  async saveToFile(configPath: string): Promise<void> {
-    const content = JSON.stringify(this.config, null, 2);
-    await fs.writeFile(configPath, content, 'utf-8');
-    if (this.debug) {
-      console.log(`MCP configuration saved to ${configPath}`);
-    }
-  }
-
-  /**
-   * 按传输类型筛选服务器
-   *
-   * @param transport 传输类型
-   * @returns 匹配的服务器配置映射
-   */
-  filterByTransport(transport: 'stdio' | 'sse' | 'http'): MCPServerConfigMap {
-    const filtered: MCPServerConfigMap = {};
-    for (const [name, config] of Object.entries(this.config)) {
-      if (this.getTransportType(config) === transport) {
-        filtered[name] = config;
-      }
-    }
-    return filtered;
-  }
-
-  /**
    * 静态方法：验证配置对象
    *
    * @param config 配置对象
@@ -701,25 +619,40 @@ export class MCPManager {
     return manager.validateConfig(config as McpServerConfig);
   }
 
-  /**
-   * 静态方法：从 JSON 字符串解析配置
-   *
-   * @param json JSON 字符串
-   * @returns MCPManager 实例
-   */
-  static fromJSON(json: string): MCPManager {
-    const manager = new MCPManager();
-    const parsed = JSON.parse(json);
-    manager.config = parsed as MCPServerConfigMap;
-    return manager;
+  private async findProjectRoot(workingDir: string): Promise<string> {
+    const resolvedWorkingDir = path.resolve(workingDir);
+    let currentDir = resolvedWorkingDir;
+
+    while (true) {
+      const gitPath = path.join(currentDir, GIT_DIRECTORY_NAME);
+      try {
+        await fs.stat(gitPath);
+        return currentDir;
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err.code && err.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) {
+        return resolvedWorkingDir;
+      }
+      currentDir = parentDir;
+    }
   }
 
-  /**
-   * 转换为 JSON 字符串
-   *
-   * @returns JSON 字符串
-   */
-  toJSON(): string {
-    return JSON.stringify(this.config, null, 2);
+  private async pathExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
   }
 }

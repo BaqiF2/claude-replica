@@ -85,7 +85,7 @@ describe('CollaborationManager', () => {
       expect(saved.maxTurns).toBe(15);
     });
 
-    it('应该清理 MCP 服务器配置中的敏感信息', async () => {
+    it('应该忽略共享配置中的 legacy MCP servers 字段', async () => {
       const testConfig = {
         mcpServers: {
           github: {
@@ -104,12 +104,7 @@ describe('CollaborationManager', () => {
       );
 
       const config = await manager.getShareableConfig();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mcpServers = config.mcpServers as any;
-      const env = mcpServers.github.env as Record<string, string>;
-
-      // 敏感值应该被替换为环境变量引用
-      expect(env.GITHUB_TOKEN).toBe('${GITHUB_TOKEN}');
+      expect(Object.prototype.hasOwnProperty.call(config, 'mcpServers')).toBe(false);
     });
   });
 
@@ -378,7 +373,7 @@ describe('CollaborationManager', () => {
       expect(result.warnings.some((w) => w.path === 'permissionMode')).toBe(true);
     });
 
-    it('应该验证 MCP 服务器配置', async () => {
+    it('应该忽略 MCP 服务器配置以保持验证结果为真', async () => {
       const invalidMcpConfig = {
         mcpServers: {
           invalid: {
@@ -393,8 +388,8 @@ describe('CollaborationManager', () => {
       );
 
       const result = await manager.validateProjectConfig();
-      expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.path.includes('mcpServers'))).toBe(true);
+      expect(result.valid).toBe(true);
+      expect(result.errors.some((e) => e.path.includes('mcpServers'))).toBe(false);
     });
   });
 

@@ -476,17 +476,17 @@ describe('MessageRouter', () => {
         permissionManager,
       });
 
+      router.setMcpServers({
+        github: {
+          command: 'npx',
+          args: ['-y', '@modelcontextprotocol/server-github'],
+        },
+      });
+
       const session = createMockSession({
         context: {
           workingDirectory: '/test/project',
-          projectConfig: {
-            mcpServers: {
-              github: {
-                command: 'npx',
-                args: ['-y', '@modelcontextprotocol/server-github'],
-              },
-            },
-          },
+          projectConfig: {},
           userConfig: {},
           activeAgents: [],
         },
