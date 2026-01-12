@@ -16,6 +16,7 @@ import { SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
+import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
 
 describe('SDK Native Slash Commands Integration Tests', () => {
   let tempDir: string;
@@ -30,7 +31,7 @@ describe('SDK Native Slash Commands Integration Tests', () => {
     sessionManager = new SessionManager(path.join(tempDir, 'sessions'));
     configManager = new ConfigManager();
     toolRegistry = new ToolRegistry();
-    permissionManager = new PermissionManager({ mode: 'default' }, toolRegistry);
+    permissionManager = new PermissionManager({ mode: 'default' }, new MockPermissionUI(), toolRegistry);
 
     // Create .claude/commands/ directory structure
     commandsDir = path.join(tempDir, '.claude', 'commands');

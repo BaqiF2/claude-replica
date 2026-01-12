@@ -75,12 +75,21 @@ Configuration via `.env` file in project root. All configurable parameters read 
 ### Session Persistence
 
 Sessions stored in `~/.claude-replica/sessions/session-{timestamp}-{id}/`:
-- `metadata.json` - id, timestamps, expiry (configurable via `SESSION_EXPIRY_HOURS`), sdkSessionId
+- `metadata.json` - id, timestamps, parentSessionId, stats (token usage, cost, message count), sdkSessionId
 - `messages.json` - conversation history
 - `context.json` - loaded skills, agents, configs
 - `snapshots/` - rewind system snapshots
 
-Sessions auto-save after each operation. Expired sessions are cleaned up automatically based on `SESSION_EXPIRY_HOURS` (default: 5 hours).
+**Session Behavior:**
+- **Interactive Mode**: Sessions persist across commands and can be resumed via `/resume` command
+- **Non-Interactive Mode**: Uses temporary sessions that are not saved to disk
+
+**Session Management Features:**
+- **Session Statistics**: Automatic calculation of token usage (input/output), cost in USD, message count, and last message preview
+- **Session Forking**: Create session branches with parent-child relationship tracking via `/fork` command
+- **Automatic Cleanup**: Configurable retention count (default: 10 sessions) via `SESSION_KEEP_COUNT` environment variable
+
+Sessions auto-save after each operation. Old sessions are cleaned up automatically on application startup based on `SESSION_KEEP_COUNT` (default: 10 sessions), preserving active sessions.
 
 ## Extension Systems
 

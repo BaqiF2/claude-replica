@@ -65,6 +65,7 @@ import { RewindManager } from '../../src/rewind/RewindManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { OutputFormatter } from '../../src/output/OutputFormatter';
+import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
 
 describe('端到端集成测试', () => {
   let main: typeof import('../../src/main').main;
@@ -339,20 +340,10 @@ describe('端到端集成测试', () => {
 
     it('应该获取最近的会话', async () => {
       const recentSession = await sessionManager.getRecentSession();
-      
+
       expect(recentSession).not.toBeNull();
       // 最近的会话应该是我们刚创建的
       expect(recentSession!.id).toBe(createdSessionId);
-    });
-
-    it('应该支持 --continue 选项继续最近会话', async () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const exitCode = await main(['-c', '-p', '继续会话测试']);
-      
-      expect(exitCode).toBe(0);
-      
-      consoleSpy.mockRestore();
     });
   });
 
@@ -366,11 +357,11 @@ describe('端到端集成测试', () => {
       const baseHome = tempHome || testDir;
       defaultSessionsDir = path.join(baseHome, '.claude-replica', 'sessions');
       sessionManager = new SessionManager(defaultSessionsDir);
-      
+
       // 创建一个测试会话
       const session = await sessionManager.createSession(testDir);
       testSessionId = session.id;
-      
+
       // 添加一些消息
       await sessionManager.addMessage(session, {
         role: 'user',
@@ -389,26 +380,6 @@ describe('端到端集成测试', () => {
       } catch {
         // 忽略清理错误
       }
-    });
-
-    it('应该恢复指定的会话', async () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      const exitCode = await main(['--resume', testSessionId, '-p', '恢复会话测试']);
-      
-      expect(exitCode).toBe(0);
-      
-      consoleSpy.mockRestore();
-    });
-
-    it('应该处理不存在的会话 ID', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-      
-      const exitCode = await main(['--resume', 'non-existent-session', '-p', '测试']);
-      
-      expect(exitCode).toBe(1);
-      
-      consoleErrorSpy.mockRestore();
     });
 
     it('应该验证会话恢复后消息历史完整', async () => {
@@ -498,6 +469,7 @@ describe('端到端集成测试', () => {
       const toolRegistry = new ToolRegistry();
       const permissionManager = new PermissionManager(
         { mode: 'default' },
+        new MockPermissionUI(),
         toolRegistry
       );
       
@@ -677,18 +649,18 @@ describe('端到端集成测试', () => {
     it('应该正确创建和运行 Application 实例', async () => {
       const app = new Application();
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
+
       const exitCode = await app.run(['-p', '测试 Application']);
-      
+
       expect(exitCode).toBe(0);
-      
+
       consoleSpy.mockRestore();
     });
 
     it('应该支持多个选项组合', async () => {
       const app = new Application();
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
+
       const exitCode = await app.run([
         '-p', '组合选项测试',
         '--model', 'haiku',
@@ -696,9 +668,159 @@ describe('端到端集成测试', () => {
         '--max-turns', '5',
         '--verbose',
       ]);
-      
+
       expect(exitCode).toBe(0);
-      
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('/resume 命令集成工作流', () => {
+    let app: import('../../src/main').Application;
+    let sessionManager: SessionManager;
+    let testSessionId: string;
+    let sessionsDir: string;
+
+    beforeAll(async () => {
+      const baseHome = tempHome || testDir;
+      sessionsDir = path.join(baseHome, '.claude-replica', 'sessions');
+      sessionManager = new SessionManager(sessionsDir);
+
+      // 创建测试会话
+      const session = await sessionManager.createSession(testDir);
+      testSessionId = session.id;
+
+      // 添加消息以生成统计信息
+      await sessionManager.addMessage(session, {
+        role: 'user',
+        content: '第一条测试消息',
+      });
+      await sessionManager.addMessage(session, {
+        role: 'assistant',
+        content: '第一条回复消息',
+        usage: {
+          inputTokens: 10,
+          outputTokens: 20,
+          totalCostUsd: 0.001,
+          durationMs: 100,
+        },
+      });
+      await sessionManager.saveSession(session);
+    });
+
+    afterAll(async () => {
+      // 清理测试会话
+      try {
+        await sessionManager.deleteSession(testSessionId);
+      } catch {
+        // 忽略清理错误
+      }
+    });
+
+    it('应该在非交互模式下显示警告', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      app = new Application();
+
+      // 不设置 ui（在非交互模式下）
+      Object.defineProperty(app, 'ui', {
+        value: null,
+        writable: true,
+        configurable: true,
+      });
+
+      // 调用 handleResumeCommand
+      await (app as any).handleResumeCommand();
+
+      // 验证输出包含警告
+      const output = consoleSpy.mock.calls.map(call => call[0]).join('\n');
+      expect(output).toContain('Warning: /resume command is only available in interactive mode');
+
+      consoleSpy.mockRestore();
+    });
+
+    it('应该在没有可用会话时显示提示', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      try {
+        app = new Application();
+
+        // 使用独立的空会话目录
+        const emptySessionsDir = path.join(tempHome, '.claude-replica', 'empty-sessions-' + Date.now());
+        const emptySessionManager = new SessionManager(emptySessionsDir);
+
+        const { MockInteractiveUI } = await import('../test-helpers/MockInteractiveUI');
+        const mockInteractiveUI = new MockInteractiveUI();
+
+        Object.defineProperty(app, 'ui', {
+          value: mockInteractiveUI,
+          writable: true,
+          configurable: true,
+        });
+
+        Object.defineProperty(app, 'sessionManager', {
+          value: emptySessionManager,
+          writable: true,
+          configurable: true,
+        });
+
+        // 调用 handleResumeCommand
+        await (app as any).handleResumeCommand();
+
+        // 验证输出包含提示
+        const output = consoleSpy.mock.calls.map(call => call[0]).join('\n');
+        expect(output).toContain('No available sessions to resume');
+      } catch (error) {
+        // 如果有异常，输出详细信息
+        console.error('Test failed with error:', error);
+        throw error;
+      } finally {
+        consoleSpy.mockRestore();
+      }
+    });
+
+    it('应该在命令解析中正确识别 /resume', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      app = new Application();
+
+      const { MockInteractiveUI } = await import('../test-helpers/MockInteractiveUI');
+      const mockInteractiveUI = new MockInteractiveUI({ selectIndex: 0 });
+
+      Object.defineProperty(app, 'ui', {
+        value: mockInteractiveUI,
+        writable: true,
+        configurable: true,
+      });
+
+      Object.defineProperty(app, 'sessionManager', {
+        value: sessionManager,
+        writable: true,
+        configurable: true,
+      });
+
+      // 模拟 streamingQueryManager
+      const mockStreamingQueryManager = {
+        getActiveSession: jest.fn().mockReturnValue({
+          session: await sessionManager.loadSession(testSessionId),
+        }),
+        endSession: jest.fn(),
+        startSession: jest.fn(),
+      };
+      Object.defineProperty(app, 'streamingQueryManager', {
+        value: mockStreamingQueryManager,
+        writable: true,
+        configurable: true,
+      });
+
+      // 调用 handleCommand 解析 /resume
+      const mockSession = await sessionManager.createSession(testDir);
+      await (app as any).handleCommand('/resume', mockSession);
+
+      // 验证命令被正确处理
+      const output = consoleSpy.mock.calls.map(call => call[0]).join('\n');
+      expect(output.length).toBeGreaterThan(0);
+
       consoleSpy.mockRestore();
     });
   });

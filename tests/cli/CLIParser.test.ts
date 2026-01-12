@@ -19,8 +19,6 @@ describe('CLIParser', () => {
       const options = parser.parse([]);
 
       expect(options.print).toBeUndefined();
-      expect(options.continue).toBeUndefined();
-      expect(options.resume).toBeUndefined();
       expect(options.help).toBeUndefined();
       expect(options.version).toBeUndefined();
     });
@@ -35,17 +33,6 @@ describe('CLIParser', () => {
 
       expect(options.print).toBe(true);
       expect(options.prompt).toBe('hello world');
-    });
-
-    it('应解析 -c/--continue 选项', () => {
-      expect(parser.parse(['-c']).continue).toBe(true);
-      expect(parser.parse(['--continue']).continue).toBe(true);
-    });
-
-    it('应解析 --resume 选项', () => {
-      const options = parser.parse(['--resume', 'session-123']);
-
-      expect(options.resume).toBe('session-123');
     });
 
     it('应解析 --help 选项', () => {
@@ -208,16 +195,6 @@ describe('CLIParser', () => {
       expect(options.allowedTools).toEqual(['Read', 'Write']);
     });
 
-    it('应正确解析会话恢复参数', () => {
-      const options = parser.parse([
-        '--resume', 'session-abc',
-        '--model', 'haiku',
-      ]);
-
-      expect(options.resume).toBe('session-abc');
-      expect(options.model).toBe('haiku');
-    });
-
     it('应正确解析权限和工具参数', () => {
       const options = parser.parse([
         '--permission-mode', 'acceptEdits',
@@ -234,12 +211,12 @@ describe('CLIParser', () => {
   describe('错误处理', () => {
     it('缺少必需参数值时应抛出错误', () => {
       expect(() => parser.parse(['--model'])).toThrow(CLIParseError);
-      expect(() => parser.parse(['--resume'])).toThrow(CLIParseError);
       expect(() => parser.parse(['--output-format'])).toThrow(CLIParseError);
     });
 
     it('未知选项应抛出错误', () => {
       expect(() => parser.parse(['--unknown-option'])).toThrow(CLIParseError);
+      expect(() => parser.parse(['--resume', 'session-abc'])).toThrow(CLIParseError);
     });
 
     it('错误应包含有用的信息', () => {
@@ -258,8 +235,6 @@ describe('CLIParser', () => {
 
       expect(helpText).toContain('claude-replica');
       expect(helpText).toContain('-p, --print');
-      expect(helpText).toContain('-c, --continue');
-      expect(helpText).toContain('--resume');
       expect(helpText).toContain('--model');
       expect(helpText).toContain('--output-format');
       expect(helpText).toContain('--permission-mode');

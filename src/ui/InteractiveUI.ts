@@ -10,10 +10,12 @@
  * - displayMessage(): 显示消息到终端
  * - promptConfirmation(): 提示用户确认
  * - showRewindMenu(): 显示回退菜单
+ * - showSessionMenu(): 显示会话菜单
  */
 
 import * as readline from 'readline';
 import { EventEmitter } from 'events';
+import { Session, SessionStats } from '../core/SessionManager';
 
 /**
  * 快照接口（用于回退功能）
@@ -472,6 +474,76 @@ export class InteractiveUI extends EventEmitter {
   }
 
   /**
+   * 显示会话菜单
+   *
+   * @param sessions - 可用的会话列表
+   * @returns 选中的会话，如果取消则返回 null
+   */
+  async showSessionMenu(sessions: Session[]): Promise<Session | null> {
+    if (sessions.length === 0) {
+      this.writeLine(this.colorize('没有可用的会话', 'yellow'));
+      return null;
+    }
+
+    this.writeLine('');
+    this.writeLine(this.colorize('═══ 会话菜单 ═══', 'bold'));
+    this.writeLine(this.colorize('选择要恢复的会话:', 'gray'));
+    this.writeLine('');
+
+    // 显示会话列表
+    sessions.forEach((session, index) => {
+      const sessionIdShort = session.id.substring(0, 8);
+      const relativeTime = this.formatRelativeTime(session.lastAccessedAt);
+      const absoluteTime = this.formatAbsoluteTime(session.lastAccessedAt);
+      const statsSummary = this.formatStatsSummary(session.stats);
+      const forkIndicator = session.parentSessionId ? '🔀 ' : '';
+
+      this.writeLine(
+        `  ${this.colorize(`[${index + 1}]`, 'cyan')} ${forkIndicator}${this.colorize(sessionIdShort, 'bold')} - ${relativeTime} (${absoluteTime}) - ${statsSummary}`
+      );
+
+      // 显示消息预览
+      if (session.stats?.lastMessagePreview) {
+        const preview = session.stats.lastMessagePreview.length > 60
+          ? session.stats.lastMessagePreview.substring(0, 60) + '...'
+          : session.stats.lastMessagePreview;
+        this.writeLine(`      ${this.colorize(preview, 'gray')}`);
+      }
+    });
+
+    this.writeLine('');
+    this.writeLine(this.colorize('  [0] 取消', 'gray'));
+    this.writeLine('');
+
+    return new Promise((resolve) => {
+      const prompt = `${this.colorize('?', 'yellow')} 请选择 (0-${sessions.length}): `;
+      this.write(prompt);
+
+      const handleInput = (data: Buffer) => {
+        const input = data.toString().trim();
+        const num = parseInt(input, 10);
+
+        if (input === '0' || input === '\x1b') {
+          this.writeLine(this.colorize('已取消', 'gray'));
+          this.input.removeListener('data', handleInput);
+          resolve(null);
+        } else if (!isNaN(num) && num >= 1 && num <= sessions.length) {
+          const selected = sessions[num - 1];
+          const sessionIdShort = selected.id.substring(0, 8);
+          this.writeLine(this.colorize(`已选择会话: ${sessionIdShort}`, 'green'));
+          this.input.removeListener('data', handleInput);
+          resolve(selected);
+        } else {
+          this.writeLine(this.colorize('无效选择，请重试', 'red'));
+          this.write(prompt);
+        }
+      };
+
+      this.input.on('data', handleInput);
+    });
+  }
+
+  /**
    * 设置初始权限模式
    *
    * @param mode - 初始权限模式
@@ -764,6 +836,89 @@ export class InteractiveUI extends EventEmitter {
       default:
         return 'white';
     }
+  }
+
+  /**
+   * 格式化时间（相对时间）
+   *
+   * @param date - 要格式化的日期
+   * @returns 相对时间字符串，如 "X小时前", "X天前"
+   */
+  formatRelativeTime(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
+
+    if (diffSeconds < 60) {
+      return '刚刚';
+    } else if (diffMinutes < 60) {
+      return `${diffMinutes}分钟前`;
+    } else if (diffHours < 24) {
+      return `${diffHours}小时前`;
+    } else if (diffDays < 7) {
+      return `${diffDays}天前`;
+    } else if (diffWeeks < 4) {
+      return `${diffWeeks}周前`;
+    } else if (diffMonths < 12) {
+      return `${diffMonths}个月前`;
+    } else {
+      return `${diffYears}年前`;
+    }
+  }
+
+  /**
+   * 格式化时间（绝对时间）
+   *
+   * @param date - 要格式化的日期
+   * @returns 绝对时间字符串，格式为 "YYYY-MM-DD HH:mm:ss"
+   */
+  formatAbsoluteTime(date: Date): string {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
+   * 格式化统计摘要
+   *
+   * @param stats - 会话统计信息
+   * @returns 统计摘要字符串，格式为 "(X 条消息, Xk tokens, $X)"
+   */
+  formatStatsSummary(stats?: SessionStats): string {
+    if (!stats) {
+      return '(0 条消息, 0 tokens, $0)';
+    }
+
+    const totalTokens = stats.totalInputTokens + stats.totalOutputTokens;
+    let tokensDisplay: string;
+
+    if (totalTokens >= 1000) {
+      const tokensInK = totalTokens / 1000;
+      // 只有在小数部分不为0时才显示小数
+      if (tokensInK % 1 === 0) {
+        tokensDisplay = `${tokensInK}k`;
+      } else {
+        tokensDisplay = `${tokensInK.toFixed(1)}k`;
+      }
+    } else {
+      tokensDisplay = totalTokens.toString();
+    }
+
+    const costDisplay = stats.totalCostUsd >= 0.01
+      ? `$${stats.totalCostUsd.toFixed(3)}`
+      : '$0';
+
+    return `(${stats.messageCount} 条消息, ${tokensDisplay} tokens, ${costDisplay})`;
   }
 
   /**

@@ -18,6 +18,7 @@ import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { AgentRegistry } from '../../src/agents/AgentRegistry';
 import { getPresetAgentNames } from '../../src/agents/PresetAgents';
 import type { ProjectConfig } from '../../src/config';
+import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
 
 describe('SDK SubAgents 集成测试', () => {
   let tempDir: string;
@@ -34,7 +35,7 @@ describe('SDK SubAgents 集成测试', () => {
     sessionManager = new SessionManager(path.join(tempDir, 'sessions'));
     configManager = new ConfigManager();
     toolRegistry = new ToolRegistry();
-    permissionManager = new PermissionManager({ mode: 'default' }, toolRegistry);
+    permissionManager = new PermissionManager({ mode: 'default' }, new MockPermissionUI(), toolRegistry);
     agentRegistry = new AgentRegistry();
     presetAgents = agentRegistry.getAll();
     presetAgentNames = getPresetAgentNames();

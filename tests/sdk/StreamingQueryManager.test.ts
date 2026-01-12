@@ -26,6 +26,7 @@ import { Session } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
+import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
 
 // 创建模拟的 Session 对象
 function createMockSession(workingDirectory: string = '/test/project'): Session {
@@ -85,6 +86,7 @@ describe('StreamingQueryManager', () => {
     const configManager = new ConfigManager();
     const permissionManager = new PermissionManager(
       { mode: 'default' },
+      new MockPermissionUI(),
       new ToolRegistry()
     );
 
@@ -477,6 +479,7 @@ describe('StreamingQueryManager - 属性测试', () => {
         const configManager = new ConfigManager();
         const permissionManager = new PermissionManager(
           { mode: 'default' },
+          new MockPermissionUI(),
           new ToolRegistry()
         );
 
@@ -552,6 +555,7 @@ describe('StreamingQueryManager - 属性测试', () => {
         const configManager = new ConfigManager();
         const permissionManager = new PermissionManager(
           { mode: 'default' },
+          new MockPermissionUI(),
           new ToolRegistry()
         );
 

@@ -54,10 +54,20 @@ describe('PerformanceManager', () => {
 
   describe('初始化', () => {
     it('应该成功初始化', async () => {
+      const originalHome = process.env.HOME;
+      const originalUserProfile = process.env.USERPROFILE;
+      process.env.HOME = testDir;
+      process.env.USERPROFILE = testDir;
+
       const manager = new PerformanceManager();
-      await manager.initialize();
-      expect(manager.getConfig()).toBeDefined();
-      await manager.shutdown();
+      try {
+        await manager.initialize();
+        expect(manager.getConfig()).toBeDefined();
+      } finally {
+        await manager.shutdown();
+        process.env.HOME = originalHome;
+        process.env.USERPROFILE = originalUserProfile;
+      }
     });
 
     it('应该使用自定义配置', () => {
