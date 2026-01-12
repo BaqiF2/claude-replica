@@ -14,11 +14,15 @@
  * Custom tool execution result.
  */
 export interface ToolResult {
+  /** Index signature to allow additional properties for SDK compatibility. */
+  [x: string]: unknown;
   /** Output content blocks returned to the SDK. */
   content: Array<{
     type: 'text';
     text: string;
   }>;
+  /** Optional error flag to indicate tool execution failure. */
+  isError?: boolean;
 }
 
 /**
