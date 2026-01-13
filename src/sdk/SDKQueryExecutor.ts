@@ -153,6 +153,8 @@ export interface SDKQueryOptions {
   onMessage?: SDKMessageCallback;
   /** Query 实例创建回调 - 用于获取 query generator 实例以支持动态权限切换 */
   onQueryCreated?: (queryInstance: any) => void;
+  /** 会话保存回调 - 在 SDK 返回 system init 消息时触发 */
+  onSessionSave?: (sessionId: string) => Promise<void>;
 }
 
 /**
@@ -532,6 +534,11 @@ export class SDKQueryExecutor {
         // 更新会话 ID
         if ('session_id' in message && message.session_id) {
           sessionId = message.session_id;
+        }
+
+        // 检测 system init 消息并触发会话保存
+        if (message.type === 'system' && message.subtype === 'init' && sessionId && options.onSessionSave) {
+          await options.onSessionSave(sessionId);
         }
 
         // 处理结果消息

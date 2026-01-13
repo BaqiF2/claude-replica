@@ -49,6 +49,12 @@ import { calculatorTool } from './custom-tools/math';
 const VERSION = process.env.VERSION || '0.1.0';
 const CUSTOM_TOOL_MODULE_NAME = process.env.CUSTOM_TOOL_MODULE_NAME ?? 'math/calculators';
 
+/**
+ * 会话保留数量（默认 10）
+ * 可通过环境变量 SESSION_KEEP_COUNT 配置
+ */
+const SESSION_KEEP_COUNT = parseInt(process.env.SESSION_KEEP_COUNT || '10', 10);
+
 export class Application {
   private readonly cliParser: CLIParser;
   private readonly configManager: ConfigManager;
@@ -148,6 +154,9 @@ export class Application {
     await this.initializeCustomTools();
     await this.loadMCPServers(workingDir);
 
+    // 自动清理旧会话，保留最近 N 个会话
+    await this.cleanOldSessions();
+
     await this.logger.debug('Application initialized');
   }
 
@@ -212,9 +221,25 @@ export class Application {
     }
   }
 
-  private async runInteractive(options: CLIOptions): Promise<number> {
+  /**
+   * 清理旧会话
+   *
+   * 保留最近创建的 N 个会话，删除其余的旧会话。
+   * 保留数量通过环境变量 SESSION_KEEP_COUNT 配置，默认 10。
+   */
+  private async cleanOldSessions(): Promise<void> {
+    try {
+      await this.sessionManager.cleanOldSessions(SESSION_KEEP_COUNT);
+      await this.logger.debug('Old sessions cleaned', { keepCount: SESSION_KEEP_COUNT });
+    } catch (error) {
+      // 清理失败不影响应用启动，仅记录警告
+      await this.logger.warn('Failed to clean old sessions', error);
+    }
+  }
+
+  private async runInteractive(_options: CLIOptions): Promise<number> {
     await this.logger.info('Starting interactive mode');
-    const session = await this.getOrCreateSession(options);
+    const session = await this.getOrCreateSession();
 
     this.ui = new InteractiveUI({
       onMessage: async (message: string) => {
@@ -224,6 +249,9 @@ export class Application {
         } finally {
           this.ui!.setProcessingState(false);
         }
+      },
+      onCommand: async (command: string) => {
+        await this.handleCommand(command, session);
       },
       onInterrupt: () => this.handleInterrupt(),
       onRewind: async () => await this.handleRewind(session),
@@ -235,14 +263,10 @@ export class Application {
       },
     });
 
-    // Handle slash commands
-    this.ui.on('command', async (command: string) => {
-      await this.handleCommand(command, session);
-    });
-
     this.streamingQueryManager = new StreamingQueryManager({
       messageRouter: this.messageRouter,
       sdkExecutor: this.sdkExecutor,
+      sessionManager: this.sessionManager,
       onThinking: (content) => {
         if (this.ui) {
           this.ui.stopComputing();
@@ -290,10 +314,26 @@ export class Application {
       return 2;
     }
 
-    const session = await this.getOrCreateSession(options);
+    // 创建临时会话对象（不持久化到磁盘）
+    const tempSessionId = `temp-${Date.now()}`;
+    const now = new Date();
+    const tempSession: Session = {
+      id: tempSessionId,
+      createdAt: now,
+      lastAccessedAt: now,
+      messages: [],
+      context: {
+        workingDirectory: process.cwd(),
+        projectConfig: {},
+        userConfig: {},
+        activeAgents: [],
+      },
+      expired: false,
+      workingDirectory: process.cwd(),
+    };
 
     try {
-      const result = await this.executeQuery(prompt, session, options);
+      const result = await this.executeQuery(prompt, tempSession, options);
 
       this.outputResult(result, options.outputFormat || 'text');
 
@@ -306,32 +346,8 @@ export class Application {
     }
   }
 
-  private async getOrCreateSession(options: CLIOptions): Promise<Session> {
+  private async getOrCreateSession(): Promise<Session> {
     const workingDir = process.cwd();
-
-    if (options.resume) {
-      await this.logger.debug('resume session', { sessionId: options.resume });
-      const session = await this.sessionManager.loadSession(options.resume);
-      if (!session) {
-        throw new Error(`Session does not exist: ${options.resume}`);
-      }
-      if (session.expired) {
-        await this.logger.warn('Session expired', { sessionId: options.resume });
-        console.warn('Warning: Session expired, creating new session');
-        return this.sessionManager.createSession(workingDir);
-      }
-      return session;
-    }
-
-    if (options.continue) {
-      await this.logger.debug('continue recent session');
-      const recentSession = await this.sessionManager.getRecentSession();
-      if (recentSession) {
-        await this.logger.info('Resuming recent session', { sessionId: recentSession.id });
-        return recentSession;
-      }
-      await this.logger.info('No recent session available, creating new session');
-    }
 
     await this.logger.debug('create new session');
     const userConfig = await this.configManager.loadUserConfig();
@@ -382,7 +398,11 @@ export class Application {
         return;
       }
 
-      await this.sessionManager.addMessage(session, {
+      // 获取当前活跃会话（可能被 resume 更新）
+      const activeSession = this.streamingQueryManager!.getActiveSession();
+      const currentSession = activeSession?.session || session;
+
+      await this.sessionManager.addMessage(currentSession, {
         role: 'user',
         content: message,
       });
@@ -405,6 +425,9 @@ export class Application {
         break;
       case 'sessions':
         await this.showSessions();
+        break;
+      case 'resume':
+        await this.handleResumeCommand();
         break;
       case 'config':
         await this.showConfig();
@@ -508,6 +531,89 @@ Available commands:
 
     this.showMCPCommandHelp(subcommand);
   }
+
+  /**
+   * 处理 /resume 命令，显示会话恢复菜单
+   *
+   * 仅在交互模式中可用，显示最近会话列表供用户选择恢复。
+   * 用户可以选择取消（返回 null），或选择特定会话进行恢复。
+   */
+  private async handleResumeCommand(): Promise<void> {
+    // 验证是否在交互模式中
+    if (!this.ui) {
+      console.log('Warning: /resume command is only available in interactive mode');
+      return;
+    }
+
+    // 获取最近会话列表
+    const sessions = await this.sessionManager.listRecentSessions(10);
+
+    // 如果没有可用会话，显示提示并返回
+    if (sessions.length === 0) {
+      console.log('No available sessions to resume');
+      return;
+    }
+
+    // 显示会话选择菜单
+    const selectedSession = await this.ui.showSessionMenu(sessions);
+
+    // 用户取消选择，直接返回
+    if (!selectedSession) {
+      return;
+    }
+
+    try {
+      // 检查选中的会话是否可以恢复
+      const hasValidSdkSession = !!selectedSession.sdkSessionId;
+      const forkIndicator = selectedSession.parentSessionId ? ' 🔀' : '';
+
+      // 询问用户是否要创建新分支（仅在有有效SDK会话ID时询问）
+      let forkSession = false;
+      if (hasValidSdkSession && this.ui) {
+        forkSession = await this.ui.showConfirmationMenu(
+          `选择会话恢复方式`,
+          [
+            { key: 'c', label: '继续原会话 (使用相同SDK会话)', description: '保持SDK会话ID，继续在原会话中对话' },
+            { key: 'n', label: '创建新分支 (生成新SDK会话)', description: '创建新分支，拥有独立的SDK会话ID' },
+          ],
+          'c'
+        );
+      }
+
+      // 获取当前活动会话
+      const currentSession = this.streamingQueryManager?.getActiveSession();
+
+      // 保存当前会话（如果存在）
+      if (currentSession?.session) {
+        await this.sessionManager.saveSession(currentSession.session);
+      }
+
+      // 结束当前会话
+      this.streamingQueryManager?.endSession();
+
+      // 切换到选中的会话
+      this.streamingQueryManager?.startSession(selectedSession);
+
+      // 设置forkSession标志
+      this.streamingQueryManager?.setForkSession(forkSession);
+
+      // 显示成功消息
+      if (hasValidSdkSession) {
+        if (forkSession) {
+          console.log(`\nCreated new branch from session: ${selectedSession.id}${forkIndicator}`);
+        } else {
+          console.log(`\nResumed session: ${selectedSession.id}${forkIndicator}`);
+        }
+      } else {
+        console.log(`\nContinuing session: ${selectedSession.id}${forkIndicator} (new SDK session)`);
+      }
+    } catch (error) {
+      console.error(
+        `Failed to resume session: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
 
   private showMCPCommandHelp(subcommand?: string): void {
     if (subcommand) {
@@ -664,14 +770,6 @@ MCP commands:
 
       if (sdkResult.isError) {
         throw new Error(sdkResult.errorMessage || 'Query execution failed');
-      }
-
-      if (sdkResult.sessionId && sdkResult.sessionId !== session.sdkSessionId) {
-        session.sdkSessionId = sdkResult.sessionId;
-        await this.sessionManager.saveSession(session);
-        await this.logger.debug('already save SDK session ID', {
-          sdkSessionId: sdkResult.sessionId,
-        });
       }
 
       await this.sessionManager.addMessage(session, {

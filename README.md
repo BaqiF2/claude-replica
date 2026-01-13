@@ -27,7 +27,9 @@ A complete replica of Claude Code's intelligent coding assistant command-line to
 - 📁 **File Operations** - Read, edit, create, and delete files
 - 🔧 **Command Execution** - Safely execute Bash commands
 - 🔍 **Code Search** - Powerful codebase navigation and search capabilities
-- 💾 **Session Management** - Save and restore conversation sessions
+- 💾 **Session Management** - Save, restore, resume, and fork conversation sessions with statistics
+- 🧹 **Automatic Cleanup** - Configurable automatic session cleanup to manage disk space
+- 📊 **Session Statistics** - Track token usage, costs, and message counts per session
 
 ### Extension Systems
 - 🎯 **Skills System** - Auto-loading domain knowledge and workflow guides
@@ -103,8 +105,16 @@ Configuration priority: Local > Project > User
   "maxTurns": 100,
   "maxBudgetUsd": 10,
   "allowedTools": ["Read", "Write", "Bash", "Grep"],
-  "disallowedTools": []
+  "disallowedTools": [],
+  "sessionKeepCount": 10
 }
+```
+
+#### Session Management Configuration
+
+```bash
+# Environment variables (.env file)
+SESSION_KEEP_COUNT=10  # Number of recent sessions to keep (default: 10)
 ```
 
 ## 🚀 Usage
@@ -114,12 +124,19 @@ Configuration priority: Local > Project > User
 ```bash
 # Start interactive session
 claude-replica
+```
 
-# Continue recent session
-claude-replica -c
+Once in interactive mode, use built-in commands to manage sessions:
 
-# Resume specific session
-claude-replica --resume <session-id>
+```bash
+# List and resume recent sessions
+/resume
+
+# Fork current session to create a branch
+/fork
+
+# View all sessions
+/sessions
 ```
 
 ### Non-Interactive Mode
@@ -143,8 +160,6 @@ claude-replica -p "Generate test cases" --output-format json
 ```
 Basic Options:
   -p, --print              Non-interactive mode, execute query and exit
-  -c, --continue           Continue most recent session
-  --resume <id>            Resume specific session
   --help                   Show help information
   --version                Show version number
 
@@ -168,6 +183,9 @@ Advanced Options:
   --max-budget-usd <n>     Maximum budget (USD)
   --sandbox                Enable sandbox mode
   --timeout <seconds>      Execution timeout
+
+Note: Session management commands (--continue, --resume, --fork) have been
+removed. Use interactive mode commands instead: /resume, /fork
 ```
 
 ### Built-in Commands
@@ -176,6 +194,8 @@ In interactive mode, use the following commands:
 
 ```
 /help        - Show help information
+/resume      - List and resume recent sessions
+/fork        - Fork current session to create a branch
 /sessions    - List all sessions
 /config      - Show current configuration
 /permissions - Show permission settings
@@ -183,6 +203,28 @@ In interactive mode, use the following commands:
 /clear       - Clear screen
 /exit        - Exit program
 ```
+
+#### Session Management Commands
+
+**`/resume`** - Resume a Previous Session
+- Lists recent sessions with statistics (message count, token usage, cost)
+- Shows relative and absolute timestamps
+- Displays parent session for forked sessions (🔀)
+- Select a session by number or press Esc to cancel
+
+**`/fork`** - Create a Session Branch
+- Creates a new session based on the current session
+- Copies all messages, context, and statistics
+- Sets parent session ID for tracking branches
+- Automatically switches to the new forked session
+
+**Session Statistics**
+Each session displays:
+- Message count
+- Token usage (input/output)
+- Total cost in USD
+- Last message preview
+- Creation time and last activity time
 
 ## 📚 Extension System
 
@@ -355,6 +397,58 @@ The MCP tool name format is `mcp__{server}__{tool}`. For modules, the server nam
 | `acceptEdits` | Auto-accept file edits |
 | `bypassPermissions` | Bypass all permission checks |
 | `plan` | Plan mode, only generate plans without execution |
+
+## 💾 Session Management
+
+### Session Persistence
+
+Sessions are automatically saved and stored in `~/.claude-replica/sessions/`:
+- **Interactive Mode**: Sessions persist across commands and can be resumed
+- **Non-Interactive Mode**: Uses temporary sessions that are not saved to disk
+
+### Session Features
+
+1. **Automatic Statistics Calculation**
+   - Token usage tracking (input/output)
+   - Cost calculation in USD
+   - Message count
+   - Last message preview
+
+2. **Session Branching (Forking)**
+   - Create branches from existing sessions
+   - Track parent-child relationships
+   - Visual indicator (🔀) for forked sessions
+
+3. **Automatic Cleanup**
+   - Configurable session retention (default: 10 sessions)
+   - Cleans old sessions on application startup
+   - Preserves active sessions
+
+### Migration from Old CLI Arguments
+
+**Old Usage (Deprecated):**
+```bash
+# These CLI arguments have been removed
+claude-replica -c              # Continue recent session
+claude-replica --resume <id>   # Resume specific session
+claude-replica --fork          # Fork session
+```
+
+**New Usage (Interactive Mode):**
+```bash
+# Start interactive mode
+claude-replica
+
+# Inside interactive mode:
+/resume    # List and resume recent sessions
+/fork      # Fork current session
+```
+
+**Benefits of New Approach:**
+- Consistent interactive experience
+- Better session visualization
+- More detailed session information
+- Easier session management
 
 ## 🏭 CI/CD Integration
 

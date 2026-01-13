@@ -29,6 +29,7 @@ import { calculatorTool } from '../../src/custom-tools/math/calculator';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { SDKQueryExecutor, StreamMessage } from '../../src/sdk/SDKQueryExecutor';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
+import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
 
 const mockedQuery = query as jest.MockedFunction<any>;
 
@@ -84,6 +85,7 @@ describe('自定义工具与 SDK 集成测试', () => {
         mode: 'default',
         allowedTools: [mcpModuleName],
       },
+      new MockPermissionUI(),
       new ToolRegistry()
     );
 
@@ -92,7 +94,7 @@ describe('自定义工具与 SDK 集成测试', () => {
 
     let toolResult: unknown;
     let capturedPromptText = '';
-    let canUseToolResult: boolean | undefined;
+    let canUseToolResult: any;
 
     mockedQuery.mockImplementation(({ prompt, options }: { prompt: AsyncGenerator<any>; options: any }) => {
       return (async function* () {
@@ -111,14 +113,14 @@ describe('自定义工具与 SDK 集成测试', () => {
         );
 
         if (options.canUseTool) {
-          canUseToolResult = await options.canUseTool({
-            tool: mcpToolName,
-            args: { expression: TEST_EXPRESSION },
-            context: { sessionId: TEST_SESSION_ID, messageUuid: TEST_MESSAGE_UUID },
-          });
+          canUseToolResult = await options.canUseTool(
+            mcpToolName,
+            { expression: TEST_EXPRESSION },
+            { signal: new AbortController().signal, toolUseID: TEST_MESSAGE_UUID }
+          );
         }
 
-        if (toolEntry && canUseToolResult !== false) {
+        if (toolEntry && canUseToolResult?.behavior === 'allow') {
           toolResult = await toolEntry.handler({ expression: TEST_EXPRESSION }, {});
         }
 
@@ -152,7 +154,7 @@ describe('自定义工具与 SDK 集成测试', () => {
 
     expect(result.isError).toBe(false);
     expect(capturedPromptText).toBe(TEST_MESSAGE_TEXT);
-    expect(canUseToolResult).toBe(true);
+    expect(canUseToolResult?.behavior).toBe('allow');
     expect(toolResult).toBeDefined();
     expect(toolResult).toEqual({
       content: [{ type: 'text', text: '2' }],
@@ -169,6 +171,7 @@ describe('自定义工具与 SDK 集成测试', () => {
         mode: 'default',
         disallowedTools: [mcpModuleName],
       },
+      new MockPermissionUI(),
       new ToolRegistry()
     );
 
@@ -176,16 +179,16 @@ describe('自定义工具与 SDK 集成测试', () => {
     sdkExecutor.setCustomMcpServers(servers);
 
     let toolResult: unknown;
-    let canUseToolResult: boolean | undefined;
+    let canUseToolResult: any;
 
     mockedQuery.mockImplementation(({ options }: { options: any }) => {
       return (async function* () {
         if (options.canUseTool) {
-          canUseToolResult = await options.canUseTool({
-            tool: mcpToolName,
-            args: { expression: TEST_EXPRESSION },
-            context: { sessionId: TEST_SESSION_ID, messageUuid: TEST_MESSAGE_UUID },
-          });
+          canUseToolResult = await options.canUseTool(
+            mcpToolName,
+            { expression: TEST_EXPRESSION },
+            { signal: new AbortController().signal, toolUseID: TEST_MESSAGE_UUID }
+          );
         }
 
         yield {
@@ -213,7 +216,7 @@ describe('自定义工具与 SDK 集成测试', () => {
       canUseTool: permissionManager.createCanUseToolHandler() as unknown as SDKCanUseTool,
     });
 
-    expect(canUseToolResult).toBe(false);
+    expect(canUseToolResult?.behavior).toBe('deny');
     expect(toolResult).toBeUndefined();
   });
 });

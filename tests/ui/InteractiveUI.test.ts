@@ -13,6 +13,7 @@ import {
   MessageRole,
   PermissionMode,
 } from '../../src/ui/InteractiveUI';
+import { Session } from '../../src/core/SessionManager';
 
 /**
  * 创建模拟输入流
@@ -54,17 +55,20 @@ function createTestUI(
   input: ReturnType<typeof createMockInput>;
   output: ReturnType<typeof createMockOutput>;
   onMessage: jest.Mock;
+  onCommand: jest.Mock;
   onInterrupt: jest.Mock;
   onRewind: jest.Mock;
 } {
   const input = createMockInput();
   const output = createMockOutput();
   const onMessage = jest.fn().mockResolvedValue(undefined);
+  const onCommand = jest.fn().mockResolvedValue(undefined);
   const onInterrupt = jest.fn();
   const onRewind = jest.fn().mockResolvedValue(undefined);
 
   const ui = new InteractiveUI({
     onMessage,
+    onCommand,
     onInterrupt,
     onRewind,
     input,
@@ -73,7 +77,7 @@ function createTestUI(
     ...overrides,
   });
 
-  return { ui, input, output, onMessage, onInterrupt, onRewind };
+  return { ui, input, output, onMessage, onCommand, onInterrupt, onRewind };
 }
 
 describe('InteractiveUI', () => {
@@ -491,6 +495,342 @@ describe('InteractiveUI', () => {
         ui.setInitialPermissionMode('plan');
         ui.displayPermissionStatus('plan');
       }).not.toThrow();
+    });
+  });
+
+  describe('formatRelativeTime', () => {
+    it('应显示 "刚刚" 对于刚刚发生的时间', () => {
+      const { ui } = createTestUI();
+      const now = new Date();
+      const result = ui.formatRelativeTime(now);
+      expect(result).toBe('刚刚');
+    });
+
+    it('应正确显示分钟前', () => {
+      const { ui } = createTestUI();
+      const date = new Date(Date.now() - 30 * 60 * 1000); // 30分钟前
+      const result = ui.formatRelativeTime(date);
+      expect(result).toBe('30分钟前');
+    });
+
+    it('应正确显示小时前', () => {
+      const { ui } = createTestUI();
+      const date = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2小时前
+      const result = ui.formatRelativeTime(date);
+      expect(result).toBe('2小时前');
+    });
+
+    it('应正确显示天前', () => {
+      const { ui } = createTestUI();
+      const date = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000); // 3天前
+      const result = ui.formatRelativeTime(date);
+      expect(result).toBe('3天前');
+    });
+
+    it('应正确显示周前', () => {
+      const { ui } = createTestUI();
+      const date = new Date(Date.now() - 2 * 7 * 24 * 60 * 60 * 1000); // 2周前
+      const result = ui.formatRelativeTime(date);
+      expect(result).toBe('2周前');
+    });
+
+    it('应正确显示个月前', () => {
+      const { ui } = createTestUI();
+      const date = new Date(Date.now() - 3 * 30 * 24 * 60 * 60 * 1000); // 3个月前
+      const result = ui.formatRelativeTime(date);
+      expect(result).toBe('3个月前');
+    });
+
+    it('应正确显示年前', () => {
+      const { ui } = createTestUI();
+      const date = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000); // 2年前
+      const result = ui.formatRelativeTime(date);
+      expect(result).toBe('2年前');
+    });
+
+    it('应正确处理边界值（59秒）', () => {
+      const { ui } = createTestUI();
+      const date = new Date(Date.now() - 59 * 1000); // 59秒前
+      const result = ui.formatRelativeTime(date);
+      expect(result).toBe('刚刚');
+    });
+
+    it('应正确处理边界值（1分钟）', () => {
+      const { ui } = createTestUI();
+      const date = new Date(Date.now() - 60 * 1000); // 1分钟前
+      const result = ui.formatRelativeTime(date);
+      expect(result).toBe('1分钟前');
+    });
+  });
+
+  describe('formatAbsoluteTime', () => {
+    it('应正确格式化标准日期', () => {
+      const { ui } = createTestUI();
+      const date = new Date('2024-01-15T14:30:45');
+      const result = ui.formatAbsoluteTime(date);
+      expect(result).toBe('2024-01-15 14:30:45');
+    });
+
+    it('应正确格式化日期（个位数补零）', () => {
+      const { ui } = createTestUI();
+      const date = new Date('2024-03-05T08:05:09');
+      const result = ui.formatAbsoluteTime(date);
+      expect(result).toBe('2024-03-05 08:05:09');
+    });
+
+    it('应正确处理不同月份', () => {
+      const { ui } = createTestUI();
+      const date = new Date('2024-12-31T23:59:59');
+      const result = ui.formatAbsoluteTime(date);
+      expect(result).toBe('2024-12-31 23:59:59');
+    });
+
+    it('应正确处理闰年', () => {
+      const { ui } = createTestUI();
+      const date = new Date('2024-02-29T12:00:00');
+      const result = ui.formatAbsoluteTime(date);
+      expect(result).toBe('2024-02-29 12:00:00');
+    });
+
+    it('应正确处理当前时间', () => {
+      const { ui } = createTestUI();
+      const date = new Date();
+      const result = ui.formatAbsoluteTime(date);
+      // 验证格式正确性
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    });
+  });
+
+  describe('formatStatsSummary', () => {
+    it('应处理 undefined stats', () => {
+      const { ui } = createTestUI();
+      const result = ui.formatStatsSummary(undefined);
+      expect(result).toBe('(0 条消息, 0 tokens, $0)');
+    });
+
+    it('应处理 null stats', () => {
+      const { ui } = createTestUI();
+      const result = ui.formatStatsSummary(null as any);
+      expect(result).toBe('(0 条消息, 0 tokens, $0)');
+    });
+
+    it('应正确格式化完整统计信息', () => {
+      const { ui } = createTestUI();
+      const stats = {
+        messageCount: 10,
+        totalInputTokens: 5000,
+        totalOutputTokens: 3000,
+        totalCostUsd: 0.25,
+        lastMessagePreview: '这是最后一条消息的预览',
+      };
+      const result = ui.formatStatsSummary(stats);
+      expect(result).toBe('(10 条消息, 8k tokens, $0.250)');
+    });
+
+    it('应正确处理小于1000的token数量', () => {
+      const { ui } = createTestUI();
+      const stats = {
+        messageCount: 5,
+        totalInputTokens: 200,
+        totalOutputTokens: 300,
+        totalCostUsd: 0.05,
+        lastMessagePreview: '预览',
+      };
+      const result = ui.formatStatsSummary(stats);
+      expect(result).toBe('(5 条消息, 500 tokens, $0.050)');
+    });
+
+    it('应正确处理零成本', () => {
+      const { ui } = createTestUI();
+      const stats = {
+        messageCount: 2,
+        totalInputTokens: 100,
+        totalOutputTokens: 50,
+        totalCostUsd: 0,
+        lastMessagePreview: '预览',
+      };
+      const result = ui.formatStatsSummary(stats);
+      expect(result).toBe('(2 条消息, 150 tokens, $0)');
+    });
+
+    it('应正确处理非常小的成本（小于0.01）', () => {
+      const { ui } = createTestUI();
+      const stats = {
+        messageCount: 1,
+        totalInputTokens: 10,
+        totalOutputTokens: 5,
+        totalCostUsd: 0.005,
+        lastMessagePreview: '预览',
+      };
+      const result = ui.formatStatsSummary(stats);
+      expect(result).toBe('(1 条消息, 15 tokens, $0)');
+    });
+
+    it('应正确处理大数字token（k格式）', () => {
+      const { ui } = createTestUI();
+      const stats = {
+        messageCount: 100,
+        totalInputTokens: 50000,
+        totalOutputTokens: 30000,
+        totalCostUsd: 2.5,
+        lastMessagePreview: '预览',
+      };
+      const result = ui.formatStatsSummary(stats);
+      expect(result).toBe('(100 条消息, 80k tokens, $2.500)');
+    });
+
+    it('应正确处理精确到小数点后一位的k格式', () => {
+      const { ui } = createTestUI();
+      const stats = {
+        messageCount: 50,
+        totalInputTokens: 15000,
+        totalOutputTokens: 10000,
+        totalCostUsd: 1.25,
+        lastMessagePreview: '预览',
+      };
+      const result = ui.formatStatsSummary(stats);
+      expect(result).toBe('(50 条消息, 25k tokens, $1.250)');
+    });
+  });
+
+  describe('showSessionMenu', () => {
+    it('应在没有会话时显示提示', async () => {
+      const { ui, output } = createTestUI();
+
+      const result = await ui.showSessionMenu([]);
+
+      expect(result).toBeNull();
+      expect(output.getOutput()).toContain('没有可用的会话');
+    });
+
+    it('应正确显示会话列表', async () => {
+      const { ui, output, input } = createTestUI();
+      const now = new Date();
+      const sessions: Session[] = [
+        {
+          id: 'sess-1',
+          createdAt: now,
+          lastAccessedAt: now,
+          messages: [],
+          context: {} as any,
+          expired: false,
+          workingDirectory: '/test',
+          stats: {
+            messageCount: 10,
+            totalInputTokens: 5000,
+            totalOutputTokens: 3000,
+            totalCostUsd: 0.25,
+            lastMessagePreview: '这是最后一条消息的预览',
+          },
+        },
+        {
+          id: 'sess-2',
+          createdAt: now,
+          lastAccessedAt: now,
+          messages: [],
+          context: {} as any,
+          expired: false,
+          workingDirectory: '/test',
+          parentSessionId: 'sess-1',
+          stats: {
+            messageCount: 5,
+            totalInputTokens: 200,
+            totalOutputTokens: 150,
+            totalCostUsd: 0.05,
+            lastMessagePreview: '另一个会话的预览',
+          },
+        },
+      ];
+
+      const resultPromise = ui.showSessionMenu(sessions);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      input.emit('data', Buffer.from('1\n'));
+
+      const result = await resultPromise;
+
+      expect(result).toEqual(sessions[0]);
+      const outputText = output.getOutput();
+      expect(outputText).toContain('会话菜单');
+      expect(outputText).toContain('sess-1');
+      expect(outputText).toContain('🔀'); // 分叉标记
+      expect(outputText).toContain('这是最后一条消息的预览');
+    });
+
+    it('应支持取消操作', async () => {
+      const { ui, input } = createTestUI();
+      const now = new Date();
+      const sessions: Session[] = [
+        {
+          id: 'session-1',
+          createdAt: now,
+          lastAccessedAt: now,
+          messages: [],
+          context: {} as any,
+          expired: false,
+          workingDirectory: '/test',
+          stats: {
+            messageCount: 5,
+            totalInputTokens: 100,
+            totalOutputTokens: 50,
+            totalCostUsd: 0.01,
+            lastMessagePreview: '预览',
+          },
+        },
+      ];
+
+      const resultPromise = ui.showSessionMenu(sessions);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      input.emit('data', Buffer.from('0\n'));
+
+      const result = await resultPromise;
+
+      expect(result).toBeNull();
+    });
+
+    // 注意: Esc 键取消已移除，现在只支持输入 0 取消
+    // 这是为了简化输入处理，统一使用 readline.question()
+
+    it('应处理无效输入并重新等待', async () => {
+      const { ui, input } = createTestUI();
+      const now = new Date();
+      const sessions: Session[] = [
+        {
+          id: 'session-1',
+          createdAt: now,
+          lastAccessedAt: now,
+          messages: [],
+          context: {} as any,
+          expired: false,
+          workingDirectory: '/test',
+          stats: {
+            messageCount: 5,
+            totalInputTokens: 100,
+            totalOutputTokens: 50,
+            totalCostUsd: 0.01,
+            lastMessagePreview: '预览',
+          },
+        },
+      ];
+
+      const resultPromise = ui.showSessionMenu(sessions);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // 发送无效输入
+      input.emit('data', Buffer.from('abc\n'));
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // 发送有效输入
+      input.emit('data', Buffer.from('1\n'));
+
+      const result = await resultPromise;
+
+      expect(result).toEqual(sessions[0]);
     });
   });
 });

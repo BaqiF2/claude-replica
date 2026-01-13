@@ -23,10 +23,11 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { SDKQueryExecutor } from '../../src/sdk/SDKQueryExecutor';
 import { StreamingQueryManager } from '../../src/sdk/StreamingQueryManager';
 import { MessageRouter } from '../../src/core/MessageRouter';
-import { Session } from '../../src/core/SessionManager';
+import { Session, SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
+import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
 
 // 使用 any 类型绕过 SDK 类型限制
 const mockedQuery = query as jest.MockedFunction<any>;
@@ -89,6 +90,7 @@ describe('流式输入集成测试', () => {
   let sdkExecutor: SDKQueryExecutor;
   let streamingQueryManager: StreamingQueryManager;
   let messageRouter: MessageRouter;
+  let sessionManager: SessionManager;
 
   beforeEach(async () => {
     // 创建临时目录
@@ -96,11 +98,13 @@ describe('流式输入集成测试', () => {
 
     // 初始化组件
     sdkExecutor = new SDKQueryExecutor();
+    sessionManager = new SessionManager(path.join(tempDir, 'sessions'));
 
     const configManager = new ConfigManager();
     const toolRegistry = new ToolRegistry();
     const permissionManager = new PermissionManager(
       { mode: 'default' },
+      new MockPermissionUI(),
       toolRegistry
     );
 
@@ -123,6 +127,7 @@ describe('流式输入集成测试', () => {
     streamingQueryManager = new StreamingQueryManager({
       messageRouter,
       sdkExecutor,
+      sessionManager,
     });
 
     jest.clearAllMocks();

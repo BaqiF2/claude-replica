@@ -47,10 +47,6 @@ export interface CLIOptions {
   // 基本选项
   print?: boolean; // -p, --print
   prompt?: string; // 查询内容
-  continue?: boolean; // -c, --continue
-  resume?: string; // --resume <session-id>
-  resumeSessionAt?: string; // --resume-at <message-uuid>
-  forkSession?: boolean; // --fork
 
   // 模型和提示
   model?: string; // --model
@@ -136,25 +132,6 @@ export class CLIParser {
           if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
             options.prompt = args[++i];
           }
-          break;
-
-        case '-c':
-        case '--continue':
-          options.continue = true;
-          break;
-
-        case '--resume':
-          options.resume = this.requireValue(args, i, '--resume');
-          i++;
-          break;
-
-        case '--resume-at':
-          options.resumeSessionAt = this.requireValue(args, i, '--resume-at');
-          i++;
-          break;
-
-        case '--fork':
-          options.forkSession = true;
           break;
 
         // 模型和提示
@@ -316,10 +293,6 @@ claude-replica - Claude Code 智能代码助手命令行工具
 
 基本选项:
   -p, --print <query>              非交互模式执行查询并退出
-  -c, --continue                   继续最近的会话
-  --resume <session-id>            恢复指定的会话
-  --resume-at <message-uuid>       从指定消息恢复会话
-  --fork                           分叉当前会话
   -h, --help                       显示帮助信息
   -v, --version                    显示版本号
 
@@ -353,11 +326,14 @@ claude-replica - Claude Code 智能代码助手命令行工具
   --sandbox                        启用沙箱模式
   --timeout <seconds>              执行超时时间 (秒，用于 CI/CD)
 
+交互模式命令 (仅在交互模式下可用):
+  /resume                          恢复之前的会话
+
 示例:
   claude-replica                   启动交互式会话
   claude-replica -p "解释这段代码"  非交互模式查询
-  claude-replica -c                继续最近的会话
   claude-replica --model haiku     使用 Haiku 模型
+  /resume                          在交互模式下恢复会话
 `.trim();
   }
 

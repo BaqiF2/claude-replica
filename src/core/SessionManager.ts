@@ -10,8 +10,9 @@
  * - saveSession(): 持久化会话到本地存储
  * - addMessage(): 向会话添加新消息
  * - listSessions(): 列出所有保存的会话
- * - getRecentSession(): 获取最近活跃的会话
- * - cleanSessions(): 清理过期会话
+ * - listRecentSessions(): 获取最近创建的会话列表（按创建时间倒序）
+ * - forkSession(): 分叉现有会话创建新会话
+ * - cleanOldSessions(): 清理旧会话，保留最近 N 个会话
  * - deleteSession(): 删除指定会话
  */
 
@@ -45,6 +46,24 @@ export interface UsageStats {
   totalCostUsd?: number;
   /** 执行时长（毫秒） */
   durationMs?: number;
+}
+
+/**
+ * 会话统计信息接口
+ *
+ * 聚合整个会话的使用统计数据
+ */
+export interface SessionStats {
+  /** 总消息数量 */
+  messageCount: number;
+  /** 累计输入 token 数量 */
+  totalInputTokens: number;
+  /** 累计输出 token 数量 */
+  totalOutputTokens: number;
+  /** 累计总花费（美元） */
+  totalCostUsd: number;
+  /** 最后一条消息预览（前 80 字符） */
+  lastMessagePreview: string;
 }
 
 /**
@@ -93,6 +112,10 @@ export interface Session {
   workingDirectory: string;
   /** SDK 会话 ID（用于恢复会话时传递给 SDK） */
   sdkSessionId?: string;
+  /** 父会话 ID（分叉会话时记录源会话） */
+  parentSessionId?: string;
+  /** 会话统计信息 */
+  stats?: SessionStats;
 }
 
 /**
@@ -106,6 +129,10 @@ export interface SessionMetadata {
   expired: boolean;
   /** SDK 会话 ID */
   sdkSessionId?: string;
+  /** 父会话 ID（分叉会话时记录源会话） */
+  parentSessionId?: string;
+  /** 会话统计信息 */
+  stats?: SessionStats;
 }
 
 /**
@@ -167,6 +194,57 @@ export class SessionManager {
   }
 
   /**
+   * 计算会话统计信息
+   *
+   * 遍历会话中的所有消息，累加 token 使用量和成本，提取最后一条消息预览
+   *
+   * @param session - 会话对象
+   * @returns 会话统计信息
+   */
+  private calculateStats(session: Session): SessionStats {
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let totalCostUsd = 0;
+    let lastMessagePreview = '';
+
+    // 遍历所有消息累加统计信息
+    for (const message of session.messages) {
+      if (message.usage) {
+        totalInputTokens += message.usage.inputTokens || 0;
+        totalOutputTokens += message.usage.outputTokens || 0;
+        totalCostUsd += message.usage.totalCostUsd || 0;
+      }
+    }
+
+    // 提取最后一条消息的前 80 字符作为预览
+    if (session.messages.length > 0) {
+      const lastMessage = session.messages[session.messages.length - 1];
+      let contentText = '';
+
+      if (typeof lastMessage.content === 'string') {
+        contentText = lastMessage.content;
+      } else if (Array.isArray(lastMessage.content)) {
+        // 从内容块中提取文本
+        const textBlocks = lastMessage.content.filter((block) => block.type === 'text');
+        if (textBlocks.length > 0) {
+          contentText = String(textBlocks[0].text || '');
+        }
+      }
+
+      // 截取前 80 字符
+      lastMessagePreview = contentText.substring(0, 80);
+    }
+
+    return {
+      messageCount: session.messages.length,
+      totalInputTokens,
+      totalOutputTokens,
+      totalCostUsd,
+      lastMessagePreview,
+    };
+  }
+
+  /**
    * 创建新会话
    *
    * @param workingDir - 工作目录
@@ -197,9 +275,6 @@ export class SessionManager {
       workingDirectory: workingDir,
     };
 
-    // 保存会话
-    await this.saveSession(session);
-
     return session;
   }
 
@@ -209,10 +284,13 @@ export class SessionManager {
    * @param session - 要保存的会话
    */
   async saveSession(session: Session): Promise<void> {
+    // 保存前自动计算统计信息
+    session.stats = this.calculateStats(session);
+
     const sessionDir = this.getSessionDir(session.id);
     await fs.mkdir(sessionDir, { recursive: true });
 
-    // 保存元数据（包含 SDK 会话 ID）
+    // 保存元数据（包含 SDK 会话 ID、父会话 ID 和统计信息）
     const metadata: SessionMetadata = {
       id: session.id,
       createdAt: session.createdAt.toISOString(),
@@ -220,6 +298,8 @@ export class SessionManager {
       workingDirectory: session.workingDirectory,
       expired: session.expired,
       sdkSessionId: session.sdkSessionId,
+      parentSessionId: session.parentSessionId,
+      stats: session.stats,
     };
     await fs.writeFile(
       path.join(sessionDir, 'metadata.json'),
@@ -321,12 +401,17 @@ export class SessionManager {
         workingDirectory: metadata.workingDirectory,
         // 加载 SDK 会话 ID（用于会话恢复）
         sdkSessionId: metadata.sdkSessionId,
+        // 加载父会话 ID（分叉会话时的源会话）
+        parentSessionId: metadata.parentSessionId,
+        // 加载会话统计信息
+        stats: metadata.stats,
       };
     } catch (error) {
       console.warn(`Warning: Unable to load session ${sessionId}:`, error);
       return null;
     }
   }
+
 
   /**
    * 加载会话
@@ -340,11 +425,11 @@ export class SessionManager {
     if (session) {
       // 更新最后访问时间
       session.lastAccessedAt = new Date();
-      await this.saveSession(session);
     }
 
     return session;
   }
+
 
   /**
    * 列出所有会话
@@ -376,36 +461,93 @@ export class SessionManager {
     }
   }
 
+
   /**
-   * 获取最近的会话
+   * 获取最近创建的会话列表
    *
-   * @returns 最近的会话，如果没有则返回 null
+   * 返回按创建时间倒序排列的会话列表，用于交互式恢复菜单
+   *
+   * @param limit - 返回的最大会话数量，默认 10
+   * @returns 按创建时间倒序排列的会话列表
    */
-  async getRecentSession(): Promise<Session | null> {
+  async listRecentSessions(limit: number = 10): Promise<Session[]> {
     const sessions = await this.listSessions();
 
-    // 过滤掉过期的会话
-    const activeSessions = sessions.filter((s) => !s.expired);
+    // 按 createdAt 倒序排序（最新的在前）
+    sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-    if (activeSessions.length === 0) {
-      return null;
-    }
-
-    return activeSessions[0];
+    // 返回前 limit 个会话
+    return sessions.slice(0, limit);
   }
 
   /**
-   * 清理过期会话
+   * 分叉会话
    *
-   * @param olderThan - 清理早于此日期的会话
+   * 基于现有会话创建一个新会话，复制消息、上下文和统计信息，但不复制 SDK 会话 ID
+   * 新会话的 parentSessionId 会设置为源会话的 ID
+   *
+   * @param sourceSessionId - 源会话 ID
+   * @returns 新创建的分叉会话
+   * @throws 如果源会话不存在则抛出错误
    */
-  async cleanSessions(olderThan: Date): Promise<void> {
+  async forkSession(sourceSessionId: string): Promise<Session> {
+    // 使用内部方法加载源会话（不更新访问时间）
+    const sourceSession = await this.loadSessionInternal(sourceSessionId);
+
+    // 验证源会话存在
+    if (!sourceSession) {
+      throw new Error(`Source session not found: ${sourceSessionId}`);
+    }
+
+    // 创建新会话 ID
+    const newSessionId = this.generateSessionId();
+    const now = new Date();
+
+    // 深拷贝消息、上下文和统计信息
+    const forkedSession: Session = {
+      id: newSessionId,
+      createdAt: now,
+      lastAccessedAt: now,
+      // 深拷贝消息数组
+      messages: sourceSession.messages.map((msg) => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp),
+      })),
+      // 深拷贝上下文
+      context: {
+        ...sourceSession.context,
+        workingDirectory: sourceSession.context.workingDirectory,
+        projectConfig: { ...sourceSession.context.projectConfig },
+        userConfig: { ...sourceSession.context.userConfig },
+        activeAgents: sourceSession.context.activeAgents.map((agent) => ({ ...agent })),
+      },
+      expired: false,
+      workingDirectory: sourceSession.workingDirectory,
+      // 设置父会话 ID
+      parentSessionId: sourceSessionId,
+      // 不复制 sdkSessionId，分叉会话是独立的
+      // 不复制 stats，保存时会自动计算
+    };
+
+    return forkedSession;
+  }
+
+  /**
+   * 清理旧会话
+   *
+   * 保留最近创建的 N 个会话，删除其余的旧会话
+   *
+   * @param keepCount - 要保留的会话数量，默认 10
+   */
+  async cleanOldSessions(keepCount: number = 10): Promise<void> {
     const sessions = await this.listSessions();
 
-    for (const session of sessions) {
-      if (session.createdAt < olderThan) {
-        await this.deleteSession(session.id);
-      }
+    // 按 createdAt 倒序排序（最新的在前）
+    sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    // 删除索引 >= keepCount 的会话
+    for (let i = keepCount; i < sessions.length; i++) {
+      await this.deleteSession(sessions[i].id);
     }
   }
 
@@ -440,35 +582,7 @@ export class SessionManager {
     session.messages.push(newMessage);
     session.lastAccessedAt = new Date();
 
-    await this.saveSession(session);
-
     return newMessage;
-  }
-
-  /**
-   * 更新会话上下文
-   *
-   * @param session - 会话
-   * @param context - 新的上下文（部分更新）
-   */
-  async updateContext(session: Session, context: Partial<SessionContext>): Promise<void> {
-    session.context = {
-      ...session.context,
-      ...context,
-    };
-    session.lastAccessedAt = new Date();
-
-    await this.saveSession(session);
-  }
-
-  /**
-   * 标记会话为过期
-   *
-   * @param session - 会话
-   */
-  async markExpired(session: Session): Promise<void> {
-    session.expired = true;
-    await this.saveSession(session);
   }
 
   /**

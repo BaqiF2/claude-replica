@@ -22,10 +22,11 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
 import { StreamingQueryManager } from '../../src/sdk/StreamingQueryManager';
 import { SDKQueryExecutor, SDKQueryResult } from '../../src/sdk/SDKQueryExecutor';
 import { MessageRouter } from '../../src/core/MessageRouter';
-import { Session } from '../../src/core/SessionManager';
+import { Session, SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
+import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
 
 // 创建模拟的 Session 对象
 function createMockSession(workingDirectory: string = '/test/project'): Session {
@@ -64,6 +65,7 @@ describe('StreamingQueryManager', () => {
   let manager: StreamingQueryManager;
   let mockSDKExecutor: jest.Mocked<SDKQueryExecutor>;
   let mockMessageRouter: MessageRouter;
+  let mockSessionManager: SessionManager;
   let tempDir: string;
 
   beforeEach(async () => {
@@ -85,6 +87,7 @@ describe('StreamingQueryManager', () => {
     const configManager = new ConfigManager();
     const permissionManager = new PermissionManager(
       { mode: 'default' },
+      new MockPermissionUI(),
       new ToolRegistry()
     );
 
@@ -92,6 +95,8 @@ describe('StreamingQueryManager', () => {
       configManager,
       permissionManager,
     });
+
+    mockSessionManager = new SessionManager(path.join(tempDir, 'sessions'));
 
     // 模拟 buildQueryOptions 方法
     jest.spyOn(mockMessageRouter, 'buildQueryOptions').mockResolvedValue({
@@ -113,6 +118,7 @@ describe('StreamingQueryManager', () => {
     manager = new StreamingQueryManager({
       messageRouter: mockMessageRouter,
       sdkExecutor: mockSDKExecutor,
+      sessionManager: mockSessionManager,
     });
   });
 
@@ -477,6 +483,7 @@ describe('StreamingQueryManager - 属性测试', () => {
         const configManager = new ConfigManager();
         const permissionManager = new PermissionManager(
           { mode: 'default' },
+          new MockPermissionUI(),
           new ToolRegistry()
         );
 
@@ -493,9 +500,11 @@ describe('StreamingQueryManager - 属性测试', () => {
           permissionMode: 'default',
         });
 
+        const localSessionManager = new SessionManager(path.join(tempDir, 'sessions'));
         const manager = new StreamingQueryManager({
           messageRouter: mockMessageRouter,
           sdkExecutor: mockSDKExecutor,
+          sessionManager: localSessionManager,
         });
 
         // 测试会话生命周期
@@ -552,6 +561,7 @@ describe('StreamingQueryManager - 属性测试', () => {
         const configManager = new ConfigManager();
         const permissionManager = new PermissionManager(
           { mode: 'default' },
+          new MockPermissionUI(),
           new ToolRegistry()
         );
 
@@ -576,9 +586,19 @@ describe('StreamingQueryManager - 属性测试', () => {
           errors: [],
         }));
 
+        const mockSessionManager = {
+          createSession: jest.fn(),
+          saveSession: jest.fn(),
+          loadSession: jest.fn(),
+          listSessions: jest.fn(),
+          deleteSession: jest.fn(),
+          forkSession: jest.fn(),
+        } as unknown as SessionManager;
+
         const manager = new StreamingQueryManager({
           messageRouter: mockMessageRouter,
           sdkExecutor: mockSDKExecutor,
+          sessionManager: mockSessionManager,
         });
 
         const session = createMockSession(tempDir);

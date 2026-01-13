@@ -7,6 +7,70 @@ project versions follow [Semantic Versioning](https://semver.org/) specification
 
 ## [Unreleased]
 
+### Breaking Changes
+- **Removed CLI arguments for session management**: The following CLI arguments have been removed in favor of interactive mode commands:
+  - `-c, --continue`: Continue most recent session
+  - `--resume <id>`: Resume specific session
+  - `--fork`: Fork current session
+
+### Added
+- **Interactive Session Management Commands**:
+  - `/resume`: Interactive session browser with statistics, timestamps, and parent-child session tracking
+  - `/fork`: Create session branches with parent-child relationship tracking
+- **Session Statistics**: Automatic calculation and display of:
+  - Token usage (input/output)
+  - Cost calculation in USD
+  - Message count
+  - Last message preview
+- **Session Forking**: Full session branching support with:
+  - Visual indicator (🔀) for forked sessions
+  - Parent session tracking
+  - Independent session lifecycles
+- **Automatic Session Cleanup**:
+  - Configurable retention via `SESSION_KEEP_COUNT` environment variable (default: 10)
+  - Cleans old sessions on application startup
+  - Preserves active sessions
+- **Enhanced Session Metadata**: Extended session metadata with:
+  - `parentSessionId`: Tracks parent-child relationships
+  - `stats`: Session statistics (tokens, cost, messages, preview)
+- **UI Enhancements**:
+  - Relative and absolute time formatting for sessions
+  - Session statistics summary display
+  - Improved session listing with comprehensive information
+
+### Changed
+- **Session Persistence Behavior**:
+  - Interactive mode: Sessions persist and can be resumed
+  - Non-interactive mode: Uses temporary sessions (not saved to disk)
+- **Session Architecture**: Refactored to focus on interaction patterns rather than CLI argument parsing
+
+### Migration Guide
+
+**Old Usage (Deprecated):**
+```bash
+# These commands no longer work
+claude-replica -c
+claude-replica --resume <session-id>
+claude-replica --fork
+```
+
+**New Usage:**
+```bash
+# Start interactive mode
+claude-replica
+
+# Inside interactive mode, use:
+/resume  # Browse and resume sessions interactively
+/fork    # Fork current session
+```
+
+**Benefits:**
+- More intuitive session management
+- Better visualization of session history and statistics
+- Support for session branching and parent-child tracking
+- Automatic cleanup to manage disk space
+- Consistent interactive experience
+
 ## [v0.1.0] - 2026-01-02
 
 ### Added
