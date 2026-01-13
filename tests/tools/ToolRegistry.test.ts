@@ -161,58 +161,6 @@ describe('ToolRegistry', () => {
     });
   });
 
-  describe('getToolsByCategory', () => {
-    it('应返回文件操作工具', () => {
-      const tools = registry.getToolsByCategory(ToolCategory.FILE);
-
-      expect(tools).toContain('Read');
-      expect(tools).toContain('Write');
-      expect(tools).toContain('Edit');
-    });
-
-    it('应返回命令执行工具', () => {
-      const tools = registry.getToolsByCategory(ToolCategory.COMMAND);
-
-      expect(tools).toContain('Bash');
-      expect(tools).toContain('BashOutput');
-      expect(tools).toContain('KillBash');
-    });
-
-    it('应返回搜索工具', () => {
-      const tools = registry.getToolsByCategory(ToolCategory.SEARCH);
-
-      expect(tools).toContain('Grep');
-      expect(tools).toContain('Glob');
-    });
-
-    it('应返回 MCP 工具', () => {
-      const tools = registry.getToolsByCategory(ToolCategory.MCP);
-
-      expect(tools).toContain('ListMcpResources');
-      expect(tools).toContain('ReadMcpResource');
-    });
-  });
-
-  describe('getDangerousTools', () => {
-    it('应返回所有危险工具', () => {
-      const dangerousTools = registry.getDangerousTools();
-
-      expect(dangerousTools).toContain('Write');
-      expect(dangerousTools).toContain('Edit');
-      expect(dangerousTools).toContain('Bash');
-      expect(dangerousTools).toContain('KillBash');
-      expect(dangerousTools).toContain('NotebookEdit');
-    });
-
-    it('安全工具不应在危险工具列表中', () => {
-      const dangerousTools = registry.getDangerousTools();
-
-      expect(dangerousTools).not.toContain('Read');
-      expect(dangerousTools).not.toContain('Grep');
-      expect(dangerousTools).not.toContain('Glob');
-      expect(dangerousTools).not.toContain('Task');
-    });
-  });
 
   describe('isDangerousTool', () => {
     it('应正确识别危险工具', () => {

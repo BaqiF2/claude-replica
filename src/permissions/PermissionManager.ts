@@ -398,30 +398,6 @@ export class PermissionManager {
     return { ...this.config };
   }
 
-  /**
-   * 添加工具到白名单
-   *
-   * @param tool 工具名称
-   */
-  addToAllowedTools(tool: string): void {
-    if (!this.config.allowedTools) {
-      this.config.allowedTools = [];
-    }
-    if (!this.config.allowedTools.includes(tool)) {
-      this.config.allowedTools.push(tool);
-    }
-  }
-
-  /**
-   * 从白名单移除工具
-   *
-   * @param tool 工具名称
-   */
-  removeFromAllowedTools(tool: string): void {
-    if (this.config.allowedTools) {
-      this.config.allowedTools = this.config.allowedTools.filter((t) => t !== tool);
-    }
-  }
 
   /**
    * 添加工具到黑名单
@@ -448,55 +424,6 @@ export class PermissionManager {
     }
   }
 
-  /**
-   * 添加命令到白名单
-   *
-   * @param command 命令或命令模式
-   */
-  addToAllowedCommands(command: string): void {
-    if (!this.config.allowedCommands) {
-      this.config.allowedCommands = [];
-    }
-    if (!this.config.allowedCommands.includes(command)) {
-      this.config.allowedCommands.push(command);
-    }
-  }
-
-  /**
-   * 从命令白名单移除
-   *
-   * @param command 命令或命令模式
-   */
-  removeFromAllowedCommands(command: string): void {
-    if (this.config.allowedCommands) {
-      this.config.allowedCommands = this.config.allowedCommands.filter((c) => c !== command);
-    }
-  }
-
-  /**
-   * 添加命令到黑名单
-   *
-   * @param command 命令或命令模式
-   */
-  addToDisallowedCommands(command: string): void {
-    if (!this.config.disallowedCommands) {
-      this.config.disallowedCommands = [];
-    }
-    if (!this.config.disallowedCommands.includes(command)) {
-      this.config.disallowedCommands.push(command);
-    }
-  }
-
-  /**
-   * 从命令黑名单移除
-   *
-   * @param command 命令或命令模式
-   */
-  removeFromDisallowedCommands(command: string): void {
-    if (this.config.disallowedCommands) {
-      this.config.disallowedCommands = this.config.disallowedCommands.filter((c) => c !== command);
-    }
-  }
 
   /**
    * 检查工具是否被允许（不执行用户确认）

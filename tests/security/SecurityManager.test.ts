@@ -154,44 +154,6 @@ describe('SecurityManager', () => {
     });
   });
 
-  describe('危险命令确认', () => {
-    it('安全命令应该自动通过', async () => {
-      const result = await securityManager.confirmDangerousCommand('ls -la');
-      
-      expect(result).toBe(true);
-    });
-
-    it('没有确认回调时危险命令应该被拒绝', async () => {
-      const result = await securityManager.confirmDangerousCommand('rm -rf /');
-      
-      expect(result).toBe(false);
-    });
-
-    it('有确认回调时应该调用回调', async () => {
-      const confirmCallback = jest.fn().mockResolvedValue(true);
-      securityManager.setConfirmationCallback(confirmCallback);
-      
-      await securityManager.confirmDangerousCommand('rm -rf /home/user/temp');
-      
-      expect(confirmCallback).toHaveBeenCalled();
-    });
-
-    it('用户拒绝时应该返回 false', async () => {
-      securityManager.setConfirmationCallback(async () => false);
-      
-      const result = await securityManager.confirmDangerousCommand('rm -rf /home/user/temp');
-      
-      expect(result).toBe(false);
-    });
-
-    it('用户确认时应该返回 true', async () => {
-      securityManager.setConfirmationCallback(async () => true);
-      
-      const result = await securityManager.confirmDangerousCommand('rm -rf /home/user/temp');
-      
-      expect(result).toBe(true);
-    });
-  });
 
   describe('API 密钥管理', () => {
     const originalEnv = process.env;

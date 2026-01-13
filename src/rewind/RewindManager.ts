@@ -424,27 +424,6 @@ export class RewindManager {
     return [...this.snapshots];
   }
 
-  /**
-   * 获取指定快照
-   *
-   * @param snapshotId - 快照 ID
-   * @returns 快照，如果不存在则返回 null
-   */
-  async getSnapshot(snapshotId: string): Promise<Snapshot | null> {
-    await this.initialize();
-    return this.snapshots.find((s) => s.id === snapshotId) || null;
-  }
-
-  /**
-   * 根据消息 UUID 获取快照
-   *
-   * @param messageUuid - 消息 UUID
-   * @returns 快照，如果不存在则返回 null
-   */
-  async getSnapshotByMessageUuid(messageUuid: string): Promise<Snapshot | null> {
-    await this.initialize();
-    return this.snapshots.find((s) => s.messageUuid === messageUuid) || null;
-  }
 
   /**
    * 删除快照
@@ -481,20 +460,6 @@ export class RewindManager {
     this.log('已清除所有快照');
   }
 
-  /**
-   * 获取快照数量
-   */
-  async getSnapshotCount(): Promise<number> {
-    await this.initialize();
-    return this.snapshots.length;
-  }
-
-  /**
-   * 获取最大快照数量
-   */
-  getMaxSnapshots(): number {
-    return this.maxSnapshots;
-  }
 
   /**
    * 获取工作目录

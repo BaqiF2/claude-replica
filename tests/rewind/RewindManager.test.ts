@@ -237,24 +237,6 @@ describe('RewindManager', () => {
     });
   });
 
-  describe('getSnapshotByMessageUuid', () => {
-    it('应该根据消息 UUID 获取快照', async () => {
-      await fs.writeFile(path.join(tempDir, 'test.txt'), 'content', 'utf-8');
-
-      await rewindManager.captureSnapshot('快照 1', ['test.txt'], 'uuid-1');
-      await rewindManager.captureSnapshot('快照 2', ['test.txt'], 'uuid-2');
-
-      const snapshot = await rewindManager.getSnapshotByMessageUuid('uuid-1');
-
-      expect(snapshot).not.toBeNull();
-      expect(snapshot?.messageUuid).toBe('uuid-1');
-    });
-
-    it('不存在的 UUID 应返回 null', async () => {
-      const snapshot = await rewindManager.getSnapshotByMessageUuid('nonexistent');
-      expect(snapshot).toBeNull();
-    });
-  });
 
   describe('compareWithSnapshot', () => {
     it('应该检测文件修改', async () => {

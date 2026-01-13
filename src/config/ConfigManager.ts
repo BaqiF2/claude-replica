@@ -124,25 +124,6 @@ export class ConfigManager {
   }
 
   /**
-   * 保存配置到文件
-   *
-   * @param config - 配置对象
-   * @param configPath - 配置文件路径
-   */
-  async saveConfig(config: UserConfig | ProjectConfig, configPath: string): Promise<void> {
-    const dir = path.dirname(configPath);
-
-    // 确保目录存在
-    await fs.mkdir(dir, { recursive: true });
-
-    // 写入配置文件
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-
-    // 清除缓存
-    this.clearCache();
-  }
-
-  /**
    * 加载 CLAUDE.md 文件内容
    *
    * @param directory - 项目目录
@@ -184,64 +165,4 @@ export class ConfigManager {
     this.cachedProjectConfigs.clear();
   }
 
-  /**
-   * 验证配置文件格式
-   *
-   * @param configPath - 配置文件路径
-   * @returns 验证结果
-   */
-  async validateConfig(configPath: string): Promise<{ valid: boolean; errors: string[] }> {
-    const errors: string[] = [];
-
-    try {
-      const content = await fs.readFile(configPath, 'utf-8');
-      const config = JSON.parse(content);
-
-      // 验证 model 字段
-      if (config.model && typeof config.model !== 'string') {
-        errors.push('model must be a string');
-      }
-
-      // 验证 maxTurns 字段
-      if (config.maxTurns !== undefined) {
-        if (typeof config.maxTurns !== 'number' || config.maxTurns < 1) {
-          errors.push('maxTurns must be a positive integer');
-        }
-      }
-
-      // 验证 maxBudgetUsd 字段
-      if (config.maxBudgetUsd !== undefined) {
-        if (typeof config.maxBudgetUsd !== 'number' || config.maxBudgetUsd < 0) {
-          errors.push('maxBudgetUsd must be a non-negative number');
-        }
-      }
-
-      // 验证 permissionMode 字段
-      if (config.permissionMode) {
-        const validModes = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
-        if (!validModes.includes(config.permissionMode)) {
-          errors.push(`permissionMode must be one of: ${validModes.join(', ')}`);
-        }
-      }
-
-      // 验证 allowedTools 字段
-      if (config.allowedTools && !Array.isArray(config.allowedTools)) {
-        errors.push('allowedTools must be an array');
-      }
-
-      // 验证 disallowedTools 字段
-      if (config.disallowedTools && !Array.isArray(config.disallowedTools)) {
-        errors.push('disallowedTools must be an array');
-      }
-
-      return { valid: errors.length === 0, errors };
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        errors.push(`JSON parse error: ${error.message}`);
-      } else {
-        errors.push(`Failed to read config file: ${(error as Error).message}`);
-      }
-      return { valid: false, errors };
-    }
-  }
 }

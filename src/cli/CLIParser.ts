@@ -107,9 +107,6 @@ const VALID_SETTING_SOURCES: SettingSource[] = ['user', 'project', 'local'];
  * CLI 参数解析器
  */
 export class CLIParser {
-  // 从环境变量读取版本号，如果未设置则使用默认值
-  private readonly version = process.env.VERSION || '0.1.0';
-
   /**
    * 解析命令行参数
    * @param args 命令行参数数组
@@ -337,12 +334,6 @@ claude-replica - Claude Code 智能代码助手命令行工具
 `.trim();
   }
 
-  /**
-   * 获取版本号
-   */
-  getVersion(): string {
-    return this.version;
-  }
 
   /**
    * 要求参数值存在

@@ -419,20 +419,6 @@ export class SecurityManager {
   }
 
   /**
-   * 设置确认回调
-   */
-  setConfirmationCallback(callback: ConfirmationCallback): void {
-    this.confirmationCallback = callback;
-  }
-
-  /**
-   * 设置警告回调
-   */
-  setWarningCallback(callback: WarningCallback): void {
-    this.warningCallback = callback;
-  }
-
-  /**
    * 检测文本中的敏感信息
    *
    * @param content 要检测的内容
