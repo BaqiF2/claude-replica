@@ -22,7 +22,7 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
 import { StreamingQueryManager } from '../../src/sdk/StreamingQueryManager';
 import { SDKQueryExecutor, SDKQueryResult } from '../../src/sdk/SDKQueryExecutor';
 import { MessageRouter } from '../../src/core/MessageRouter';
-import { Session } from '../../src/core/SessionManager';
+import { Session, SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
@@ -65,6 +65,7 @@ describe('StreamingQueryManager', () => {
   let manager: StreamingQueryManager;
   let mockSDKExecutor: jest.Mocked<SDKQueryExecutor>;
   let mockMessageRouter: MessageRouter;
+  let mockSessionManager: SessionManager;
   let tempDir: string;
 
   beforeEach(async () => {
@@ -95,6 +96,8 @@ describe('StreamingQueryManager', () => {
       permissionManager,
     });
 
+    mockSessionManager = new SessionManager(path.join(tempDir, 'sessions'));
+
     // 模拟 buildQueryOptions 方法
     jest.spyOn(mockMessageRouter, 'buildQueryOptions').mockResolvedValue({
       model: 'claude-sonnet-4-5-20250929',
@@ -115,6 +118,7 @@ describe('StreamingQueryManager', () => {
     manager = new StreamingQueryManager({
       messageRouter: mockMessageRouter,
       sdkExecutor: mockSDKExecutor,
+      sessionManager: mockSessionManager,
     });
   });
 
@@ -496,9 +500,11 @@ describe('StreamingQueryManager - 属性测试', () => {
           permissionMode: 'default',
         });
 
+        const localSessionManager = new SessionManager(path.join(tempDir, 'sessions'));
         const manager = new StreamingQueryManager({
           messageRouter: mockMessageRouter,
           sdkExecutor: mockSDKExecutor,
+          sessionManager: localSessionManager,
         });
 
         // 测试会话生命周期
@@ -580,9 +586,19 @@ describe('StreamingQueryManager - 属性测试', () => {
           errors: [],
         }));
 
+        const mockSessionManager = {
+          createSession: jest.fn(),
+          saveSession: jest.fn(),
+          loadSession: jest.fn(),
+          listSessions: jest.fn(),
+          deleteSession: jest.fn(),
+          forkSession: jest.fn(),
+        } as unknown as SessionManager;
+
         const manager = new StreamingQueryManager({
           messageRouter: mockMessageRouter,
           sdkExecutor: mockSDKExecutor,
+          sessionManager: mockSessionManager,
         });
 
         const session = createMockSession(tempDir);

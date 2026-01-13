@@ -104,6 +104,7 @@ describe('/resume 命令集成测试', () => {
     streamingQueryManager = new StreamingQueryManager({
       messageRouter,
       sdkExecutor,
+      sessionManager,
     });
   });
 
@@ -208,6 +209,7 @@ describe('/resume 命令集成测试', () => {
 
       const forkedSession = await sessionManager.forkSession(parentSession.id);
       expect(forkedSession.parentSessionId).toBe(parentSession.id);
+      await sessionManager.saveSession(forkedSession);
 
       // 2. 模拟选择分叉会话
       const mockUI = new MockInteractiveUI({ selectIndex: 0 });

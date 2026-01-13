@@ -10,11 +10,9 @@
  * - saveSession(): 持久化会话到本地存储
  * - addMessage(): 向会话添加新消息
  * - listSessions(): 列出所有保存的会话
- * - getRecentSession(): 获取最近活跃的会话
  * - listRecentSessions(): 获取最近创建的会话列表（按创建时间倒序）
  * - forkSession(): 分叉现有会话创建新会话
  * - cleanOldSessions(): 清理旧会话，保留最近 N 个会话
- * - cleanSessions(): 清理过期会话
  * - deleteSession(): 删除指定会话
  */
 
@@ -277,9 +275,6 @@ export class SessionManager {
       workingDirectory: workingDir,
     };
 
-    // 保存会话
-    await this.saveSession(session);
-
     return session;
   }
 
@@ -417,6 +412,7 @@ export class SessionManager {
     }
   }
 
+
   /**
    * 加载会话
    *
@@ -429,11 +425,11 @@ export class SessionManager {
     if (session) {
       // 更新最后访问时间
       session.lastAccessedAt = new Date();
-      await this.saveSession(session);
     }
 
     return session;
   }
+
 
   /**
    * 列出所有会话
@@ -465,23 +461,6 @@ export class SessionManager {
     }
   }
 
-  /**
-   * 获取最近的会话
-   *
-   * @returns 最近的会话，如果没有则返回 null
-   */
-  async getRecentSession(): Promise<Session | null> {
-    const sessions = await this.listSessions();
-
-    // 过滤掉过期的会话
-    const activeSessions = sessions.filter((s) => !s.expired);
-
-    if (activeSessions.length === 0) {
-      return null;
-    }
-
-    return activeSessions[0];
-  }
 
   /**
    * 获取最近创建的会话列表
@@ -550,9 +529,6 @@ export class SessionManager {
       // 不复制 stats，保存时会自动计算
     };
 
-    // 保存新会话
-    await this.saveSession(forkedSession);
-
     return forkedSession;
   }
 
@@ -572,21 +548,6 @@ export class SessionManager {
     // 删除索引 >= keepCount 的会话
     for (let i = keepCount; i < sessions.length; i++) {
       await this.deleteSession(sessions[i].id);
-    }
-  }
-
-  /**
-   * 清理过期会话
-   *
-   * @param olderThan - 清理早于此日期的会话
-   */
-  async cleanSessions(olderThan: Date): Promise<void> {
-    const sessions = await this.listSessions();
-
-    for (const session of sessions) {
-      if (session.createdAt < olderThan) {
-        await this.deleteSession(session.id);
-      }
     }
   }
 
@@ -621,35 +582,7 @@ export class SessionManager {
     session.messages.push(newMessage);
     session.lastAccessedAt = new Date();
 
-    await this.saveSession(session);
-
     return newMessage;
-  }
-
-  /**
-   * 更新会话上下文
-   *
-   * @param session - 会话
-   * @param context - 新的上下文（部分更新）
-   */
-  async updateContext(session: Session, context: Partial<SessionContext>): Promise<void> {
-    session.context = {
-      ...session.context,
-      ...context,
-    };
-    session.lastAccessedAt = new Date();
-
-    await this.saveSession(session);
-  }
-
-  /**
-   * 标记会话为过期
-   *
-   * @param session - 会话
-   */
-  async markExpired(session: Session): Promise<void> {
-    session.expired = true;
-    await this.saveSession(session);
   }
 
   /**

@@ -1066,7 +1066,7 @@ describe('handleForkCommand 方法', () => {
 
       // 验证调用
       expect(mockSessionManager.forkSession).toHaveBeenCalledWith('current-session');
-      expect(mockSessionManager.saveSession).toHaveBeenCalledWith(activeSessionData);
+      expect(mockSessionManager.saveSession).toHaveBeenCalledWith(forkedSessionData);
       expect(mockStreamingQueryManager.endSession).toHaveBeenCalled();
       expect(mockStreamingQueryManager.startSession).toHaveBeenCalledWith(forkedSessionData);
 

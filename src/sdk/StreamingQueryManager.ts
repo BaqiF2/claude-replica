@@ -12,7 +12,7 @@
  * - isProcessing(): 检查是否正在处理消息
  */
 
-import { Session } from '../core/SessionManager';
+import { Session, SessionManager } from '../core/SessionManager';
 import { MessageRouter } from '../core/MessageRouter';
 import {
   SDKQueryExecutor,
@@ -220,6 +220,8 @@ export interface StreamingQueryManagerOptions {
   messageRouter: MessageRouter;
   /** SDK 查询执行器 */
   sdkExecutor: SDKQueryExecutor;
+  /** 会话管理器 */
+  sessionManager: SessionManager;
   /** 工具调用回调 - 当检测到工具调用时触发 */
   onToolUse?: (info: ToolUseInfo) => void;
   /** 工具结果回调 - 当检测到工具结果时触发 */
@@ -247,6 +249,8 @@ export class StreamingQueryManager {
   private readonly messageRouter: MessageRouter;
   /** SDK 查询执行器 */
   private readonly sdkExecutor: SDKQueryExecutor;
+  /** 会话管理器 */
+  private readonly sessionManager: SessionManager;
   /** 工具调用回调 */
   private readonly onToolUse?: (info: ToolUseInfo) => void;
   /** 工具结果回调 */
@@ -274,6 +278,7 @@ export class StreamingQueryManager {
   constructor(options: StreamingQueryManagerOptions) {
     this.messageRouter = options.messageRouter;
     this.sdkExecutor = options.sdkExecutor;
+    this.sessionManager = options.sessionManager;
     this.onToolUse = options.onToolUse;
     this.onToolResult = options.onToolResult;
     this.onAssistantText = options.onAssistantText;
@@ -591,6 +596,13 @@ export class StreamingQueryManager {
       // 使用 LiveMessageGenerator 创建持久消息流
       const messageGenerator = this.liveGenerator.generate();
 
+      // 添加调试日志
+      if (process.env.DEBUG_SESSION) {
+        console.log(`New Query instance created: 
+              (resume: ${hasExistingSession ? 'yes' : 'no'}) sessionId: ${sessionId} forkSession=${this.forkSession}`
+        );
+      }
+
       // 执行流式查询并保存 query 实例
       const sdkResult = await this.sdkExecutor.executeStreaming(messageGenerator, {
         model: queryOptions.model,
@@ -619,31 +631,25 @@ export class StreamingQueryManager {
         onQueryCreated: (queryInstance) => {
           this.queryInstance = queryInstance;
           this.messageRouter.setQueryInstance(queryInstance);
+        },
+        // 会话保存回调 - 在 SDK 返回 system init 消息时触发
+        onSessionSave: async (sdkSessionId: string) => {
+          if (this.activeSession && sdkSessionId !== this.activeSession.session.sdkSessionId) {
+            this.activeSession.session.sdkSessionId = sdkSessionId;
+            await this.sessionManager.saveSession(this.activeSession.session);
 
-          // 添加调试日志
-          if (process.env.DEBUG_SESSION) {
-            console.log(`[StreamingQueryManager] New Query instance created: ${queryInstance?.sessionId || 'unknown'} (resume: ${hasExistingSession ? 'yes' : 'no'})`);
+            // 添加调试日志
+            if (process.env.DEBUG_SESSION) {
+              console.log(
+                `[StreamingQueryManager] Saved SDK session ID: ${sdkSessionId} for session: ${this.activeSession.session.id}`
+              );
+            }
           }
         },
       });
 
       // 保存结果
       this.lastResult = sdkResult;
-
-      // 保存 SDK 会话 ID 到会话对象（如果存在且不同）
-      if (this.activeSession && sdkResult && sdkResult.sessionId && sdkResult.sessionId !== this.activeSession.session.sdkSessionId) {
-        this.activeSession.session.sdkSessionId = sdkResult.sessionId;
-
-        // 添加调试日志
-        if (process.env.DEBUG_SESSION) {
-          console.log(`[StreamingQueryManager] Saved SDK session ID: ${sdkResult.sessionId} for session: ${this.activeSession.session.id}`);
-        }
-      } else {
-        // 添加调试日志
-        if (process.env.DEBUG_SESSION) {
-          console.log(`[StreamingQueryManager] SDK session ID not saved: sdkResult=${!!sdkResult}, sessionId=${sdkResult?.sessionId}, current=${this.activeSession?.session.sdkSessionId}`);
-        }
-      }
 
       // 恢复空闲状态
       if (this.activeSession) {

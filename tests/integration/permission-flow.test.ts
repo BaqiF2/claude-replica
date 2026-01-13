@@ -77,6 +77,7 @@ import { PermissionUIImpl } from '../../src/ui/PermissionUIImpl';
 import { MessageRouter } from '../../src/core/MessageRouter';
 import { StreamingQueryManager } from '../../src/sdk/StreamingQueryManager';
 import { SDKQueryExecutor } from '../../src/sdk/SDKQueryExecutor';
+import { SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import type { PermissionMode } from '../../src/permissions';
 import type { QuestionInput } from '../../src/permissions/PermissionUI';
@@ -89,6 +90,7 @@ describe('Permission Flow Integration Tests', () => {
   let permissionUI: PermissionUIImpl;
   let messageRouter: MessageRouter;
   let streamingQueryManager: StreamingQueryManager;
+  let sessionManager: SessionManager;
   let configManager: ConfigManager;
   let sdkExecutor: SDKQueryExecutor;
   let testDir: string;
@@ -132,10 +134,14 @@ describe('Permission Flow Integration Tests', () => {
     // Initialize SDK executor
     sdkExecutor = new SDKQueryExecutor();
 
+    // Initialize session manager
+    sessionManager = new SessionManager(path.join(testDir, 'sessions'));
+
     // Initialize streaming query manager
     streamingQueryManager = new StreamingQueryManager({
       messageRouter,
       sdkExecutor,
+      sessionManager,
     });
   });
 

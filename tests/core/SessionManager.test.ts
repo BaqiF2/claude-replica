@@ -117,6 +117,9 @@ describe('SessionManager', () => {
         content: '你好！有什么可以帮助你的？',
       });
 
+      // 保存会话
+      await sessionManager.saveSession(session);
+
       // 重新加载会话
       const loadedSession = await sessionManager.loadSession(session.id);
 
@@ -135,10 +138,13 @@ describe('SessionManager', () => {
 
   describe('listSessions', () => {
     it('应该列出所有会话', async () => {
-      // 创建多个会话
-      await sessionManager.createSession('/project1');
-      await sessionManager.createSession('/project2');
-      await sessionManager.createSession('/project3');
+      // 创建并保存多个会话
+      const s1 = await sessionManager.createSession('/project1');
+      await sessionManager.saveSession(s1);
+      const s2 = await sessionManager.createSession('/project2');
+      await sessionManager.saveSession(s2);
+      const s3 = await sessionManager.createSession('/project3');
+      await sessionManager.saveSession(s3);
 
       const sessions = await sessionManager.listSessions();
 
@@ -147,17 +153,20 @@ describe('SessionManager', () => {
 
     it('应该按最后访问时间排序', async () => {
       const session1 = await sessionManager.createSession('/project1');
-      
+      await sessionManager.saveSession(session1);
+
       // 等待一小段时间确保时间戳不同
       await new Promise(resolve => setTimeout(resolve, 10));
-      
+
       const session2 = await sessionManager.createSession('/project2');
+      await sessionManager.saveSession(session2);
 
       // 等待一小段时间
       await new Promise(resolve => setTimeout(resolve, 10));
 
-      // 访问 session1 使其成为最近访问的
-      await sessionManager.loadSession(session1.id);
+      // 访问 session1 使其成为最近访问的，然后保存
+      const loaded = await sessionManager.loadSession(session1.id);
+      await sessionManager.saveSession(loaded!);
 
       const sessions = await sessionManager.listSessions();
 
@@ -166,43 +175,20 @@ describe('SessionManager', () => {
     });
   });
 
-  describe('getRecentSession', () => {
-    it('应该返回最近的非过期会话', async () => {
-      const session1 = await sessionManager.createSession('/project1');
-
-      // 等待一小段时间确保时间戳不同
-      await new Promise(resolve => setTimeout(resolve, 10));
-
-      await sessionManager.createSession('/project2');
-
-      // 等待一小段时间
-      await new Promise(resolve => setTimeout(resolve, 10));
-
-      // 访问 session1
-      await sessionManager.loadSession(session1.id);
-
-      const recentSession = await sessionManager.getRecentSession();
-
-      expect(recentSession).not.toBeNull();
-      expect(recentSession!.id).toBe(session1.id);
-    });
-
-    it('没有会话时应该返回 null', async () => {
-      const recentSession = await sessionManager.getRecentSession();
-      expect(recentSession).toBeNull();
-    });
-  });
 
   describe('listRecentSessions', () => {
     it('应该按创建时间倒序排列返回会话', async () => {
-      // 创建 3 个会话，每个之间间隔一小段时间
+      // 创建并保存 3 个会话，每个之间间隔一小段时间
       const session1 = await sessionManager.createSession('/project1');
+      await sessionManager.saveSession(session1);
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const session2 = await sessionManager.createSession('/project2');
+      await sessionManager.saveSession(session2);
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const session3 = await sessionManager.createSession('/project3');
+      await sessionManager.saveSession(session3);
 
       const recentSessions = await sessionManager.listRecentSessions();
 
@@ -214,10 +200,11 @@ describe('SessionManager', () => {
     });
 
     it('会话数量超过限制时应该只返回指定数量', async () => {
-      // 创建 5 个会话
+      // 创建并保存 5 个会话
       const sessions = [];
       for (let i = 0; i < 5; i++) {
         const session = await sessionManager.createSession(`/project${i + 1}`);
+        await sessionManager.saveSession(session);
         sessions.push(session);
         await new Promise(resolve => setTimeout(resolve, 10));
       }
@@ -233,10 +220,12 @@ describe('SessionManager', () => {
     });
 
     it('会话数量少于限制时应该返回所有会话', async () => {
-      // 创建 2 个会话
+      // 创建并保存 2 个会话
       const session1 = await sessionManager.createSession('/project1');
+      await sessionManager.saveSession(session1);
       await new Promise(resolve => setTimeout(resolve, 10));
       const session2 = await sessionManager.createSession('/project2');
+      await sessionManager.saveSession(session2);
 
       // 限制为 10 个
       const recentSessions = await sessionManager.listRecentSessions(10);
@@ -254,9 +243,10 @@ describe('SessionManager', () => {
     });
 
     it('默认限制应该为 10', async () => {
-      // 创建 12 个会话
+      // 创建并保存 12 个会话
       for (let i = 0; i < 12; i++) {
-        await sessionManager.createSession(`/project${i + 1}`);
+        const s = await sessionManager.createSession(`/project${i + 1}`);
+        await sessionManager.saveSession(s);
         await new Promise(resolve => setTimeout(resolve, 5));
       }
 
@@ -267,8 +257,10 @@ describe('SessionManager', () => {
     });
 
     it('limit 为 0 时应该返回空数组', async () => {
-      await sessionManager.createSession('/project1');
-      await sessionManager.createSession('/project2');
+      const s1 = await sessionManager.createSession('/project1');
+      await sessionManager.saveSession(s1);
+      const s2 = await sessionManager.createSession('/project2');
+      await sessionManager.saveSession(s2);
 
       const recentSessions = await sessionManager.listRecentSessions(0);
 
@@ -276,26 +268,13 @@ describe('SessionManager', () => {
     });
   });
 
-  describe('cleanSessions', () => {
-    it('应该清理早于指定日期的会话', async () => {
-      await sessionManager.createSession('/project1');
-      await sessionManager.createSession('/project2');
-
-      // 清理所有会话（使用未来的日期）
-      const futureDate = new Date(Date.now() + 1000 * 60 * 60);
-      await sessionManager.cleanSessions(futureDate);
-
-      const sessions = await sessionManager.listSessions();
-      expect(sessions.length).toBe(0);
-    });
-  });
-
   describe('cleanOldSessions', () => {
     it('应该保留最近创建的 N 个会话，删除其余会话', async () => {
-      // 创建 5 个会话，每个之间间隔一小段时间
+      // 创建并保存 5 个会话，每个之间间隔一小段时间
       const sessions = [];
       for (let i = 0; i < 5; i++) {
         const session = await sessionManager.createSession(`/project${i + 1}`);
+        await sessionManager.saveSession(session);
         sessions.push(session);
         await new Promise(resolve => setTimeout(resolve, 10));
       }
@@ -320,10 +299,12 @@ describe('SessionManager', () => {
     });
 
     it('会话数量少于保留数量时不应该删除任何会话', async () => {
-      // 创建 2 个会话
+      // 创建并保存 2 个会话
       const session1 = await sessionManager.createSession('/project1');
+      await sessionManager.saveSession(session1);
       await new Promise(resolve => setTimeout(resolve, 10));
       const session2 = await sessionManager.createSession('/project2');
+      await sessionManager.saveSession(session2);
 
       // 尝试保留 5 个会话（大于实际数量）
       await sessionManager.cleanOldSessions(5);
@@ -345,10 +326,13 @@ describe('SessionManager', () => {
     });
 
     it('keepCount 为 0 时应该删除所有会话', async () => {
-      // 创建 3 个会话
-      await sessionManager.createSession('/project1');
-      await sessionManager.createSession('/project2');
-      await sessionManager.createSession('/project3');
+      // 创建并保存 3 个会话
+      const s1 = await sessionManager.createSession('/project1');
+      await sessionManager.saveSession(s1);
+      const s2 = await sessionManager.createSession('/project2');
+      await sessionManager.saveSession(s2);
+      const s3 = await sessionManager.createSession('/project3');
+      await sessionManager.saveSession(s3);
 
       // 保留 0 个会话（删除所有）
       await sessionManager.cleanOldSessions(0);
@@ -359,10 +343,11 @@ describe('SessionManager', () => {
     });
 
     it('默认保留数量应该为 10', async () => {
-      // 创建 15 个会话
+      // 创建并保存 15 个会话
       const sessions = [];
       for (let i = 0; i < 15; i++) {
         const session = await sessionManager.createSession(`/project${i + 1}`);
+        await sessionManager.saveSession(session);
         sessions.push(session);
         await new Promise(resolve => setTimeout(resolve, 5));
       }
@@ -380,17 +365,21 @@ describe('SessionManager', () => {
     });
 
     it('应该验证会话按创建时间排序而不是按最后访问时间', async () => {
-      // 创建 3 个会话
+      // 创建并保存 3 个会话
       const session1 = await sessionManager.createSession('/project1');
+      await sessionManager.saveSession(session1);
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const session2 = await sessionManager.createSession('/project2');
+      await sessionManager.saveSession(session2);
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const session3 = await sessionManager.createSession('/project3');
+      await sessionManager.saveSession(session3);
 
       // 访问 session1 使其成为最近访问的
-      await sessionManager.loadSession(session1.id);
+      const loaded = await sessionManager.loadSession(session1.id);
+      await sessionManager.saveSession(loaded!);
 
       // 保留 2 个会话
       await sessionManager.cleanOldSessions(2);
@@ -407,10 +396,11 @@ describe('SessionManager', () => {
     });
 
     it('应该处理保留数量等于现有会话数量的场景', async () => {
-      // 创建 4 个会话
+      // 创建并保存 4 个会话
       const sessions = [];
       for (let i = 0; i < 4; i++) {
         const session = await sessionManager.createSession(`/project${i + 1}`);
+        await sessionManager.saveSession(session);
         sessions.push(session);
         await new Promise(resolve => setTimeout(resolve, 10));
       }
@@ -426,10 +416,11 @@ describe('SessionManager', () => {
     });
 
     it('应该正确处理保留 1 个会话的场景', async () => {
-      // 创建 5 个会话
+      // 创建并保存 5 个会话
       const sessions = [];
       for (let i = 0; i < 5; i++) {
         const session = await sessionManager.createSession(`/project${i + 1}`);
+        await sessionManager.saveSession(session);
         sessions.push(session);
         await new Promise(resolve => setTimeout(resolve, 10));
       }
@@ -466,10 +457,11 @@ describe('SessionManager', () => {
       });
 
       // 设置源会话的上下文和代理
-      await sessionManager.updateContext(sourceSession, {
-        projectConfig: { model: 'claude-3-opus' },
-        activeAgents: [{ name: 'test-agent', description: 'Test agent', prompt: 'Test prompt' }],
-      });
+      sourceSession.context.projectConfig = { model: 'claude-3-opus' };
+      sourceSession.context.activeAgents = [{ name: 'test-agent', description: 'Test agent', prompt: 'Test prompt' }];
+
+      // 保存源会话
+      await sessionManager.saveSession(sourceSession);
 
       // 执行分叉
       const forkedSession = await sessionManager.forkSession(sourceSession.id);
@@ -500,6 +492,9 @@ describe('SessionManager', () => {
       // 验证 sdkSessionId 未被复制
       expect(forkedSession.sdkSessionId).toBeUndefined();
 
+      // 保存分叉会话以计算统计信息
+      await sessionManager.saveSession(forkedSession);
+
       // 验证统计信息自动计算
       expect(forkedSession.stats).toBeDefined();
       expect(forkedSession.stats!.messageCount).toBe(2);
@@ -524,10 +519,11 @@ describe('SessionManager', () => {
         },
       });
 
-      await sessionManager.updateContext(sourceSession, {
-        projectConfig: { model: 'claude-3-sonnet' },
-        activeAgents: [{ name: 'agent1', description: 'Desc', prompt: 'Prompt', tools: ['tool1'] }],
-      });
+      sourceSession.context.projectConfig = { model: 'claude-3-sonnet' };
+      sourceSession.context.activeAgents = [{ name: 'agent1', description: 'Desc', prompt: 'Prompt', tools: ['tool1'] }];
+
+      // 保存源会话
+      await sessionManager.saveSession(sourceSession);
 
       const forkedSession = await sessionManager.forkSession(sourceSession.id);
 
@@ -555,7 +551,9 @@ describe('SessionManager', () => {
 
     it('应该验证父会话 ID 正确设置', async () => {
       const parentSession = await sessionManager.createSession('/test/parent');
+      await sessionManager.saveSession(parentSession);
       const childSession = await sessionManager.forkSession(parentSession.id);
+      await sessionManager.saveSession(childSession);
 
       // 验证 childSession 的 parentSessionId 指向父会话
       expect(childSession.parentSessionId).toBe(parentSession.id);
@@ -602,6 +600,7 @@ describe('SessionManager', () => {
 
     it('应该验证快照目录未被复制', async () => {
       const sourceSession = await sessionManager.createSession('/test/project');
+      await sessionManager.saveSession(sourceSession);
 
       // 手动在源会话目录中创建快照文件
       const sourceSessionDir = path.join(sessionManager.getSessionsDir(), sourceSession.id);
@@ -611,6 +610,7 @@ describe('SessionManager', () => {
 
       // 执行分叉
       const forkedSession = await sessionManager.forkSession(sourceSession.id);
+      await sessionManager.saveSession(forkedSession);
 
       // 验证分叉会话的快照目录存在但为空
       const forkedSessionDir = path.join(sessionManager.getSessionsDir(), forkedSession.id);
@@ -646,6 +646,9 @@ describe('SessionManager', () => {
         ],
       });
 
+      // 保存源会话
+      await sessionManager.saveSession(sourceSession);
+
       const forkedSession = await sessionManager.forkSession(sourceSession.id);
 
       // 验证内容块被正确复制
@@ -659,6 +662,9 @@ describe('SessionManager', () => {
       expect(contentBlocks[2].type).toBe('tool_use');
       expect(contentBlocks[2].name).toBe('read_file');
 
+      // 保存分叉会话以计算统计信息
+      await sessionManager.saveSession(forkedSession);
+
       // 验证统计信息正确处理内容块
       expect(forkedSession.stats).toBeDefined();
       expect(forkedSession.stats!.lastMessagePreview).toBe('First text block');
@@ -670,8 +676,12 @@ describe('SessionManager', () => {
 
     it('分叉空会话（无消息）应该成功', async () => {
       const sourceSession = await sessionManager.createSession('/test/empty');
+      await sessionManager.saveSession(sourceSession);
 
       const forkedSession = await sessionManager.forkSession(sourceSession.id);
+
+      // 保存分叉会话以计算统计信息
+      await sessionManager.saveSession(forkedSession);
 
       // 验证基本属性
       expect(forkedSession.parentSessionId).toBe(sourceSession.id);
@@ -694,6 +704,7 @@ describe('SessionManager', () => {
         role: 'user',
         content: '原始消息',
       });
+      await sessionManager.saveSession(sourceSession);
 
       const forkedSession = await sessionManager.forkSession(sourceSession.id);
 
@@ -702,12 +713,14 @@ describe('SessionManager', () => {
         role: 'user',
         content: '源会话新消息',
       });
+      await sessionManager.saveSession(sourceSession);
 
       // 在分叉会话中添加不同消息
       await sessionManager.addMessage(forkedSession, {
         role: 'user',
         content: '分叉会话新消息',
       });
+      await sessionManager.saveSession(forkedSession);
 
       // 重新加载两个会话验证独立性
       const reloadedSource = await sessionManager.loadSession(sourceSession.id);
@@ -756,31 +769,6 @@ describe('SessionManager', () => {
     });
   });
 
-  describe('updateContext', () => {
-    it('应该更新会话上下文', async () => {
-      const session = await sessionManager.createSession('/project');
-
-      await sessionManager.updateContext(session, {
-        projectConfig: { model: 'claude-3-opus' },
-      });
-
-      expect(session.context.projectConfig.model).toBe('claude-3-opus');
-    });
-  });
-
-  describe('markExpired', () => {
-    it('应该标记会话为过期', async () => {
-      const session = await sessionManager.createSession('/project');
-
-      await sessionManager.markExpired(session);
-
-      expect(session.expired).toBe(true);
-
-      // 重新加载验证
-      const loadedSession = await sessionManager.loadSession(session.id);
-      expect(loadedSession!.expired).toBe(true);
-    });
-  });
 });
 
 /**
@@ -804,14 +792,15 @@ describe('属性测试: 会话恢复的完整性', () => {
           );
 
           // 更新上下文
-          await sessionManager.updateContext(session, {
-            activeAgents: context.activeAgents,
-          });
+          session.context.activeAgents = context.activeAgents;
 
           // 添加消息
           for (const msg of messages) {
             await sessionManager.addMessage(session, msg);
           }
+
+          // 保存会话
+          await sessionManager.saveSession(session);
 
           // 重新加载会话
           const loadedSession = await sessionManager.loadSession(session.id);
@@ -891,6 +880,9 @@ describe('属性测试: 会话过期的时效性', () => {
     const session = await sessionManager.createSession('/test/project');
 
     expect(session.expired).toBe(false);
+
+    // 保存会话
+    await sessionManager.saveSession(session);
 
     const loadedSession = await sessionManager.loadSession(session.id);
     expect(loadedSession!.expired).toBe(false);
@@ -977,6 +969,9 @@ describe('属性测试: 会话消息持久化 (Property 6)', () => {
             usage: usage,
           });
 
+          // 保存会话
+          await sessionManager.saveSession(session);
+
           // 重新加载会话
           const loadedSession = await sessionManager.loadSession(session.id);
 
@@ -1044,6 +1039,9 @@ describe('属性测试: 会话消息持久化 (Property 6)', () => {
             });
           }
 
+          // 保存会话
+          await sessionManager.saveSession(session);
+
           // 重新加载会话
           const loadedSession = await sessionManager.loadSession(session.id);
 
@@ -1103,6 +1101,9 @@ describe('属性测试: 会话消息持久化 (Property 6)', () => {
             // 小延迟确保时间戳递增
             await new Promise(resolve => setTimeout(resolve, 1));
           }
+
+          // 保存会话
+          await sessionManager.saveSession(session);
 
           // 重新加载会话
           const loadedSession = await sessionManager.loadSession(session.id);
@@ -1245,20 +1246,12 @@ describe('接口扩展: Session 和 SessionMetadata', () => {
 
       await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
 
-      // 使用内部方法加载会话（不更新访问时间，不保存）以验证向后兼容性
-      const loadedSessionInternal = await (sessionManager as any).loadSessionInternal(session.id);
-
-      expect(loadedSessionInternal).not.toBeNull();
-      // loadSessionInternal 加载时 stats 和 parentSessionId 应该是 undefined（因为 metadata 中没有这些字段）
-      expect(loadedSessionInternal!.stats).toBeUndefined();
-      expect(loadedSessionInternal!.parentSessionId).toBeUndefined();
-
-      // 但通过 loadSession 加载（会调用 saveSession）会自动计算 stats
+      // 加载会话验证向后兼容性（缺少 stats 和 parentSessionId 的旧会话应该能正常加载）
       const loadedSession = await sessionManager.loadSession(session.id);
 
       expect(loadedSession).not.toBeNull();
-      expect(loadedSession!.stats).toBeDefined();
-      expect(loadedSession!.stats!.messageCount).toBe(0);
+      // 旧会话没有 stats 和 parentSessionId，加载后应该是 undefined
+      expect(loadedSession!.stats).toBeUndefined();
       expect(loadedSession!.parentSessionId).toBeUndefined();
 
       await sessionManager.deleteSession(session.id);

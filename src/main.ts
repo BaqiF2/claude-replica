@@ -266,6 +266,7 @@ export class Application {
     this.streamingQueryManager = new StreamingQueryManager({
       messageRouter: this.messageRouter,
       sdkExecutor: this.sdkExecutor,
+      sessionManager: this.sessionManager,
       onThinking: (content) => {
         if (this.ui) {
           this.ui.stopComputing();
@@ -405,9 +406,6 @@ export class Application {
         role: 'user',
         content: message,
       });
-
-      // 保存会话（包含可能的 sdkSessionId 更新）
-      await this.sessionManager.saveSession(currentSession);
     } catch (error) {
       if (this.ui) {
         this.ui.stopComputing();
@@ -585,12 +583,12 @@ Available commands:
         );
       }
 
-      // 保存当前会话
-      if (this.streamingQueryManager) {
-        const activeSession = this.streamingQueryManager.getActiveSession();
-        if (activeSession && activeSession.session) {
-          await this.sessionManager.saveSession(activeSession.session);
-        }
+      // 获取当前活动会话
+      const currentSession = this.streamingQueryManager?.getActiveSession();
+
+      // 保存当前会话（如果存在）
+      if (currentSession?.session) {
+        await this.sessionManager.saveSession(currentSession.session);
       }
 
       // 结束当前会话
@@ -645,8 +643,8 @@ Available commands:
       // 分叉当前会话
       const forkedSession = await this.sessionManager.forkSession(activeSession.session.id);
 
-      // 保存原会话
-      await this.sessionManager.saveSession(activeSession.session);
+      // 保存新创建的分叉会话
+      await this.sessionManager.saveSession(forkedSession);
 
       // 结束当前会话
       this.streamingQueryManager?.endSession();
@@ -820,14 +818,6 @@ MCP commands:
 
       if (sdkResult.isError) {
         throw new Error(sdkResult.errorMessage || 'Query execution failed');
-      }
-
-      if (sdkResult.sessionId && sdkResult.sessionId !== session.sdkSessionId) {
-        session.sdkSessionId = sdkResult.sessionId;
-        await this.sessionManager.saveSession(session);
-        await this.logger.debug('already save SDK session ID', {
-          sdkSessionId: sdkResult.sessionId,
-        });
       }
 
       await this.sessionManager.addMessage(session, {

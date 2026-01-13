@@ -120,6 +120,7 @@ describe('/fork 命令集成测试', () => {
     streamingQueryManager = new StreamingQueryManager({
       messageRouter,
       sdkExecutor,
+      sessionManager,
     });
   });
 
@@ -249,7 +250,10 @@ describe('/fork 命令集成测试', () => {
       // 2. 分叉会话
       const forkedSession = await sessionManager.forkSession(currentSession.id);
 
-      // 3. 验证统计信息被复制
+      // 3. 保存分叉会话以计算统计信息
+      await sessionManager.saveSession(forkedSession);
+
+      // 4. 验证统计信息被复制
       expect(forkedSession.stats).toBeDefined();
       expect(forkedSession.stats?.totalInputTokens).toBe(100);
       expect(forkedSession.stats?.totalOutputTokens).toBe(50);
@@ -275,7 +279,10 @@ describe('/fork 命令集成测试', () => {
       // 3. 分叉会话
       const forkedSession = await sessionManager.forkSession(currentSession.id);
 
-      // 4. 验证 sdkSessionId 未被复制
+      // 4. 保存分叉会话以创建快照目录
+      await sessionManager.saveSession(forkedSession);
+
+      // 5. 验证 sdkSessionId 未被复制
       expect(forkedSession.sdkSessionId).toBeUndefined();
 
       // 5. 验证分叉会话有自己的 snapshots 目录（空的）
@@ -476,7 +483,10 @@ describe('/fork 命令集成测试', () => {
 
       const forkedSession = await sessionManager.forkSession(originalSession.id);
 
-      // 2. 重新加载分叉会话
+      // 2. 保存分叉会话
+      await sessionManager.saveSession(forkedSession);
+
+      // 3. 重新加载分叉会话
       const reloadedSession = await sessionManager.loadSession(forkedSession.id);
 
       // 3. 验证加载成功且数据完整
@@ -502,10 +512,12 @@ describe('/fork 命令集成测试', () => {
 
       // 2. 第一次分叉
       const fork1 = await sessionManager.forkSession(originalSession.id);
+      await sessionManager.saveSession(fork1);
       expect(fork1.parentSessionId).toBe(originalSession.id);
 
       // 3. 从第一次分叉再次分叉
       const fork2 = await sessionManager.forkSession(fork1.id);
+      await sessionManager.saveSession(fork2);
       expect(fork2.parentSessionId).toBe(fork1.id);
       expect(fork2.messages.length).toBe(fork1.messages.length);
 
