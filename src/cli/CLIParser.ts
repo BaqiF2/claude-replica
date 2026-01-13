@@ -328,14 +328,12 @@ claude-replica - Claude Code 智能代码助手命令行工具
 
 交互模式命令 (仅在交互模式下可用):
   /resume                          恢复之前的会话
-  /fork                            分叉当前会话
 
 示例:
   claude-replica                   启动交互式会话
   claude-replica -p "解释这段代码"  非交互模式查询
   claude-replica --model haiku     使用 Haiku 模型
   /resume                          在交互模式下恢复会话
-  /fork                            在交互模式下分叉会话
 `.trim();
   }
 

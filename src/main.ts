@@ -398,7 +398,7 @@ export class Application {
         return;
       }
 
-      // 获取当前活跃会话（可能被 resume/fork 更新）
+      // 获取当前活跃会话（可能被 resume 更新）
       const activeSession = this.streamingQueryManager!.getActiveSession();
       const currentSession = activeSession?.session || session;
 
@@ -428,9 +428,6 @@ export class Application {
         break;
       case 'resume':
         await this.handleResumeCommand();
-        break;
-      case 'fork':
-        await this.handleForkCommand();
         break;
       case 'config':
         await this.showConfig();
@@ -617,51 +614,6 @@ Available commands:
     }
   }
 
-  /**
-   * 处理 /fork 命令，分叉当前活动会话
-   *
-   * 仅在交互模式中可用，创建当前会话的分叉副本。
-   * 分叉会话继承所有消息、上下文和统计信息，但拥有新的会话 ID。
-   */
-  private async handleForkCommand(): Promise<void> {
-    // 验证是否在交互模式中
-    if (!this.ui) {
-      console.log('Warning: /fork command is only available in interactive mode');
-      return;
-    }
-
-    // 获取当前活动会话
-    const activeSession = this.streamingQueryManager?.getActiveSession();
-
-    // 如果没有活动会话，显示提示并返回
-    if (!activeSession || !activeSession.session) {
-      console.log('No active session to fork');
-      return;
-    }
-
-    try {
-      // 分叉当前会话
-      const forkedSession = await this.sessionManager.forkSession(activeSession.session.id);
-
-      // 保存新创建的分叉会话
-      await this.sessionManager.saveSession(forkedSession);
-
-      // 结束当前会话
-      this.streamingQueryManager?.endSession();
-
-      // 切换到新的分叉会话
-      this.streamingQueryManager?.startSession(forkedSession);
-
-      // 显示成功消息
-      console.log(
-        `\nForked session: ${forkedSession.id} (from parent: ${forkedSession.parentSessionId}) 🔀`
-      );
-    } catch (error) {
-      console.error(
-        `Failed to fork session: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
 
   private showMCPCommandHelp(subcommand?: string): void {
     if (subcommand) {
