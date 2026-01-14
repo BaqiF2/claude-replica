@@ -118,9 +118,7 @@ export class PermissionPanel {
   /**
    * Show permission panel in non-TTY mode (sequential display)
    */
-  private async showSequentialPanel(
-    request: ToolPermissionRequest
-  ): Promise<PermissionUIResult> {
+  private async showSequentialPanel(request: ToolPermissionRequest): Promise<PermissionUIResult> {
     // Sequential display (no ANSI positioning)
     this.output.write('\n');
     this.output.write('═══════════════════════════════════════\n');

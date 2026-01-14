@@ -457,7 +457,6 @@ export class HookManager {
     }
   }
 
-
   /**
    * 清除所有钩子配置
    */

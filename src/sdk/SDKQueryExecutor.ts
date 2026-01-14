@@ -537,7 +537,12 @@ export class SDKQueryExecutor {
         }
 
         // 检测 system init 消息并触发会话保存
-        if (message.type === 'system' && message.subtype === 'init' && sessionId && options.onSessionSave) {
+        if (
+          message.type === 'system' &&
+          message.subtype === 'init' &&
+          sessionId &&
+          options.onSessionSave
+        ) {
           await options.onSessionSave(sessionId);
         }
 

@@ -45,9 +45,6 @@ const arbSessionContext = fc.record({
     model: fc.option(fc.string({ minLength: 1, maxLength: 50 }), { nil: undefined }),
     maxTurns: fc.option(fc.integer({ min: 1, max: 100 }), { nil: undefined }),
   }),
-  userConfig: fc.record({
-    model: fc.option(fc.string({ minLength: 1, maxLength: 50 }), { nil: undefined }),
-  }),
   activeAgents: fc.array(arbAgent, { maxLength: 3 }),
 });
 
@@ -90,16 +87,13 @@ describe('SessionManager', () => {
     it('应该使用提供的配置创建会话', async () => {
       const workingDir = '/test/project';
       const projectConfig = { model: 'claude-3-5-sonnet' };
-      const userConfig = { maxTurns: 10 };
 
       const session = await sessionManager.createSession(
         workingDir,
-        projectConfig,
-        userConfig
+        projectConfig
       );
 
       expect(session.context.projectConfig).toEqual(projectConfig);
-      expect(session.context.userConfig).toEqual(userConfig);
     });
   });
 
@@ -787,8 +781,7 @@ describe('属性测试: 会话恢复的完整性', () => {
           // 创建会话
           const session = await sessionManager.createSession(
             context.workingDirectory,
-            context.projectConfig,
-            context.userConfig
+            context.projectConfig
           );
 
           // 更新上下文

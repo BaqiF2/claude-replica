@@ -644,7 +644,6 @@ describe('启动时自动清理旧会话', () => {
         JSON.stringify({
           workingDirectory: '/test',
           projectConfig: {},
-          userConfig: {},
           activeAgents: [],
         }, null, 2),
         'utf-8'
@@ -716,7 +715,6 @@ describe('启动时自动清理旧会话', () => {
         JSON.stringify({
           workingDirectory: '/test',
           projectConfig: {},
-          userConfig: {},
           activeAgents: [],
         }, null, 2),
         'utf-8'
@@ -778,7 +776,6 @@ describe('启动时自动清理旧会话', () => {
         JSON.stringify({
           workingDirectory: '/test',
           projectConfig: {},
-          userConfig: {},
           activeAgents: [],
         }, null, 2),
         'utf-8'

@@ -167,8 +167,9 @@ const DEFAULT_MODEL = process.env.CLAUDE_REPLICA_DEFAULT_MODEL || 'sonnet';
  * - 构建 SDK 查询选项
  */
 export class MessageRouter {
-  /** 配置管理器 */
-  private readonly configManager: ConfigManager;
+  /** 配置管理器（保留接口兼容性） */
+  // @ts-expect-error - Unused but kept for interface compatibility
+  private readonly _configManager: ConfigManager;
   /** 工具注册表 */
   private readonly toolRegistry: ToolRegistry;
   /** 权限管理器 */
@@ -183,7 +184,7 @@ export class MessageRouter {
   private mcpServers?: Record<string, McpServerConfig>;
 
   constructor(options: MessageRouterOptions) {
-    this.configManager = options.configManager;
+    this._configManager = options.configManager;
     this.toolRegistry = options.toolRegistry || new ToolRegistry();
     this.permissionManager = options.permissionManager;
 
@@ -421,15 +422,13 @@ export class MessageRouter {
    * @returns 启用的工具名称数组
    */
   getEnabledToolNames(session: Session): string[] {
-    const { projectConfig, userConfig } = session.context;
+    const { projectConfig } = session.context;
 
-    // 合并用户和项目配置
-    const mergedConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
-    const disallowedSet = new Set(mergedConfig.disallowedTools ?? []);
+    const disallowedSet = new Set(projectConfig.disallowedTools ?? []);
 
     // 获取基础工具列表
     let tools: string[] = [];
-    const configuredAllowedTools = mergedConfig.allowedTools ?? [];
+    const configuredAllowedTools = projectConfig.allowedTools ?? [];
 
     if (configuredAllowedTools.length > 0) {
       const seen = new Set<string>();
@@ -444,7 +443,7 @@ export class MessageRouter {
       }
     } else {
       tools = this.toolRegistry.getEnabledTools({
-        disallowedTools: mergedConfig.disallowedTools,
+        disallowedTools: projectConfig.disallowedTools,
       });
     }
 
@@ -639,10 +638,7 @@ When you're ready to implement your plan, use the ExitPlanMode tool.
    * @returns 查询选项
    */
   async buildQueryOptions(session: Session): Promise<QueryOptions> {
-    const { projectConfig, userConfig } = session.context;
-
-    // 合并用户和项目配置
-    const mergedConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
+    const { projectConfig } = session.context;
 
     // 获取系统提示词选项（SDK 预设格式）
     const systemPrompt = this.getSystemPromptOptions(session);
@@ -652,7 +648,7 @@ When you're ready to implement your plan, use the ExitPlanMode tool.
 
     // 获取启用的工具
     const allowedTools =
-      mergedConfig.allowedTools && mergedConfig.allowedTools.length > 0
+      projectConfig.allowedTools && projectConfig.allowedTools.length > 0
         ? this.getEnabledToolNames(session)
         : undefined;
 
@@ -664,20 +660,20 @@ When you're ready to implement your plan, use the ExitPlanMode tool.
 
     // 构建选项
     const options: QueryOptions = {
-      model: mergedConfig.model || DEFAULT_MODEL,
+      model: projectConfig.model || DEFAULT_MODEL,
       systemPrompt,
       settingSources,
       allowedTools,
-      disallowedTools: mergedConfig.disallowedTools,
+      disallowedTools: projectConfig.disallowedTools,
       cwd: session.workingDirectory,
-      permissionMode: mergedConfig.permissionMode || 'default',
+      permissionMode: projectConfig.permissionMode || 'default',
       canUseTool,
       agents: Object.keys(agents).length > 0 ? agents : undefined,
-      maxTurns: mergedConfig.maxTurns,
-      maxBudgetUsd: mergedConfig.maxBudgetUsd,
-      maxThinkingTokens: mergedConfig.maxThinkingTokens,
-      enableFileCheckpointing: mergedConfig.enableFileCheckpointing,
-      sandbox: mergedConfig.sandbox,
+      maxTurns: projectConfig.maxTurns,
+      maxBudgetUsd: projectConfig.maxBudgetUsd,
+      maxThinkingTokens: projectConfig.maxThinkingTokens,
+      enableFileCheckpointing: projectConfig.enableFileCheckpointing,
+      sandbox: projectConfig.sandbox,
     };
 
     // 添加 MCP 服务器配置

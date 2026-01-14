@@ -1,20 +1,17 @@
 /**
- * 文件功能：SDK 配置加载模块，负责加载和合并用户级、项目级配置，构建 SDK Options
+ * 文件功能：SDK 配置加载模块，负责加载项目级配置，构建 SDK Options
  *
  * 核心类：
  * - SDKConfigLoader: SDK 配置加载器核心类
  *
  * 核心方法：
- * - loadUserConfig(): 加载用户级配置
  * - loadProjectConfig(): 加载项目级配置
- * - mergeConfigs(): 合并多个配置源
- * - buildSDKOptions(): 构建 SDK 兼容的选项对象
+ * - buildOptionsWithSettingSources(): 构建 SDK 兼容的选项对象
  * - loadClaudeMd(): 加载 CLAUDE.md 文件内容
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 
 /**
  * 钩子事件类型
@@ -174,12 +171,10 @@ export interface SDKOptions {
   sandbox?: SandboxSettings;
 }
 
-const MCP_DOC_URL = 'https://platform.claude.com/docs/zh-CN/agent-sdk/mcp';
-
 /**
- * 用户/项目配置接口（从配置文件加载的原始格式）
+ * 项目配置接口
  */
-export interface UserConfig {
+export interface ProjectConfig {
   model?: string;
   maxTurns?: number;
   maxBudgetUsd?: number;
@@ -193,52 +188,15 @@ export interface UserConfig {
   hooks?: Partial<Record<HookEvent, HookConfig[]>>;
   sandbox?: SandboxSettings;
   enableFileCheckpointing?: boolean;
-}
-
-/**
- * 项目配置接口（扩展用户配置）
- */
-export interface ProjectConfig extends UserConfig {
   projectName?: string;
 }
 
 /**
  * SDK 配置加载器
  *
- * 负责从用户目录和项目目录加载配置，并合并为可用的配置对象
+ * 负责从项目目录加载配置
  */
 export class SDKConfigLoader {
-  /** 用户配置目录 */
-  private readonly userConfigDir: string;
-
-  constructor() {
-    // claude 配置目录
-    this.userConfigDir = path.join(os.homedir(), '.claude');
-  }
-
-  /**
-   * 加载用户级配置
-   *
-   * 从 ~/.claude/settings.json 读取配置
-   *
-   * @returns 用户配置对象
-   */
-  async loadUserConfig(): Promise<UserConfig> {
-    const configPath = path.join(this.userConfigDir, 'settings.json');
-
-    if (!(await this.fileExists(configPath))) {
-      return {};
-    }
-
-    try {
-      const content = await fs.readFile(configPath, 'utf-8');
-      return this.parseConfig(content);
-    } catch (error) {
-      console.warn(`Warning: Unable to load user configuration ${configPath}:`, error);
-      return {};
-    }
-  }
-
   /**
    * 加载项目级配置
    *
@@ -299,7 +257,7 @@ export class SDKConfigLoader {
    * @param content - JSON 配置文件内容
    * @returns 解析后的配置对象
    */
-  private parseConfig(content: string): UserConfig {
+  private parseConfig(content: string): ProjectConfig {
     const json = JSON.parse(content);
     const hasLegacyMcpServers = Object.prototype.hasOwnProperty.call(json, 'mcpServers');
     return {
@@ -315,42 +273,6 @@ export class SDKConfigLoader {
       hooks: json.hooks,
       sandbox: json.sandbox,
       enableFileCheckpointing: json.enableFileCheckpointing,
-    };
-  }
-
-  /**
-   * 合并配置
-   *
-   * 项目配置覆盖用户配置，遵循优先级规则
-   *
-   * @param userConfig - 用户配置
-   * @param projectConfig - 项目配置
-   * @returns 合并后的配置
-   */
-  mergeConfigs(userConfig: UserConfig, projectConfig: UserConfig): UserConfig {
-    this.warnLegacyMcpServers(userConfig, projectConfig);
-
-    return {
-      // 基本配置：项目覆盖用户
-      model: projectConfig.model ?? userConfig.model,
-      maxTurns: projectConfig.maxTurns ?? userConfig.maxTurns,
-      maxBudgetUsd: projectConfig.maxBudgetUsd ?? userConfig.maxBudgetUsd,
-      maxThinkingTokens: projectConfig.maxThinkingTokens ?? userConfig.maxThinkingTokens,
-      permissionMode: projectConfig.permissionMode ?? userConfig.permissionMode,
-      enableFileCheckpointing:
-        projectConfig.enableFileCheckpointing ?? userConfig.enableFileCheckpointing,
-
-      // 工具配置：项目配置优先，否则使用用户配置
-      allowedTools: projectConfig.allowedTools ?? userConfig.allowedTools,
-
-      // disallowedTools 合并（两者都禁用的工具）
-      disallowedTools: this.mergeArrays(userConfig.disallowedTools, projectConfig.disallowedTools),
-
-      agents: this.mergeObjects(userConfig.agents, projectConfig.agents),
-
-      hooks: this.mergeHooks(userConfig.hooks, projectConfig.hooks),
-
-      sandbox: this.mergeSandbox(userConfig.sandbox, projectConfig.sandbox),
     };
   }
 
@@ -415,99 +337,6 @@ export class SDKConfigLoader {
   }
 
   /**
-   * 合并数组（去重）
-   *
-   * @param arr1 - 第一个数组
-   * @param arr2 - 第二个数组
-   * @returns 合并后的数组
-   */
-  private mergeArrays(arr1?: string[], arr2?: string[]): string[] | undefined {
-    if (!arr1 && !arr2) return undefined;
-    const merged = new Set([...(arr1 || []), ...(arr2 || [])]);
-    return Array.from(merged);
-  }
-
-  /**
-   * 合并对象
-   *
-   * @param obj1 - 第一个对象
-   * @param obj2 - 第二个对象
-   * @returns 合并后的对象
-   */
-  private mergeObjects<T extends Record<string, unknown>>(obj1?: T, obj2?: T): T | undefined {
-    if (!obj1 && !obj2) return undefined;
-    return {
-      ...obj1,
-      ...obj2,
-    } as T;
-  }
-
-  /**
-   * 合并钩子配置
-   *
-   * @param userHooks - 用户钩子配置
-   * @param projectHooks - 项目钩子配置
-   * @returns 合并后的钩子配置
-   */
-  private mergeHooks(
-    userHooks?: Partial<Record<HookEvent, HookConfig[]>>,
-    projectHooks?: Partial<Record<HookEvent, HookConfig[]>>
-  ): Partial<Record<HookEvent, HookConfig[]>> | undefined {
-    if (!userHooks && !projectHooks) return undefined;
-
-    const result: Partial<Record<HookEvent, HookConfig[]>> = {};
-
-    // 获取所有钩子事件
-    const allEvents = new Set([
-      ...Object.keys(userHooks || {}),
-      ...Object.keys(projectHooks || {}),
-    ]) as Set<HookEvent>;
-
-    for (const event of allEvents) {
-      result[event] = [...(userHooks?.[event] || []), ...(projectHooks?.[event] || [])];
-    }
-
-    return result;
-  }
-
-  /**
-   * 合并沙箱配置
-   *
-   * @param userSandbox - 用户沙箱配置
-   * @param projectSandbox - 项目沙箱配置
-   * @returns 合并后的沙箱配置
-   */
-  private mergeSandbox(
-    userSandbox?: SandboxSettings,
-    projectSandbox?: SandboxSettings
-  ): SandboxSettings | undefined {
-    if (!userSandbox && !projectSandbox) return undefined;
-
-    return {
-      ...userSandbox,
-      ...projectSandbox,
-      // 排除命令列表合并
-      excludedCommands: this.mergeArrays(
-        userSandbox?.excludedCommands,
-        projectSandbox?.excludedCommands
-      ),
-      // 网络设置深度合并
-      network: {
-        ...userSandbox?.network,
-        ...projectSandbox?.network,
-        allowedDomains: this.mergeArrays(
-          userSandbox?.network?.allowedDomains,
-          projectSandbox?.network?.allowedDomains
-        ),
-        blockedDomains: this.mergeArrays(
-          userSandbox?.network?.blockedDomains,
-          projectSandbox?.network?.blockedDomains
-        ),
-      },
-    };
-  }
-
-  /**
    * 检查文件是否存在
    *
    * @param filePath - 文件路径
@@ -520,31 +349,5 @@ export class SDKConfigLoader {
     } catch {
       return false;
     }
-  }
-
-  private warnLegacyMcpServers(userConfig: UserConfig, projectConfig: UserConfig): void {
-    const sources: string[] = [];
-    if (userConfig.legacyMcpServers) {
-      sources.push(`User settings (${path.join(this.userConfigDir, 'settings.json')})`);
-    }
-    if (projectConfig.legacyMcpServers) {
-      sources.push('Project settings (.claude/settings.json)');
-    }
-    if (sources.length === 0) {
-      return;
-    }
-
-    console.warn(
-      '[MCP] Deprecated mcpServers detected in settings.json. Please migrate to .mcp.json per single-source policy.'
-    );
-    console.warn(`[MCP] Detected in: ${sources.join(', ')}`);
-    console.warn(
-      '[MCP] Migration steps:\n' +
-        '  1. Create a project root .mcp.json with { "mcpServers": {} }.\n' +
-        '  2. Move the mcpServers block from settings.json into .mcp.json, keeping server names/transports.\n' +
-        '  3. Remove the mcpServers field from settings.json to avoid repeated warnings.\n' +
-        `  4. Restart Claude Replica and verify .mcp.json is loaded (see ${MCP_DOC_URL}).\n` +
-        '  5. Keep all MCP configuration within .mcp.json going forward.'
-    );
   }
 }

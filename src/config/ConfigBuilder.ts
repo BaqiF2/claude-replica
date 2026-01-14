@@ -26,11 +26,11 @@ export class ConfigBuilder {
    * CLI 选项优先级高于配置文件
    *
    * @param options - CLI 解析出的选项
-   * @param mergedConfig - 已合并的配置（用户 + 项目）
+   * @param projectConfig - 已合并的配置（用户 + 项目）
    * @returns 最终合并的配置
    */
-  build(options: CLIOptions, mergedConfig: ProjectConfig): ProjectConfig {
-    const result = { ...mergedConfig };
+  build(options: CLIOptions, projectConfig: ProjectConfig): ProjectConfig {
+    const result = { ...projectConfig };
 
     // CLI 选项覆盖配置文件中的值
     if (options.model) result.model = options.model;

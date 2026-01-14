@@ -115,7 +115,6 @@ export class Application {
       }
 
       return await this.runInteractive(options);
-
     } catch (error) {
       return this.errorHandler.handle(error);
     }
@@ -139,21 +138,21 @@ export class Application {
   }
 
   private async initialize(options: CLIOptions): Promise<void> {
-
     await this.logger.init();
     await this.logger.info('Application started', { args: process.argv.slice(2) });
 
     await this.configManager.ensureUserConfigDir();
-    const userConfig = await this.configManager.loadUserConfig();
 
     const workingDir = process.cwd();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    const baseConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
-    const mergedConfig = this.configBuilder.build(options, baseConfig);
-
+    const mergedConfig = this.configBuilder.build(options, projectConfig);
     const permissionConfig = this.configBuilder.buildPermissionConfig(options, mergedConfig);
     const permissionUI = new PermissionUIImpl();
-    this.permissionManager = new PermissionManager(permissionConfig, permissionUI, this.toolRegistry);
+    this.permissionManager = new PermissionManager(
+      permissionConfig,
+      permissionUI,
+      this.toolRegistry
+    );
 
     this.messageRouter = new MessageRouter({
       configManager: this.configManager,
@@ -338,7 +337,6 @@ export class Application {
       context: {
         workingDirectory: process.cwd(),
         projectConfig: {},
-        userConfig: {},
         activeAgents: [],
       },
       expired: false,
@@ -363,9 +361,8 @@ export class Application {
     const workingDir = process.cwd();
 
     await this.logger.debug('create new session');
-    const userConfig = await this.configManager.loadUserConfig();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    return this.sessionManager.createSession(workingDir, projectConfig, userConfig);
+    return this.sessionManager.createSession(workingDir, projectConfig);
   }
 
   private async handleUserMessage(message: string, session: Session): Promise<void> {
@@ -502,12 +499,10 @@ Available commands:
   }
 
   private async showConfig(): Promise<void> {
-    const userConfig = await this.configManager.loadUserConfig();
     const projectConfig = await this.configManager.loadProjectConfig(process.cwd());
-    const merged = this.configManager.mergeConfigs(userConfig, projectConfig);
 
     console.log('\nCurrent configuration:');
-    console.log(JSON.stringify(merged, null, 2));
+    console.log(JSON.stringify(projectConfig, null, 2));
     console.log('');
   }
 
@@ -586,8 +581,16 @@ Available commands:
         forkSession = await this.ui.showConfirmationMenu(
           `选择会话恢复方式`,
           [
-            { key: 'c', label: '继续原会话 (使用相同SDK会话)', description: '保持SDK会话ID，继续在原会话中对话' },
-            { key: 'n', label: '创建新分支 (生成新SDK会话)', description: '创建新分支，拥有独立的SDK会话ID' },
+            {
+              key: 'c',
+              label: '继续原会话 (使用相同SDK会话)',
+              description: '保持SDK会话ID，继续在原会话中对话',
+            },
+            {
+              key: 'n',
+              label: '创建新分支 (生成新SDK会话)',
+              description: '创建新分支，拥有独立的SDK会话ID',
+            },
           ],
           'c'
         );
@@ -618,7 +621,9 @@ Available commands:
           console.log(`\nResumed session: ${selectedSession.id}${forkIndicator}`);
         }
       } else {
-        console.log(`\nContinuing session: ${selectedSession.id}${forkIndicator} (new SDK session)`);
+        console.log(
+          `\nContinuing session: ${selectedSession.id}${forkIndicator} (new SDK session)`
+        );
       }
     } catch (error) {
       console.error(
@@ -626,7 +631,6 @@ Available commands:
       );
     }
   }
-
 
   private showMCPCommandHelp(subcommand?: string): void {
     if (subcommand) {

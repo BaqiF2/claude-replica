@@ -16,12 +16,7 @@
 export { main, Application } from './main';
 
 // CLI 组件
-export {
-  CLIParser,
-  CLIOptions,
-  CLIParseError,
-  SettingSource,
-} from './cli/CLIParser';
+export { CLIParser, CLIOptions, CLIParseError, SettingSource } from './cli/CLIParser';
 
 // 核心组件
 export {
@@ -64,7 +59,6 @@ export {
   ConfigManager,
   SDKConfigLoader,
   SDKOptions,
-  UserConfig,
   ProjectConfig,
   AgentDefinition,
   SandboxSettings,
@@ -133,12 +127,7 @@ export {
 } from './plugins';
 
 // UI 组件
-export {
-  InteractiveUI,
-  InteractiveUIOptions,
-  MessageRole,
-  MenuItem,
-} from './ui';
+export { InteractiveUI, InteractiveUIOptions, MessageRole, MenuItem } from './ui';
 
 // 输出组件
 export {

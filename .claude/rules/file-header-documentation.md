@@ -17,47 +17,6 @@
 ### 3. 作用说明
 为每个核心类和方法提供简短的作用说明（一句话概括即可）。
 
-## 文档格式示例
-
-### TypeScript 文件示例
-
-```typescript
-/**
- * 文件功能：会话管理模块，负责创建、保存、加载和清理用户会话
- *
- * 核心类：
- * - SessionManager: 会话生命周期管理器
- *
- * 核心方法：
- * - createSession(): 创建新会话实例
- * - loadSession(): 从磁盘加载指定会话数据
- * - saveSession(): 持久化会话到本地存储
- * - cleanExpiredSessions(): 清理过期会话
- * - resumeSession(): 恢复现有会话并支持 SDK 会话续接
- */
-
-export class SessionManager {
-  // 实现代码...
-}
-```
-
-### JavaScript 文件示例
-
-```javascript
-/**
- * 文件功能：工具函数集合，提供字符串处理、日期格式化等通用功能
- *
- * 核心方法：
- * - formatDate(): 将日期格式化为指定字符串格式
- * - sanitizeInput(): 清理用户输入，移除危险字符
- * - parseTemplate(): 模板变量替换
- */
-
-export function formatDate(date, format) {
-  // 实现代码...
-}
-```
-
 ## 适用范围
 
 - 所有 src/ 目录下的源代码文件

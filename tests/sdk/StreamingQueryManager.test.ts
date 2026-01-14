@@ -38,7 +38,7 @@ function createMockSession(workingDirectory: string = '/test/project'): Session 
     context: {
       workingDirectory,
       projectConfig: {},
-      userConfig: {},
+      
       activeAgents: [],
     },
     expired: false,

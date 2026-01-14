@@ -424,7 +424,6 @@ export class RewindManager {
     return [...this.snapshots];
   }
 
-
   /**
    * 删除快照
    *
@@ -459,7 +458,6 @@ export class RewindManager {
     this.snapshots = [];
     this.log('已清除所有快照');
   }
-
 
   /**
    * 比较当前文件状态与快照

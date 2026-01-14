@@ -290,7 +290,6 @@ export class ToolRegistry {
     return this.toolMetadata.get(toolName);
   }
 
-
   /**
    * 检查工具是否为危险工具
    *

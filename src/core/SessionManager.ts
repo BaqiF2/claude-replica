@@ -20,7 +20,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
-import { ProjectConfig, UserConfig } from '../config/SDKConfigLoader';
+import { ProjectConfig } from '../config/SDKConfigLoader';
 
 /**
  * 消息内容块类型
@@ -95,7 +95,6 @@ export interface Agent {
 export interface SessionContext {
   workingDirectory: string;
   projectConfig: ProjectConfig;
-  userConfig: UserConfig;
   activeAgents: Agent[];
 }
 
@@ -142,8 +141,7 @@ export interface SessionMetadata {
 const SESSION_EXPIRY_MS = parseInt(process.env.SESSION_EXPIRY_HOURS || '5', 10) * 60 * 60 * 1000;
 
 const SESSION_BASE_DIR =
-  process.env.CLAUDE_REPLICA_SESSIONS_DIR ||
-  path.join(os.homedir(), '.claude-replica', 'sessions');
+  process.env.CLAUDE_REPLICA_SESSIONS_DIR || path.join(os.homedir(), '.claude-replica', 'sessions');
 
 /**
  * 会话管理器
@@ -249,14 +247,9 @@ export class SessionManager {
    *
    * @param workingDir - 工作目录
    * @param projectConfig - 项目配置（可选）
-   * @param userConfig - 用户配置（可选）
    * @returns 新创建的会话
    */
-  async createSession(
-    workingDir: string,
-    projectConfig: ProjectConfig = {},
-    userConfig: UserConfig = {}
-  ): Promise<Session> {
+  async createSession(workingDir: string, projectConfig: ProjectConfig = {}): Promise<Session> {
     await this.ensureSessionsDir();
 
     const now = new Date();
@@ -268,7 +261,6 @@ export class SessionManager {
       context: {
         workingDirectory: workingDir,
         projectConfig,
-        userConfig,
         activeAgents: [],
       },
       expired: false,
@@ -377,7 +369,6 @@ export class SessionManager {
       let context: SessionContext = {
         workingDirectory: metadata.workingDirectory,
         projectConfig: {},
-        userConfig: {},
         activeAgents: [],
       };
       try {
@@ -412,7 +403,6 @@ export class SessionManager {
     }
   }
 
-
   /**
    * 加载会话
    *
@@ -429,7 +419,6 @@ export class SessionManager {
 
     return session;
   }
-
 
   /**
    * 列出所有会话
@@ -460,7 +449,6 @@ export class SessionManager {
       return [];
     }
   }
-
 
   /**
    * 获取最近创建的会话列表
@@ -518,7 +506,6 @@ export class SessionManager {
         ...sourceSession.context,
         workingDirectory: sourceSession.context.workingDirectory,
         projectConfig: { ...sourceSession.context.projectConfig },
-        userConfig: { ...sourceSession.context.userConfig },
         activeAgents: sourceSession.context.activeAgents.map((agent) => ({ ...agent })),
       },
       expired: false,

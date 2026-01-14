@@ -5,7 +5,6 @@
 export {
   SDKConfigLoader,
   SDKOptions,
-  UserConfig,
   ProjectConfig,
   PermissionMode,
   HookEvent,

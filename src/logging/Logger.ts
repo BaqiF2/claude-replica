@@ -58,5 +58,4 @@ export class Logger {
   info = (message: string, data?: unknown) => this.log('info', message, data);
   warn = (message: string, data?: unknown) => this.log('warn', message, data);
   error = (message: string, data?: unknown) => this.log('error', message, data);
-
 }

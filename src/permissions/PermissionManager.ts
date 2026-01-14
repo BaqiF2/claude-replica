@@ -82,11 +82,7 @@ export class PermissionManager {
   /** 权限 UI 接口 */
   private permissionUI: PermissionUI;
 
-  constructor(
-    config: PermissionConfig,
-    permissionUI: PermissionUI,
-    toolRegistry?: ToolRegistry
-  ) {
+  constructor(config: PermissionConfig, permissionUI: PermissionUI, toolRegistry?: ToolRegistry) {
     this.config = { ...config };
     this.permissionUI = permissionUI;
     this.toolRegistry = toolRegistry || new ToolRegistry();

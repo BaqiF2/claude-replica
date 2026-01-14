@@ -451,7 +451,9 @@ export class InteractiveUI extends EventEmitter {
     if (this.rl) {
       // 生产环境：使用 readline 统一输入处理
       while (true) {
-        const answer = await this.promptRaw(`${this.colorize('?', 'yellow')} 请选择 (0-${snapshots.length}): `);
+        const answer = await this.promptRaw(
+          `${this.colorize('?', 'yellow')} 请选择 (0-${snapshots.length}): `
+        );
 
         if (answer === null) {
           return null;
@@ -532,9 +534,10 @@ export class InteractiveUI extends EventEmitter {
 
       // 显示消息预览
       if (session.stats?.lastMessagePreview) {
-        const preview = session.stats.lastMessagePreview.length > 60
-          ? session.stats.lastMessagePreview.substring(0, 60) + '...'
-          : session.stats.lastMessagePreview;
+        const preview =
+          session.stats.lastMessagePreview.length > 60
+            ? session.stats.lastMessagePreview.substring(0, 60) + '...'
+            : session.stats.lastMessagePreview;
         this.writeLine(`      ${this.colorize(preview, 'gray')}`);
       }
     });
@@ -545,7 +548,9 @@ export class InteractiveUI extends EventEmitter {
     if (this.rl) {
       // 生产环境：使用 readline 统一输入处理
       while (true) {
-        const answer = await this.promptRaw(`${this.colorize('?', 'yellow')} 请选择 (0-${sessions.length}): `);
+        const answer = await this.promptRaw(
+          `${this.colorize('?', 'yellow')} 请选择 (0-${sessions.length}): `
+        );
 
         if (answer === null) {
           return null;
@@ -632,14 +637,16 @@ export class InteractiveUI extends EventEmitter {
     // 使用 readline（生产环境）或 raw listener（测试环境）
     if (this.rl) {
       while (true) {
-        const answer = await this.promptRaw(`${this.colorize('?', 'yellow')} 请选择 (${options.map(o => o.key).join('/')}): `);
+        const answer = await this.promptRaw(
+          `${this.colorize('?', 'yellow')} 请选择 (${options.map((o) => o.key).join('/')}): `
+        );
 
         if (answer === null) {
           return false;
         }
 
         const trimmed = answer.trim().toLowerCase();
-        const matchedOption = options.find(o => o.key.toLowerCase() === trimmed);
+        const matchedOption = options.find((o) => o.key.toLowerCase() === trimmed);
 
         if (matchedOption) {
           return matchedOption.key === 'n' || matchedOption.key === 'N';
@@ -652,19 +659,24 @@ export class InteractiveUI extends EventEmitter {
     } else {
       // 测试环境：使用 raw listener
       return new Promise((resolve) => {
-        const prompt = `${this.colorize('?', 'yellow')} 请选择 (${options.map(o => o.key).join('/')}): `;
+        const prompt = `${this.colorize('?', 'yellow')} 请选择 (${options.map((o) => o.key).join('/')}): `;
         this.write(prompt);
 
         const handleInput = (data: Buffer) => {
           const input = data.toString().trim().toLowerCase();
-          const matchedOption = options.find(o => o.key.toLowerCase() === input);
+          const matchedOption = options.find((o) => o.key.toLowerCase() === input);
 
           if (matchedOption) {
             this.writeLine(this.colorize(`✓ 已选择: ${matchedOption.label}`, 'green'));
             this.input.removeListener('data', handleInput);
             resolve(matchedOption.key === 'n' || matchedOption.key === 'N');
           } else if (defaultKey && input === '') {
-            this.writeLine(this.colorize(`✓ 已选择: ${options.find(o => o.key === defaultKey)?.label}`, 'green'));
+            this.writeLine(
+              this.colorize(
+                `✓ 已选择: ${options.find((o) => o.key === defaultKey)?.label}`,
+                'green'
+              )
+            );
             this.input.removeListener('data', handleInput);
             resolve(defaultKey === 'n' || defaultKey === 'N');
           } else {
@@ -1078,9 +1090,7 @@ export class InteractiveUI extends EventEmitter {
       tokensDisplay = totalTokens.toString();
     }
 
-    const costDisplay = stats.totalCostUsd >= 0.01
-      ? `$${stats.totalCostUsd.toFixed(3)}`
-      : '$0';
+    const costDisplay = stats.totalCostUsd >= 0.01 ? `$${stats.totalCostUsd.toFixed(3)}` : '$0';
 
     return `(${stats.messageCount} 条消息, ${tokensDisplay} tokens, ${costDisplay})`;
   }

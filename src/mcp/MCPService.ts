@@ -102,8 +102,7 @@ export class MCPService {
       }
     }
 
-    const detail =
-      errors.length > 0 ? `: ${errors.map((error) => error.message).join('; ')}` : '';
+    const detail = errors.length > 0 ? `: ${errors.map((error) => error.message).join('; ')}` : '';
     throw new Error(`No available editor found${detail}`);
   }
 
@@ -184,12 +183,7 @@ export class MCPService {
       transportCounts[transportType] += 1;
     }
 
-    return this.buildValidationResult(
-      configPath,
-      errors,
-      serverEntries.length,
-      transportCounts
-    );
+    return this.buildValidationResult(configPath, errors, serverEntries.length, transportCounts);
   }
 
   private buildValidationResult(

@@ -239,7 +239,6 @@ export class MCPManager {
     return Object.keys(this.config);
   }
 
-
   /**
    * 获取服务器详细信息列表
    *

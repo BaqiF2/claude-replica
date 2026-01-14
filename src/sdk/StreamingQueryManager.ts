@@ -297,7 +297,9 @@ export class StreamingQueryManager {
   startSession(session: Session): StreamingSession {
     // 添加调试日志
     if (process.env.DEBUG_SESSION) {
-      console.log(`[StreamingQueryManager] startSession: sessionId=${session.id}, previousActiveSession=${this.activeSession?.session.id || 'none'}`);
+      console.log(
+        `[StreamingQueryManager] startSession: sessionId=${session.id}, previousActiveSession=${this.activeSession?.session.id || 'none'}`
+      );
     }
 
     // 如果已有活跃会话，先结束
@@ -322,7 +324,9 @@ export class StreamingQueryManager {
 
     // 添加调试日志
     if (process.env.DEBUG_SESSION) {
-      console.log(`[StreamingQueryManager] startSession completed: sessionId=${session.id}, executionPromise=${this.executionPromise}, queryInstance=${this.queryInstance ? 'exists' : 'null'}`);
+      console.log(
+        `[StreamingQueryManager] startSession completed: sessionId=${session.id}, executionPromise=${this.executionPromise}, queryInstance=${this.queryInstance ? 'exists' : 'null'}`
+      );
     }
 
     return streamingSession;
@@ -367,7 +371,9 @@ export class StreamingQueryManager {
     try {
       // 添加调试日志
       if (process.env.DEBUG_SESSION) {
-        console.log(`[StreamingQueryManager] sendMessage: sessionId=${this.activeSession.session.id}, executionPromise=${this.executionPromise ? 'exists' : 'null'}`);
+        console.log(
+          `[StreamingQueryManager] sendMessage: sessionId=${this.activeSession.session.id}, executionPromise=${this.executionPromise ? 'exists' : 'null'}`
+        );
       }
 
       // 使用 MessageRouter 构建流式消息（处理图像引用）
@@ -405,7 +411,9 @@ export class StreamingQueryManager {
       if (!this.executionPromise) {
         // 添加调试日志
         if (process.env.DEBUG_SESSION) {
-          console.log(`[StreamingQueryManager] Starting new execution for session: ${this.activeSession.session.id}`);
+          console.log(
+            `[StreamingQueryManager] Starting new execution for session: ${this.activeSession.session.id}`
+          );
         }
         this.executionPromise = this.startExecution();
       }
@@ -500,7 +508,9 @@ export class StreamingQueryManager {
 
     // 添加调试日志
     if (process.env.DEBUG_SESSION) {
-      console.log(`[StreamingQueryManager] endSession: sessionId=${sessionId}, executionPromise=${this.executionPromise ? 'exists' : 'null'}, queryInstance=${this.queryInstance ? 'exists' : 'null'}`);
+      console.log(
+        `[StreamingQueryManager] endSession: sessionId=${sessionId}, executionPromise=${this.executionPromise ? 'exists' : 'null'}, queryInstance=${this.queryInstance ? 'exists' : 'null'}`
+      );
     }
 
     if (this.liveGenerator) {
@@ -526,7 +536,9 @@ export class StreamingQueryManager {
 
     // 添加调试日志
     if (process.env.DEBUG_SESSION) {
-      console.log(`[StreamingQueryManager] endSession completed: sessionId=${sessionId}, all references cleared`);
+      console.log(
+        `[StreamingQueryManager] endSession completed: sessionId=${sessionId}, all references cleared`
+      );
     }
   }
 
@@ -599,8 +611,7 @@ export class StreamingQueryManager {
       // 添加调试日志
       if (process.env.DEBUG_SESSION) {
         console.log(`New Query instance created: 
-              (resume: ${hasExistingSession ? 'yes' : 'no'}) sessionId: ${sessionId} forkSession=${this.forkSession}`
-        );
+              (resume: ${hasExistingSession ? 'yes' : 'no'}) sessionId: ${sessionId} forkSession=${this.forkSession}`);
       }
 
       // 执行流式查询并保存 query 实例

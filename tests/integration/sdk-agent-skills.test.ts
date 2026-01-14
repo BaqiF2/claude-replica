@@ -50,7 +50,7 @@ describe('SDK SubAgents 集成测试', () => {
   });
 
   const createSession = (projectConfig: ProjectConfig = {}): Promise<Session> =>
-    sessionManager.createSession(tempDir, projectConfig, {});
+    sessionManager.createSession(tempDir, projectConfig);
 
   const createMessageRouter = (): MessageRouter =>
     new MessageRouter({

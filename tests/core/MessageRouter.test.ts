@@ -24,7 +24,6 @@ function createMockSession(overrides: Partial<Session> = {}): Session {
   const defaultContext: SessionContext = {
     workingDirectory: '/test/project',
     projectConfig: {},
-    userConfig: {},
     activeAgents: [],
   };
 
@@ -170,7 +169,7 @@ describe('MessageRouter', () => {
           projectConfig: {
             allowedTools: ['Read', 'Grep'],
           },
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -193,7 +192,7 @@ describe('MessageRouter', () => {
           projectConfig: {
             disallowedTools: ['WebFetch', 'WebSearch'],
           },
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -217,7 +216,7 @@ describe('MessageRouter', () => {
           projectConfig: {
             allowedTools: ['Read', 'mcp__custom-tools-math-calculators__calculator'],
           },
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -371,7 +370,7 @@ describe('MessageRouter', () => {
         context: {
           workingDirectory: '/test/project',
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [
             {
               name: 'reviewer',
@@ -404,7 +403,7 @@ describe('MessageRouter', () => {
         context: {
           workingDirectory: '/test/project',
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [
             {
               name: 'reviewer',
@@ -445,7 +444,7 @@ describe('MessageRouter', () => {
           projectConfig: {
             model: 'claude-sonnet-4-5-20250929',
           },
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -513,7 +512,7 @@ describe('MessageRouter', () => {
           projectConfig: {
             permissionMode: 'acceptEdits',
           },
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -541,7 +540,7 @@ describe('MessageRouter', () => {
         context: {
           workingDirectory: '/test/project',
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -563,7 +562,7 @@ describe('MessageRouter', () => {
         context: {
           workingDirectory: '/test/project',
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [
             {
               name: 'reviewer',
@@ -639,7 +638,7 @@ describe('MessageRouter', () => {
         context: {
           workingDirectory: '/custom/project/path',
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -703,7 +702,7 @@ describe('MessageRouter - 流式消息构建', () => {
         context: {
           workingDirectory: tempDir,
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -745,7 +744,7 @@ describe('MessageRouter - 流式消息构建', () => {
         context: {
           workingDirectory: tempDir,
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -777,7 +776,7 @@ describe('MessageRouter - 流式消息构建', () => {
         context: {
           workingDirectory: tempDir,
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -821,7 +820,7 @@ describe('MessageRouter - 流式消息构建', () => {
         context: {
           workingDirectory: tempDir,
           projectConfig: {},
-          userConfig: {},
+          
           activeAgents: [],
         },
       });
@@ -923,7 +922,7 @@ describe('MessageRouter - Options 接口构建', () => {
             excludedCommands: ['rm -rf /'],
           },
         },
-        userConfig: {},
+        
         activeAgents: [],
       },
     });
@@ -949,7 +948,7 @@ describe('MessageRouter - Options 接口构建', () => {
           maxTurns: 50,
           maxBudgetUsd: 10.0,
         },
-        userConfig: {},
+        
         activeAgents: [],
       },
     });
