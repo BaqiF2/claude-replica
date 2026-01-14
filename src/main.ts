@@ -911,14 +911,3 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
   const app = new Application();
   return app.run(args);
 }
-
-if (require.main === module) {
-  main()
-    .then((exitCode) => {
-      process.exit(exitCode);
-    })
-    .catch((error) => {
-      console.error('fatal error:', error);
-      process.exit(1);
-    });
-}
