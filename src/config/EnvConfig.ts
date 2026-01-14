@@ -4,7 +4,6 @@
  * 核心方法：
  * - getEnvConfig(): 获取环境变量配置
  * - isDebugMode(): 检查是否启用调试模式
- * - validateEnvironment(): 验证环境变量配置
  */
 
 /**
@@ -22,9 +21,6 @@ export const ENV_KEYS = {
   // 核心配置
   CLAUDE_REPLICA_DEBUG: 'CLAUDE_REPLICA_DEBUG',
 
-  // MCP 相关
-  GITHUB_TOKEN: 'GITHUB_TOKEN',
-  DATABASE_URL: 'DATABASE_URL',
 } as const;
 
 /**

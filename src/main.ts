@@ -92,43 +92,61 @@ export class Application {
     this.outputFormatter = new OutputFormatter();
     this.securityManager = new SecurityManager();
     this.sdkExecutor = new SDKQueryExecutor();
+    this.logger = new Logger(this.securityManager);
   }
 
   async run(args: string[]): Promise<number> {
     try {
+      // 1. 解析命令行参数
       const options = this.cliParser.parse(args);
-      this.logger = new Logger(options.verbose, this.securityManager);
-      await this.logger.init();
-      await this.logger.info('Application started', { args });
 
-      if (options.help) {
-        console.log(this.cliParser.getHelpText());
-        return 0;
+      // 2. 早期返回：help/version（无需完整初始化）
+      const earlyExitCode = await this.handleEarlyReturns(options);
+      if (earlyExitCode !== null) {
+        return earlyExitCode;
       }
 
-      if (options.version) {
-        console.log(`claude-replica v${VERSION}`);
-        return 0;
-      }
-
+      // 3. 初始化应用（包括 Logger）
       await this.initialize(options);
 
+      // 4. 执行主逻辑
       if (options.print || options.prompt) {
         return await this.runNonInteractive(options);
       }
 
       return await this.runInteractive(options);
+
     } catch (error) {
       return this.errorHandler.handle(error);
     }
   }
 
+  /**
+   * 处理早期返回（help/version），无需完整应用初始化
+   */
+  private async handleEarlyReturns(options: CLIOptions): Promise<number | null> {
+    if (options.help) {
+      console.log(this.cliParser.getHelpText());
+      return 0;
+    }
+
+    if (options.version) {
+      console.log(`claude-replica v${VERSION}`);
+      return 0;
+    }
+
+    return null;
+  }
+
   private async initialize(options: CLIOptions): Promise<void> {
-    await this.logger.debug('Initializing application...');
+
+    await this.logger.init();
+    await this.logger.info('Application started', { args: process.argv.slice(2) });
+
     await this.configManager.ensureUserConfigDir();
+    const userConfig = await this.configManager.loadUserConfig();
 
     const workingDir = process.cwd();
-    const userConfig = await this.configManager.loadUserConfig();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
     const baseConfig = this.configManager.mergeConfigs(userConfig, projectConfig);
     const mergedConfig = this.configBuilder.build(options, baseConfig);
@@ -787,14 +805,17 @@ MCP commands:
   }
 
   private handleInterrupt(): void {
-    this.logger.info('User interrupted operation');
+    // 异步日志记录在后台静默执行（不阻塞中断流程）
+    this.logger.info('User interrupted operation').catch(() => {});
 
     if (this.streamingQueryManager && this.streamingQueryManager.isProcessing()) {
       const result = this.streamingQueryManager.interruptSession();
       if (result.success) {
-        this.logger.debug('Interrupt signal sent to streaming query manager', {
-          clearedMessages: result.clearedMessages,
-        });
+        this.logger
+          .debug('Interrupt signal sent to streaming query manager', {
+            clearedMessages: result.clearedMessages,
+          })
+          .catch(() => {});
 
         if (this.ui) {
           if (result.clearedMessages > 0) {
@@ -810,7 +831,7 @@ MCP commands:
 
     if (this.currentAbortController) {
       this.currentAbortController.abort();
-      this.logger.debug('Interrupt signal sent to SDK query');
+      this.logger.debug('Interrupt signal sent to SDK query').catch(() => {});
     }
 
     if (this.sdkExecutor.isRunning()) {

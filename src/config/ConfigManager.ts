@@ -65,13 +65,6 @@ export class ConfigManager {
   }
 
   /**
-   * 获取 SDK 配置加载器实例
-   */
-  getLoader(): SDKConfigLoader {
-    return this.loader;
-  }
-
-  /**
    * 加载用户配置
    *
    * @returns 用户配置对象
@@ -134,35 +127,10 @@ export class ConfigManager {
   }
 
   /**
-   * 加载完整的配置
-   *
-   * @param workingDir - 工作目录
-   * @returns 合并后的配置
-   */
-  async loadFullConfig(workingDir: string): Promise<UserConfig> {
-    return this.loader.loadFullConfig(workingDir);
-  }
-
-  /**
    * 确保用户配置目录存在
    */
   async ensureUserConfigDir(): Promise<void> {
     await fs.mkdir(this.userConfigDir, { recursive: true });
-  }
-
-  /**
-   * 获取用户配置目录路径
-   */
-  getUserConfigDir(): string {
-    return this.userConfigDir;
-  }
-
-  /**
-   * 清除配置缓存
-   */
-  clearCache(): void {
-    this.cachedUserConfig = null;
-    this.cachedProjectConfigs.clear();
   }
 
 }
