@@ -408,23 +408,9 @@ MCP (Model Context Protocol) 允许集成外部工具和服务。
 
 ```json
 {
-  "github": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": {
-      "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-    }
-  },
   "filesystem": {
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
-  },
-  "postgres": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-postgres"],
-    "env": {
-      "DATABASE_URL": "${DATABASE_URL}"
-    }
   }
 }
 ```

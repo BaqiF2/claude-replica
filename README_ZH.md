@@ -277,12 +277,9 @@ tools:
 
 ```json
 {
-  "github": {
+  "filesystem": {
     "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": {
-      "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-    }
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
   }
 }
 ```

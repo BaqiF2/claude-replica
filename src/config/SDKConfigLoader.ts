@@ -217,23 +217,6 @@ export class SDKConfigLoader {
   }
 
   /**
-   * 加载完整配置
-   *
-   * @param workingDir - 工作目录路径
-   * @returns 合并后的配置
-   */
-  async loadFullConfig(workingDir: string): Promise<UserConfig> {
-    // 1. 加载用户级配置
-    const userConfig = await this.loadUserConfig();
-
-    // 2. 加载项目级配置
-    const projectConfig = await this.loadProjectConfig(workingDir);
-
-    // 3. 合并配置
-    return this.mergeConfigs(userConfig, projectConfig);
-  }
-
-  /**
    * 加载用户级配置
    *
    * 从 ~/.claude/settings.json 读取配置

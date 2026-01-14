@@ -774,19 +774,9 @@ Model Context Protocol (MCP) 是**标准化的 AI 工具集成协议**,类似于
 **1. 项目级配置 (.mcp.json)**
 ```json
 {
-  "github": {
+  "filesystem": {
     "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": {
-      "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-    }
-  },
-  "database": {
-    "command": "python",
-    "args": ["-m", "mcp_server_postgres"],
-    "env": {
-      "DATABASE_URL": "${DATABASE_URL}"
-    }
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
   }
 }
 ```
@@ -808,9 +798,8 @@ Model Context Protocol (MCP) 是**标准化的 AI 工具集成协议**,类似于
 **3. 命令行添加**
 ```bash
 # 添加 stdio 传输 MCP
-claude mcp add github \
-  --env GITHUB_TOKEN=your-token \
-  -- npx -y @modelcontextprotocol/server-github
+claude mcp add filesystem \
+  -- npx -y @modelcontextprotocol/server-filesystem /path/to/allowed/dir
 
 # 添加 SSE 传输 MCP
 claude mcp add --transport sse myservice https://api.example.com/mcp
@@ -823,8 +812,8 @@ claude mcp add --transport http myapi https://api.example.com/mcp
 
 **开发工具**
 ```bash
-# GitHub
-claude mcp add github --env GITHUB_TOKEN=$TOKEN -- npx -y @modelcontextprotocol/server-github
+# Filesystem
+claude mcp add filesystem -- npx -y @modelcontextprotocol/server-filesystem /path/to/allowed/dir
 
 # GitLab
 claude mcp add gitlab --env GITLAB_TOKEN=$TOKEN -- npx -y @modelcontextprotocol/server-gitlab
@@ -1617,11 +1606,11 @@ claude --mcp-debug
 # 2. 检查 MCP 配置
 /mcp
 
-# 3. 验证环境变量
-echo $GITHUB_TOKEN
+# 3. 验证环境变量（如需要）
+echo $DATABASE_URL
 
 # 4. 测试 MCP 服务器独立运行
-npx -y @modelcontextprotocol/server-github
+npx -y @modelcontextprotocol/server-postgres
 ```
 
 #### 4. 性能问题
@@ -1813,19 +1802,9 @@ $ARGUMENTS          # 命令参数
 #### .mcp.json 模板
 ```json
 {
-  "github": {
+  "filesystem": {
     "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": {
-      "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-    }
-  },
-  "database": {
-    "command": "python",
-    "args": ["-m", "mcp_server_postgres"],
-    "env": {
-      "DATABASE_URL": "${DATABASE_URL}"
-    }
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
   }
 }
 ```
