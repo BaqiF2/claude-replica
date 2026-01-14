@@ -149,7 +149,6 @@ export class Application {
     this.rewindManager = new RewindManager({ workingDir });
     await this.rewindManager.initialize();
 
-    await this.loadExtensions();
     await this.loadCustomExtensions(workingDir);
     await this.initializeCustomTools();
     await this.loadMCPServers(workingDir);
@@ -158,10 +157,6 @@ export class Application {
     await this.cleanOldSessions();
 
     await this.logger.debug('Application initialized');
-  }
-
-  private async loadExtensions(): Promise<void> {
-    // Skills 由 SDK Agent Skills API 自动管理
   }
 
   private async loadCustomExtensions(workingDir: string): Promise<void> {

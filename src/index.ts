@@ -20,8 +20,6 @@ export {
   CLIParser,
   CLIOptions,
   CLIParseError,
-  PermissionMode as CLIPermissionMode,
-  OutputFormat as CLIOutputFormat,
   SettingSource,
 } from './cli/CLIParser';
 
@@ -32,7 +30,6 @@ export {
   SessionContext,
   Message,
   ContentBlock,
-  Agent as SessionAgent,
 } from './core/SessionManager';
 export {
   MessageRouter,
@@ -69,9 +66,6 @@ export {
   SDKOptions,
   UserConfig,
   ProjectConfig,
-  HookEvent as ConfigHookEvent,
-  HookConfig as ConfigHookConfig,
-  McpServerConfig as ConfigMcpServerConfig,
   AgentDefinition,
   SandboxSettings,
 } from './config';
@@ -142,7 +136,6 @@ export {
 export {
   InteractiveUI,
   InteractiveUIOptions,
-  Snapshot as UISnapshot,
   MessageRole,
   MenuItem,
 } from './ui';
@@ -152,7 +145,6 @@ export {
   OutputFormatter,
   OutputFormat,
   VALID_OUTPUT_FORMATS,
-  QueryResult as OutputQueryResult,
   ToolCall,
   JsonOutput,
   StreamJsonOutput,
@@ -191,7 +183,6 @@ export {
 // 沙箱组件
 export {
   SandboxManager,
-  SandboxSettings as SandboxManagerSettings,
   NetworkSandboxSettings,
   SandboxIgnoreViolations,
   ViolationType,

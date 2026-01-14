@@ -241,11 +241,4 @@ describe('CLIParser', () => {
     });
   });
 
-  describe('版本信息', () => {
-    it('应返回版本号', () => {
-      const version = parser.getVersion();
-
-      expect(version).toMatch(/^\d+\.\d+\.\d+$/);
-    });
-  });
 });

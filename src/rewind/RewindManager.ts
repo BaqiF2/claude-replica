@@ -424,27 +424,6 @@ export class RewindManager {
     return [...this.snapshots];
   }
 
-  /**
-   * 获取指定快照
-   *
-   * @param snapshotId - 快照 ID
-   * @returns 快照，如果不存在则返回 null
-   */
-  async getSnapshot(snapshotId: string): Promise<Snapshot | null> {
-    await this.initialize();
-    return this.snapshots.find((s) => s.id === snapshotId) || null;
-  }
-
-  /**
-   * 根据消息 UUID 获取快照
-   *
-   * @param messageUuid - 消息 UUID
-   * @returns 快照，如果不存在则返回 null
-   */
-  async getSnapshotByMessageUuid(messageUuid: string): Promise<Snapshot | null> {
-    await this.initialize();
-    return this.snapshots.find((s) => s.messageUuid === messageUuid) || null;
-  }
 
   /**
    * 删除快照
@@ -481,34 +460,6 @@ export class RewindManager {
     this.log('已清除所有快照');
   }
 
-  /**
-   * 获取快照数量
-   */
-  async getSnapshotCount(): Promise<number> {
-    await this.initialize();
-    return this.snapshots.length;
-  }
-
-  /**
-   * 获取最大快照数量
-   */
-  getMaxSnapshots(): number {
-    return this.maxSnapshots;
-  }
-
-  /**
-   * 获取工作目录
-   */
-  getWorkingDir(): string {
-    return this.workingDir;
-  }
-
-  /**
-   * 获取快照存储目录
-   */
-  getSnapshotsDir(): string {
-    return this.snapshotsDir;
-  }
 
   /**
    * 比较当前文件状态与快照
@@ -554,36 +505,5 @@ export class RewindManager {
     }
 
     return { modified, added, deleted };
-  }
-
-  /**
-   * 创建用于钩子集成的快照捕获函数
-   *
-   * @returns 快照捕获函数
-   */
-  createSnapshotCapture(): (
-    filePath: string,
-    description: string,
-    messageUuid?: string
-  ) => Promise<Snapshot> {
-    return async (filePath: string, description: string, messageUuid?: string) => {
-      return this.captureSnapshot(description, [filePath], messageUuid);
-    };
-  }
-
-  /**
-   * 批量捕获多个文件的快照
-   *
-   * @param files - 文件路径和描述的映射
-   * @param messageUuid - 关联的消息 UUID（可选）
-   * @returns 创建的快照
-   */
-  async captureMultipleFiles(
-    files: { path: string; description?: string }[],
-    messageUuid?: string
-  ): Promise<Snapshot> {
-    const filePaths = files.map((f) => f.path);
-    const description = files.map((f) => f.description || f.path).join(', ');
-    return this.captureSnapshot(`Modified files: ${description}`, filePaths, messageUuid);
   }
 }

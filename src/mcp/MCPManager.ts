@@ -239,24 +239,6 @@ export class MCPManager {
     return Object.keys(this.config);
   }
 
-  /**
-   * 获取服务器数量
-   *
-   * @returns 服务器数量
-   */
-  getServerCount(): number {
-    return Object.keys(this.config).length;
-  }
-
-  /**
-   * 检查服务器是否存在
-   *
-   * @param name 服务器名称
-   * @returns 是否存在
-   */
-  hasServer(name: string): boolean {
-    return Object.prototype.hasOwnProperty.call(this.config, name);
-  }
 
   /**
    * 获取服务器详细信息列表

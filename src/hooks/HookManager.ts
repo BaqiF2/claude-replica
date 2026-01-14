@@ -457,37 +457,6 @@ export class HookManager {
     }
   }
 
-  /**
-   * 获取指定事件的钩子列表
-   *
-   * @param event 事件类型
-   * @returns 钩子匹配器列表
-   */
-  getHooksForEvent(event: HookEvent): HookMatcher[] {
-    return this.config[event] || [];
-  }
-
-  /**
-   * 检查是否有指定事件的钩子
-   *
-   * @param event 事件类型
-   * @returns 是否有钩子
-   */
-  hasHooksForEvent(event: HookEvent): boolean {
-    const matchers = this.config[event];
-    return !!matchers && matchers.length > 0;
-  }
-
-  /**
-   * 获取所有已配置的事件类型
-   *
-   * @returns 事件类型列表
-   */
-  getConfiguredEvents(): HookEvent[] {
-    return Object.keys(this.config).filter(
-      (event) => this.config[event as HookEvent]?.length ?? 0 > 0
-    ) as HookEvent[];
-  }
 
   /**
    * 清除所有钩子配置

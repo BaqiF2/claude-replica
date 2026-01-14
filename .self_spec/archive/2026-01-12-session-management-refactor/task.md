@@ -6,8 +6,8 @@
 
 ## Reference
 
-- Design: [design.md](./design.md)
-- Specification: [spec.md](./spec.md)
+- Design: [design.md](design.md)
+- Specification: [spec.md](spec.md)
 
 ## 任务
 

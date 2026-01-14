@@ -50,8 +50,8 @@ describe('MCPManager', () => {
     await fs.mkdir(nested, { recursive: true });
     await mcpManager.loadFromProjectRoot(nested);
 
-    expect(mcpManager.getServerCount()).toBe(1);
-    expect(mcpManager.hasServer('filesystem')).toBe(true);
+    expect(mcpManager.getServersInfo()).toHaveLength(1);
+    expect(mcpManager.getServersInfo()[0].name).toBe('filesystem');
   });
 
   it('returns an empty server list when the .mcp.json file is missing', async () => {
@@ -60,7 +60,7 @@ describe('MCPManager', () => {
     await fs.mkdir(nested, { recursive: true });
 
     await expect(mcpManager.loadFromProjectRoot(nested)).resolves.not.toThrow();
-    expect(mcpManager.getServerCount()).toBe(0);
+    expect(mcpManager.getServersInfo()).toHaveLength(0);
     expect(mcpManager.getServersInfo()).toEqual([]);
   });
 

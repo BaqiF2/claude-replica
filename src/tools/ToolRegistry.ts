@@ -290,38 +290,6 @@ export class ToolRegistry {
     return this.toolMetadata.get(toolName);
   }
 
-  /**
-   * 获取指定分类的所有工具
-   *
-   * @param category 工具分类
-   * @returns 该分类下的工具名称数组
-   */
-  getToolsByCategory(category: ToolCategory): string[] {
-    const tools: string[] = [];
-    for (const [name, metadata] of this.toolMetadata) {
-      if (metadata.category === category) {
-        tools.push(name);
-      }
-    }
-    return tools;
-  }
-
-  /**
-   * 获取所有危险工具列表
-   *
-   * 危险工具是指需要用户确认才能执行的工具
-   *
-   * @returns 危险工具名称数组
-   */
-  getDangerousTools(): string[] {
-    const tools: string[] = [];
-    for (const [name, metadata] of this.toolMetadata) {
-      if (metadata.dangerous) {
-        tools.push(name);
-      }
-    }
-    return tools;
-  }
 
   /**
    * 检查工具是否为危险工具
