@@ -106,6 +106,8 @@ export interface MessageRouterOptions {
   permissionManager: PermissionManager;
   /** 图像处理器（可选，如果不提供则在需要时创建） */
   imageHandler?: ImageHandler;
+  /** 工作目录（可选） */
+  workingDirectory?: string;
 }
 
 /**
@@ -187,7 +189,8 @@ export class MessageRouter {
     this._configManager = options.configManager;
     this.toolRegistry = options.toolRegistry || new ToolRegistry();
     this.permissionManager = options.permissionManager;
-
+    // 使用传入的工作目录，如果没有则使用默认值
+    this.defaultWorkingDirectory = options.workingDirectory || process.cwd();
     // 如果提供了 imageHandler，将其存储为默认工作目录的缓存
     if (options.imageHandler) {
       this.imageHandlerCache.set(this.defaultWorkingDirectory, options.imageHandler);
@@ -204,7 +207,6 @@ export class MessageRouter {
    */
   setWorkingDirectory(workingDirectory: string): void {
     this.defaultWorkingDirectory = workingDirectory;
-    // 无需预创建实例，getImageHandler() 会按需创建并缓存
   }
 
   /**

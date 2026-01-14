@@ -27,7 +27,7 @@ import { Session, SessionManager } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
-import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
+import { MockPermissionUIFactory } from '../test-helpers/MockPermissionUI';
 
 // 使用 any 类型绕过 SDK 类型限制
 const mockedQuery = query as jest.MockedFunction<any>;
@@ -104,7 +104,7 @@ describe('流式输入集成测试', () => {
     const toolRegistry = new ToolRegistry();
     const permissionManager = new PermissionManager(
       { mode: 'default' },
-      new MockPermissionUI(),
+      new MockPermissionUIFactory(),
       toolRegistry
     );
 

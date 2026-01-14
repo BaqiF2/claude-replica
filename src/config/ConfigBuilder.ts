@@ -63,4 +63,29 @@ export class ConfigBuilder {
       allowDangerouslySkipPermissions: options.allowDangerouslySkipPermissions || false,
     };
   }
+
+  /**
+   * 从 CLI 选项和项目配置直接构建权限配置（便捷方法）
+   *
+   * 该方法是 buildPermissionConfig 的简化版本，直接从原始 projectConfig 构建权限配置，
+   * 内部处理 CLI 选项的合并逻辑，无需额外的中间步骤。
+   *
+   * @param options - CLI 解析出的选项
+   * @param projectConfig - 原始项目配置（未合并 CLI 选项）
+   * @returns 权限配置对象
+   */
+  buildPermissionConfigOnly(options: CLIOptions, projectConfig: ProjectConfig): PermissionConfig {
+    // 先应用 CLI 选项
+    const mergedConfig = this.build(options, projectConfig);
+
+    // 返回权限配置
+    return {
+      mode: mergedConfig.permissionMode || 'acceptEdits',
+      allowedTools: mergedConfig.allowedTools,
+      disallowedTools: mergedConfig.disallowedTools,
+      allowDangerouslySkipPermissions: options.allowDangerouslySkipPermissions || false,
+      allowedCommands: [],
+      disallowedCommands: [],
+    };
+  }
 }

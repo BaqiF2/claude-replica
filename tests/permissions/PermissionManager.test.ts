@@ -14,25 +14,15 @@ import {
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionUI } from '../../src/permissions/PermissionUI';
 import { PermissionUIResult } from '../../src/permissions/types';
-
-// Mock PermissionUI for testing
-class MockPermissionUI implements PermissionUI {
-  async promptToolPermission(): Promise<PermissionUIResult> {
-    return { approved: false, reason: 'Mock denied' };
-  }
-
-  async promptUserQuestions(): Promise<Record<string, string>> {
-    return {};
-  }
-}
+import { MockPermissionUIFactory } from '../test-helpers/MockPermissionUI';
 
 describe('PermissionManager', () => {
   let toolRegistry: ToolRegistry;
-  let permissionUI: PermissionUI;
+  let permissionUIFactory: MockPermissionUIFactory;
 
   beforeEach(() => {
     toolRegistry = new ToolRegistry();
-    permissionUI = new MockPermissionUI();
+    permissionUIFactory = new MockPermissionUIFactory();
   });
 
   // 生成工具名称的 Arbitrary
@@ -85,7 +75,7 @@ describe('PermissionManager', () => {
               disallowedTools,
             };
 
-            const manager = new PermissionManager(config, permissionUI, toolRegistry);
+            const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
             const handler = manager.createCanUseToolHandler();
 
             const result = await handler(tool, {}, {
@@ -120,7 +110,7 @@ describe('PermissionManager', () => {
               allowedTools: filteredAllowedTools,
             };
 
-            const manager = new PermissionManager(config, permissionUI, toolRegistry);
+            const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
             const handler = manager.createCanUseToolHandler();
 
             const result = await handler(tool, {}, {
@@ -142,7 +132,7 @@ describe('PermissionManager', () => {
             mode: 'bypassPermissions',
           };
 
-          const manager = new PermissionManager(config, permissionUI, toolRegistry);
+          const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
           const handler = manager.createCanUseToolHandler();
 
           // AskUserQuestion 需要特殊的输入格式
@@ -168,7 +158,7 @@ describe('PermissionManager', () => {
             mode: 'plan',
           };
 
-          const manager = new PermissionManager(config, permissionUI, toolRegistry);
+          const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
           const handler = manager.createCanUseToolHandler();
 
           const result = await handler(tool, {}, {
@@ -195,7 +185,7 @@ describe('PermissionManager', () => {
         mode: 'acceptEdits',
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const writeResult = await handler('Write', { file_path: 'test.txt', content: 'test' }, {
@@ -220,7 +210,7 @@ describe('PermissionManager', () => {
         disallowedTools: [MCP_TOOL_FULL_NAME],
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const result = await handler(MCP_TOOL_FULL_NAME, {}, {
@@ -237,7 +227,7 @@ describe('PermissionManager', () => {
         disallowedTools: [MCP_MODULE_NAME],
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const result = await handler(MCP_TOOL_FULL_NAME, {}, {
@@ -254,7 +244,7 @@ describe('PermissionManager', () => {
         disallowedTools: [MCP_MODULE_WILDCARD],
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const result = await handler(MCP_TOOL_FULL_NAME, {}, {
@@ -273,7 +263,7 @@ describe('PermissionManager', () => {
         disallowedCommands: ['rm -rf'],
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const result = await handler('Bash', { command: 'rm -rf /' }, {
@@ -290,7 +280,7 @@ describe('PermissionManager', () => {
         allowedCommands: ['npm install'],
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const result = await handler('Bash', { command: 'npm install' }, {
@@ -308,7 +298,7 @@ describe('PermissionManager', () => {
         mode: 'default',
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const controller = new AbortController();
@@ -332,7 +322,7 @@ describe('PermissionManager', () => {
         mode: 'bypassPermissions',
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const input = { file_path: 'test.txt' };
@@ -354,7 +344,7 @@ describe('PermissionManager', () => {
         disallowedTools: ['Read'],
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const result = await handler('Read', { file_path: 'test.txt' }, {
@@ -372,24 +362,11 @@ describe('PermissionManager', () => {
 
   describe('AskUserQuestion 处理', () => {
     it('应正确构建 updatedInput 包含 questions 和 answers', async () => {
-      // Mock PermissionUI 返回用户答案
-      const mockUI = {
-        async promptToolPermission(): Promise<PermissionUIResult> {
-          return { approved: false, reason: 'Mock denied' };
-        },
-        async promptUserQuestions(_questions: any[]): Promise<Record<string, string>> {
-          return {
-            q1: 'Option 1',
-            q2: 'Option 2',
-          };
-        },
-      };
-
       const config: PermissionConfig = {
         mode: 'default',
       };
 
-      const manager = new PermissionManager(config, mockUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const input = {
@@ -429,7 +406,7 @@ describe('PermissionManager', () => {
         mode: 'default',
       };
 
-      const manager = new PermissionManager(config, permissionUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const result = await handler('AskUserQuestion', {}, {
@@ -445,20 +422,11 @@ describe('PermissionManager', () => {
     });
 
     it('应在用户取消时返回 deny', async () => {
-      const mockUI = {
-        async promptToolPermission(): Promise<PermissionUIResult> {
-          return { approved: false, reason: 'Mock denied' };
-        },
-        async promptUserQuestions(): Promise<Record<string, string>> {
-          throw new Error('User canceled');
-        },
-      };
-
       const config: PermissionConfig = {
         mode: 'default',
       };
 
-      const manager = new PermissionManager(config, mockUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const input = {
@@ -485,20 +453,11 @@ describe('PermissionManager', () => {
     });
 
     it('bypassPermissions 模式下仍应处理 AskUserQuestion', async () => {
-      const mockUI = {
-        async promptToolPermission(): Promise<PermissionUIResult> {
-          return { approved: false, reason: 'Mock denied' };
-        },
-        async promptUserQuestions(): Promise<Record<string, string>> {
-          return { q1: 'Answer' };
-        },
-      };
-
       const config: PermissionConfig = {
         mode: 'bypassPermissions',
       };
 
-      const manager = new PermissionManager(config, mockUI, toolRegistry);
+      const manager = new PermissionManager(config, permissionUIFactory, toolRegistry);
       const handler = manager.createCanUseToolHandler();
 
       const input = {

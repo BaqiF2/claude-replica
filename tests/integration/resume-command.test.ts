@@ -55,7 +55,7 @@ import { SDKQueryExecutor } from '../../src/sdk/SDKQueryExecutor';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
-import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
+import { MockPermissionUIFactory } from '../test-helpers/MockPermissionUI';
 import { MockInteractiveUI } from '../test-helpers/MockInteractiveUI';
 
 // 捕获控制台输出的辅助函数
@@ -92,7 +92,7 @@ describe('/resume 命令集成测试', () => {
     toolRegistry = new ToolRegistry();
     permissionManager = new PermissionManager(
       { mode: 'acceptEdits' },
-      new MockPermissionUI(),
+      new MockPermissionUIFactory(),
       toolRegistry
     );
     messageRouter = new MessageRouter({

@@ -28,7 +28,7 @@ import { StreamingMessageProcessor } from './core/StreamingMessageProcessor';
 import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
-import { PermissionUIImpl } from './ui/PermissionUIImpl';
+import { UIFactoryRegistry } from './ui/factories/UIFactoryRegistry';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager, McpServerConfig } from './mcp/MCPManager';
 import { MCPService } from './mcp/MCPService';
@@ -145,12 +145,14 @@ export class Application {
 
     const workingDir = process.cwd();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    const mergedConfig = this.configBuilder.build(options, projectConfig);
-    const permissionConfig = this.configBuilder.buildPermissionConfig(options, mergedConfig);
-    const permissionUI = new PermissionUIImpl();
+    const permissionConfig = this.configBuilder.buildPermissionConfigOnly(options, projectConfig);
+
+    // Create UI factory from configuration (default to terminal)
+    const uiFactory = UIFactoryRegistry.create(permissionConfig.ui);
+
     this.permissionManager = new PermissionManager(
       permissionConfig,
-      permissionUI,
+      uiFactory,
       this.toolRegistry
     );
 
@@ -158,8 +160,8 @@ export class Application {
       configManager: this.configManager,
       toolRegistry: this.toolRegistry,
       permissionManager: this.permissionManager,
+      workingDirectory: workingDir,
     });
-    this.messageRouter.setWorkingDirectory(workingDir);
 
     this.streamingProcessor = new StreamingMessageProcessor();
 

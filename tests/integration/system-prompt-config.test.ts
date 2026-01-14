@@ -17,7 +17,7 @@ import { SessionManager, Session } from '../../src/core/SessionManager';
 import { ConfigManager } from '../../src/config/ConfigManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
-import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
+import { MockPermissionUIFactory } from '../test-helpers/MockPermissionUI';
 
 describe('系统提示词配置集成测试', () => {
   let testDir: string;
@@ -53,7 +53,7 @@ describe('系统提示词配置集成测试', () => {
     sessionManager = new SessionManager(sessionsDir);
     configManager = new ConfigManager();
     toolRegistry = new ToolRegistry();
-    permissionManager = new PermissionManager({ mode: 'default' }, new MockPermissionUI(), toolRegistry);
+    permissionManager = new PermissionManager({ mode: 'default' }, new MockPermissionUIFactory(), toolRegistry);
   });
 
   afterEach(async () => {

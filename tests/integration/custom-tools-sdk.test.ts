@@ -29,7 +29,7 @@ import { calculatorTool } from '../../src/custom-tools/math/calculator';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { SDKQueryExecutor, StreamMessage } from '../../src/sdk/SDKQueryExecutor';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
-import { MockPermissionUI } from '../test-helpers/MockPermissionUI';
+import { MockPermissionUIFactory } from '../test-helpers/MockPermissionUI';
 
 const mockedQuery = query as jest.MockedFunction<any>;
 
@@ -85,7 +85,7 @@ describe('自定义工具与 SDK 集成测试', () => {
         mode: 'default',
         allowedTools: [mcpModuleName],
       },
-      new MockPermissionUI(),
+      new MockPermissionUIFactory(),
       new ToolRegistry()
     );
 
@@ -171,7 +171,7 @@ describe('自定义工具与 SDK 集成测试', () => {
         mode: 'default',
         disallowedTools: [mcpModuleName],
       },
-      new MockPermissionUI(),
+      new MockPermissionUIFactory(),
       new ToolRegistry()
     );
 
