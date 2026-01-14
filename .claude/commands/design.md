@@ -7,11 +7,7 @@ description: 为项目制定规格说明，基于完整的 CLAUDE.md 项目文�
 
 ## 项目文档上下文
 
-以下是项目的完整 CLAUDE.md 文档内容：
-
-```
-!`cat .claude/CLAUDE.md 2>/dev/null || echo "CLAUDE.md 文件不存在"`
-```
+@CLAUDE.md 或 @.claude/CLAUDE.md
 
 ## 任务目标
 

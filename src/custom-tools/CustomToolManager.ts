@@ -10,6 +10,7 @@
  * - registerModule(): register a module of tools.
  * - createMcpServer(): build an MCP server for a module.
  * - createMcpServers(): build MCP server configs for all modules.
+ * - registerMcpServers(): register MCP servers with SDK executor and log results.
  * - getToolNames(): list registered tool names.
  * - getToolNamesByModule(): list tool names for a module.
  * - validateToolDefinition(): validate a tool definition.
@@ -24,6 +25,8 @@ import type { ZodRawShape } from 'zod';
 
 import { CustomToolRegistry } from './CustomToolRegistry';
 import type { CustomToolManagerOptions, ToolDefinition, ValidationResult } from './types';
+import { Logger } from '../logging/Logger';
+import { SDKQueryExecutor } from '../sdk/SDKQueryExecutor';
 
 const DEFAULT_SERVER_NAME_PREFIX = process.env.CUSTOM_TOOL_SERVER_NAME_PREFIX ?? 'custom-tools';
 const DEFAULT_SERVER_VERSION = process.env.CUSTOM_TOOL_SERVER_VERSION ?? '1.0.0';
@@ -197,6 +200,29 @@ export class CustomToolManager {
     }
 
     return servers;
+  }
+
+  /**
+   * Register MCP servers with the SDK executor and log the results.
+   * This encapsulates the registration logic to keep main methods concise.
+   *
+   * @param sdkExecutor - The SDK executor to register servers with
+   * @param logger - The logger for recording registration status
+   */
+  async registerMcpServers(
+    sdkExecutor: SDKQueryExecutor,
+    logger: Logger
+  ): Promise<void> {
+    const customMcpServers = this.createMcpServers();
+
+    if (Object.keys(customMcpServers).length > 0) {
+      sdkExecutor.setCustomMcpServers(customMcpServers);
+      await logger.info('Custom tool MCP servers registered', {
+        servers: Object.keys(customMcpServers),
+      });
+    } else {
+      await logger.warn('No custom MCP servers created');
+    }
   }
 
   getToolNames(): string[] {

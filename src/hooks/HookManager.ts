@@ -14,8 +14,12 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 const execAsync = promisify(exec);
+const HOOKS_CONFIG_FILENAME = 'hooks.json';
+const GIT_DIRECTORY_NAME = '.git';
 
 /**
  * SDK 支持的 12 种钩子事件类型
@@ -563,5 +567,102 @@ export class HookManager {
       valid: errors.length === 0,
       errors,
     };
+  }
+
+  /**
+   * 从项目根目录加载钩子配置
+   *
+   * @param workingDir 当前工作目录
+   */
+  async loadFromProjectRoot(workingDir: string): Promise<void> {
+    const configPath = await this.getConfigPath(workingDir);
+    if (!(await this.pathExists(configPath))) {
+      // 如果文件不存在，清空现有配置
+      this.config = {};
+      return;
+    }
+    await this.loadFromFile(configPath);
+  }
+
+  /**
+   * 获取项目根目录下的钩子配置路径
+   *
+   * @param workingDir 当前工作目录
+   * @returns 钩子配置文件路径
+   */
+  async getConfigPath(workingDir: string): Promise<string> {
+    const projectRoot = await this.findProjectRoot(workingDir);
+    return path.join(projectRoot, '.claude', HOOKS_CONFIG_FILENAME);
+  }
+
+  /**
+   * 从文件加载钩子配置
+   *
+   * @param configPath 配置文件路径
+   */
+  async loadFromFile(configPath: string): Promise<void> {
+    try {
+      const content = await fs.readFile(configPath, 'utf-8');
+      const parsed = JSON.parse(content);
+
+      // 验证配置格式
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        throw new Error('Hooks configuration must be an object');
+      }
+
+      this.loadHooks(parsed as HookConfig);
+    } catch (error) {
+      // 如果读取失败，记录错误但不抛出，保持应用启动
+      if (this.debug) {
+        console.error(`Failed to load hooks from ${configPath}:`, error);
+      }
+      // 清空配置以防加载了部分配置
+      this.config = {};
+    }
+  }
+
+  /**
+   * 查找项目根目录（向上查找 .git 目录）
+   *
+   * @param workingDir 当前工作目录
+   * @returns 项目根目录路径
+   */
+  private async findProjectRoot(workingDir: string): Promise<string> {
+    const resolvedWorkingDir = path.resolve(workingDir);
+    let currentDir = resolvedWorkingDir;
+
+    while (true) {
+      const gitPath = path.join(currentDir, GIT_DIRECTORY_NAME);
+      try {
+        await fs.stat(gitPath);
+        return currentDir;
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err.code && err.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) {
+        return resolvedWorkingDir;
+      }
+      currentDir = parentDir;
+    }
+  }
+
+  /**
+   * 检查文件路径是否存在
+   *
+   * @param filePath 文件路径
+   * @returns 是否存在
+   */
+  private async pathExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

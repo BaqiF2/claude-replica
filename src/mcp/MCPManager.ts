@@ -33,6 +33,18 @@ import * as path from 'path';
 const MCP_CONFIG_FILENAME = '.mcp.json';
 const GIT_DIRECTORY_NAME = '.git';
 
+// 前向类型声明以避免循环依赖
+export interface Logger {
+  debug(message: string, data?: unknown): Promise<void>;
+  info(message: string, data?: unknown): Promise<void>;
+  warn(message: string, data?: unknown): Promise<void>;
+  error(message: string, data?: unknown): Promise<void>;
+}
+
+export interface MessageRouter {
+  setMcpServers(servers?: Record<string, McpServerConfig>): void;
+}
+
 /**
  * stdio 传输配置
  */
@@ -637,6 +649,50 @@ export class MCPManager {
         return false;
       }
       throw error;
+    }
+  }
+
+  /**
+   * 配置消息路由器的 MCP 服务器
+   *
+   * 加载 MCP 配置并设置到 MessageRouter，包含完整的错误处理和日志记录。
+   * 此方法封装了配置加载、错误处理和设置逻辑，提供单一入口点。
+   *
+   * @param workingDir 当前工作目录
+   * @param messageRouter 消息路由器实例
+   * @param logger 日志记录器实例
+   */
+  async configureMessageRouter(
+    workingDir: string,
+    messageRouter: MessageRouter,
+    logger: Logger
+  ): Promise<void> {
+    let expandedConfig: Record<string, McpServerConfig> | undefined;
+
+    try {
+      await this.loadFromProjectRoot(workingDir);
+      expandedConfig = this.getExpandedServersConfig();
+      const configPath = await this.getConfigPath(workingDir);
+
+      if (expandedConfig && Object.keys(expandedConfig).length > 0) {
+        await logger.debug('MCP server config loaded', {
+          path: configPath,
+          serverCount: Object.keys(expandedConfig).length,
+        });
+      } else {
+        await logger.debug('MCP server config loaded (no servers configured)', {
+          path: configPath,
+        });
+      }
+    } catch (error) {
+      // 配置加载失败时，使用空配置而不是抛出错误
+      expandedConfig = this.getExpandedServersConfig();
+      await logger.warn('Failed to load MCP configuration, using empty config', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      // 确保 MessageRouter 总是被设置（即使配置为空）
+      messageRouter.setMcpServers(expandedConfig);
     }
   }
 }

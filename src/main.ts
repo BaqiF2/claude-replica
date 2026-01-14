@@ -17,9 +17,6 @@ import * as dotenv from 'dotenv';
 // 在所有其他模块加载之前初始化环境变量
 dotenv.config({ quiet: process.env.DOTENV_QUIET === 'true' });
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-
 import { CLIParser, CLIOptions } from './cli/CLIParser';
 import { ConfigManager } from './config';
 import { SessionManager, Session } from './core/SessionManager';
@@ -30,7 +27,7 @@ import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
 import { UIFactoryRegistry } from './ui/factories/UIFactoryRegistry';
 import { HookManager } from './hooks/HookManager';
-import { MCPManager, McpServerConfig } from './mcp/MCPManager';
+import { MCPManager } from './mcp/MCPManager';
 import { MCPService } from './mcp/MCPService';
 import { RewindManager, Snapshot as RewindSnapshot } from './rewind/RewindManager';
 import {
@@ -42,7 +39,6 @@ import { SecurityManager } from './security/SecurityManager';
 import { SDKQueryExecutor, SDKErrorType, ERROR_MESSAGES, StreamingQueryManager } from './sdk';
 import { Logger } from './logging/Logger';
 import { ConfigBuilder } from './config/ConfigBuilder';
-import { ErrorHandler } from './errors/ErrorHandler';
 import { CustomToolManager } from './custom-tools';
 
 const VERSION = process.env.VERSION || '0.1.0';
@@ -57,7 +53,6 @@ export class Application {
   private readonly cliParser: CLIParser;
   private readonly configManager: ConfigManager;
   private readonly configBuilder: ConfigBuilder;
-  private readonly errorHandler: ErrorHandler;
   private readonly sessionManager: SessionManager;
   private readonly toolRegistry: ToolRegistry;
   private readonly hookManager: HookManager;
@@ -82,7 +77,6 @@ export class Application {
     this.cliParser = new CLIParser();
     this.configManager = new ConfigManager();
     this.configBuilder = new ConfigBuilder();
-    this.errorHandler = new ErrorHandler();
     this.sessionManager = new SessionManager();
     this.toolRegistry = new ToolRegistry();
     this.hookManager = new HookManager();
@@ -112,14 +106,16 @@ export class Application {
       // 3. 初始化应用（包括 Logger）
       await this.initialize(options);
 
-      // 4. 执行主逻辑
-      if (options.print || options.prompt) {
+      // 4. 无头模式
+      if (options.print) {
         return await this.runNonInteractive(options);
       }
 
+      // 4. 交互模式
       return await this.runInteractive(options);
     } catch (error) {
-      return this.errorHandler.handle(error);
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      return 1;
     }
   }
 
@@ -141,6 +137,9 @@ export class Application {
   }
 
   private async initialize(options: CLIOptions): Promise<void> {
+    // session清理
+    await this.sessionManager.cleanOldSessions(SESSION_KEEP_COUNT)
+
     await this.logger.init();
     await this.logger.info('Application started', { args: process.argv.slice(2) });
 
@@ -163,73 +162,20 @@ export class Application {
     });
 
     this.streamingProcessor = new StreamingMessageProcessor();
-
+    // 自定义工具初始化
     await this.customToolManager.initialize();
-
+    await this.customToolManager.registerMcpServers(this.sdkExecutor, this.logger);
+    // mcp初始化
+    await this.mcpManager.configureMessageRouter(workingDir, this.messageRouter, this.logger);
+    // 文件回退点初始化
     this.rewindManager = new RewindManager({ workingDir });
     await this.rewindManager.initialize();
-
-    await this.loadCustomExtensions(workingDir);
-
-    const customMcpServers = this.customToolManager.createMcpServers();
-    if (Object.keys(customMcpServers).length > 0) {
-      this.sdkExecutor.setCustomMcpServers(customMcpServers);
-      await this.logger.info('Custom tool MCP servers registered', {
-        servers: Object.keys(customMcpServers),
-      });
-    } else {
-      await this.logger.warn('No custom MCP servers created');
-    }
-
-    await this.loadMCPServers(workingDir);
-
-    // 自动清理旧会话，保留最近 N 个会话
-    await this.cleanOldSessions();
+    // hooks初始化
+    await this.hookManager.loadFromProjectRoot(workingDir);
 
     await this.logger.info('Application initialized');
   }
 
-  private async loadCustomExtensions(workingDir: string): Promise<void> {
-    const hooksConfigPath = path.join(workingDir, '.claude', 'hooks.json');
-    try {
-      await fs.access(hooksConfigPath);
-      const hooksContent = await fs.readFile(hooksConfigPath, 'utf-8');
-      this.hookManager.loadHooks(JSON.parse(hooksContent));
-    } catch {}
-
-    await this.logger.info('Extensions loaded');
-  }
-
-  private async loadMCPServers(workingDir: string): Promise<void> {
-    let expandedConfig: Record<string, McpServerConfig> | undefined;
-
-    try {
-      await this.mcpManager.loadFromProjectRoot(workingDir);
-      expandedConfig = this.mcpManager.getExpandedServersConfig();
-      const configPath = await this.mcpManager.getConfigPath(workingDir);
-      await this.logger.debug('MCP server config loaded', { path: configPath });
-    } catch {
-      expandedConfig = this.mcpManager.getExpandedServersConfig();
-    } finally {
-      this.messageRouter.setMcpServers(expandedConfig);
-    }
-  }
-
-  /**
-   * 清理旧会话
-   *
-   * 保留最近创建的 N 个会话，删除其余的旧会话。
-   * 保留数量通过环境变量 SESSION_KEEP_COUNT 配置，默认 10。
-   */
-  private async cleanOldSessions(): Promise<void> {
-    try {
-      await this.sessionManager.cleanOldSessions(SESSION_KEEP_COUNT);
-      await this.logger.debug('Old sessions cleaned', { keepCount: SESSION_KEEP_COUNT });
-    } catch (error) {
-      // 清理失败不影响应用启动，仅记录警告
-      await this.logger.warn('Failed to clean old sessions', error);
-    }
-  }
 
   private async runInteractive(_options: CLIOptions): Promise<number> {
     await this.logger.info('Starting interactive mode');
@@ -304,7 +250,7 @@ export class Application {
     await this.logger.info('Starting non-interactive mode');
     const prompt = options.prompt || (await this.readStdin());
     if (!prompt) {
-      console.error('Error: No query content provided');
+      await this.logger.error('Error: No query content provided');
       return 2;
     }
 
