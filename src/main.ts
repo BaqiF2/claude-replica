@@ -17,7 +17,6 @@ import * as dotenv from 'dotenv';
 // 在所有其他模块加载之前初始化环境变量
 dotenv.config({ quiet: process.env.DOTENV_QUIET === 'true' });
 
-import { CLIParser, CLIOptions } from './cli/CLIParser';
 import { ConfigManager } from './config';
 import { SessionManager, Session } from './core/SessionManager';
 import { MessageRouter } from './core/MessageRouter';
@@ -26,6 +25,10 @@ import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
 import { UIFactoryRegistry } from './ui/factories/UIFactoryRegistry';
+import type { UIFactory } from './ui/factories/UIFactory';
+import type { OptionsInterface } from './ui/OptionsInterface';
+import type { OutputInterface } from './ui/OutputInterface';
+import type { ParserInterface } from './ui/ParserInterface';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
 import { MCPService } from './mcp/MCPService';
@@ -48,9 +51,19 @@ const VERSION = process.env.VERSION || '0.1.0';
  * 可通过环境变量 SESSION_KEEP_COUNT 配置
  */
 const SESSION_KEEP_COUNT = parseInt(process.env.SESSION_KEEP_COUNT || '10', 10);
+const EXIT_CODE_SUCCESS = parseInt(process.env.EXIT_CODE_SUCCESS || '0', 10);
+const EXIT_CODE_GENERAL_ERROR = parseInt(process.env.EXIT_CODE_GENERAL_ERROR || '1', 10);
+const EXIT_CODE_CONFIG_ERROR = parseInt(process.env.EXIT_CODE_CONFIG_ERROR || '2', 10);
+
+type ApplicationOptions = OptionsInterface & {
+  print?: boolean;
+  prompt?: string;
+  outputFormat?: string;
+};
 
 export class Application {
-  private readonly cliParser: CLIParser;
+  private readonly parser: ParserInterface;
+  private readonly output: OutputInterface;
   private readonly configManager: ConfigManager;
   private readonly configBuilder: ConfigBuilder;
   private readonly sessionManager: SessionManager;
@@ -73,8 +86,9 @@ export class Application {
   private ui: InteractiveUI | null = null;
   private currentAbortController: AbortController | null = null;
 
-  constructor() {
-    this.cliParser = new CLIParser();
+  constructor(uiFactory: UIFactory = UIFactoryRegistry.createUIFactory()) {
+    this.parser = uiFactory.createParser();
+    this.output = uiFactory.createOutput();
     this.configManager = new ConfigManager();
     this.configBuilder = new ConfigBuilder();
     this.sessionManager = new SessionManager();
@@ -94,10 +108,10 @@ export class Application {
 
   async run(args: string[]): Promise<number> {
     try {
-      // 1. 解析命令行参数 TODO 基于UI层适配处理？
-      const options = this.cliParser.parse(args);
+      // 1. 解析命令行参数
+      const options = this.parser.parse(args) as ApplicationOptions;
 
-      // 2. 早期返回：help/version（无需完整初始化）TODO 能否适配其他UI？
+      // 2. 早期返回：help/version（无需完整初始化）
       const earlyExitCode = await this.handleEarlyReturns(options);
       if (earlyExitCode !== null) {
         return earlyExitCode;
@@ -114,29 +128,33 @@ export class Application {
       // 4. 交互模式
       return await this.runInteractive(options);
     } catch (error) {
+      if (error instanceof Error && error.name === 'CLIParseError') {
+        console.error(`Argument error: ${error.message}`);
+        return EXIT_CODE_CONFIG_ERROR;
+      }
       console.error('Error:', error instanceof Error ? error.message : String(error));
-      return 1;
+      return EXIT_CODE_GENERAL_ERROR;
     }
   }
 
   /**
    * 处理早期返回（help/version），无需完整应用初始化
    */
-  private async handleEarlyReturns(options: CLIOptions): Promise<number | null> {
+  private async handleEarlyReturns(options: ApplicationOptions): Promise<number | null> {
     if (options.help) {
-      console.log(this.cliParser.getHelpText());
-      return 0;
+      this.output.info(this.parser.getHelpText());
+      return EXIT_CODE_SUCCESS;
     }
 
     if (options.version) {
-      console.log(`claude-replica v${VERSION}`);
-      return 0;
+      this.output.success(`claude-replica v${VERSION}`);
+      return EXIT_CODE_SUCCESS;
     }
 
     return null;
   }
 
-  private async initialize(options: CLIOptions): Promise<void> {
+  private async initialize(options: ApplicationOptions): Promise<void> {
     // session清理
     await this.sessionManager.cleanOldSessions(SESSION_KEEP_COUNT)
 
@@ -147,7 +165,10 @@ export class Application {
 
     const workingDir = process.cwd();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    const permissionConfig = this.configBuilder.buildPermissionConfigOnly(options, projectConfig);
+    const permissionConfig = this.configBuilder.buildPermissionConfigOnly(
+      options as Parameters<ConfigBuilder['buildPermissionConfigOnly']>[0],
+      projectConfig
+    );
 
     // Create UI factory from configuration (default to terminal)
     const uiFactory = UIFactoryRegistry.create(permissionConfig.ui);
@@ -177,7 +198,7 @@ export class Application {
   }
 
 
-  private async runInteractive(_options: CLIOptions): Promise<number> {
+  private async runInteractive(_options: ApplicationOptions): Promise<number> {
     await this.logger.info('Starting interactive mode');
     const session = await this.getOrCreateSession();
 
@@ -239,19 +260,19 @@ export class Application {
 
     try {
       await this.ui.start();
-      return 0;
+      return EXIT_CODE_SUCCESS;
     } catch (error) {
       await this.logger.error('Interactive mode error', error);
-      return 1;
+      return EXIT_CODE_GENERAL_ERROR;
     }
   }
 
-  private async runNonInteractive(options: CLIOptions): Promise<number> {
+  private async runNonInteractive(options: ApplicationOptions): Promise<number> {
     await this.logger.info('Starting non-interactive mode');
     const prompt = options.prompt || (await this.readStdin());
     if (!prompt) {
       await this.logger.error('Error: No query content provided');
-      return 2;
+      return EXIT_CODE_CONFIG_ERROR;
     }
 
     // 创建临时会话对象（不持久化到磁盘）
@@ -276,12 +297,12 @@ export class Application {
 
       this.outputResult(result, options.outputFormat || 'text');
 
-      return 0;
+      return EXIT_CODE_SUCCESS;
     } catch (error) {
       await this.logger.error('Query execution failed', error);
 
       console.error('Error:', error instanceof Error ? error.message : String(error));
-      return 1;
+      return EXIT_CODE_GENERAL_ERROR;
     }
   }
 
@@ -657,7 +678,7 @@ MCP commands:
   private async executeQuery(
     prompt: string,
     session: Session,
-    _options?: CLIOptions
+    _options?: ApplicationOptions
   ): Promise<string> {
     await this.sessionManager.addMessage(session, {
       role: 'user',

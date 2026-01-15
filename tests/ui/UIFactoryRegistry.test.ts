@@ -9,8 +9,12 @@
  */
 
 import { UIFactoryRegistry, UIConfig } from '../../src/ui/factories/UIFactoryRegistry';
+import type { UIFactory } from '../../src/ui/factories/UIFactory';
 import { PermissionUIFactory } from '../../src/ui/factories/PermissionUIFactory';
 import { TerminalPermissionUIFactory } from '../../src/ui/factories/TerminalPermissionUIFactory';
+import { TerminalUIFactory } from '../../src/ui/factories/TerminalUIFactory';
+import type { OutputInterface, OutputOptions } from '../../src/ui/OutputInterface';
+import type { ParserInterface } from '../../src/ui/ParserInterface';
 import { PermissionUI } from '../../src/permissions/PermissionUI';
 
 // Mock factory for testing
@@ -23,6 +27,31 @@ class MockPermissionUIFactory implements PermissionUIFactory {
       promptToolPermission: async () => ({ approved: true }),
       promptUserQuestions: async () => ({})
     } as PermissionUI;
+  }
+}
+
+class MockUIFactory implements UIFactory {
+  createParser(): ParserInterface {
+    return {
+      parse: (_args: string[]) => ({
+        help: false,
+        version: false,
+        debug: false,
+      }),
+      getHelpText: () => 'mock help',
+      getVersionText: () => 'mock version',
+    };
+  }
+
+  createOutput(): OutputInterface {
+    return {
+      info: (_message: string, _options?: OutputOptions) => undefined,
+      warn: (_message: string, _options?: OutputOptions) => undefined,
+      error: (_message: string, _options?: OutputOptions) => undefined,
+      success: (_message: string, _options?: OutputOptions) => undefined,
+      section: (_title: string, _options?: OutputOptions) => undefined,
+      blankLine: (_count?: number) => undefined,
+    };
   }
 }
 
@@ -147,6 +176,41 @@ describe('UIFactoryRegistry', () => {
     });
   });
 
+  describe('registerUIFactory()', () => {
+    it('should register a UIFactory with valid type', () => {
+      const mockFactory = new MockUIFactory();
+      expect(() => {
+        UIFactoryRegistry.registerUIFactory('mock', mockFactory);
+      }).not.toThrow();
+    });
+
+    it('should throw error for empty type string', () => {
+      const mockFactory = new MockUIFactory();
+      expect(() => {
+        UIFactoryRegistry.registerUIFactory('', mockFactory);
+      }).toThrow('UI factory type must be a non-empty string');
+    });
+
+    it('should throw error for null factory', () => {
+      expect(() => {
+        UIFactoryRegistry.registerUIFactory('mock', null as unknown as UIFactory);
+      }).toThrow('UI factory instance is required');
+    });
+
+    it('should allow overwriting existing UIFactory of same type', () => {
+      const factory1 = new MockUIFactory();
+      const factory2 = new MockUIFactory();
+
+      UIFactoryRegistry.registerUIFactory('mock', factory1);
+      expect(() => {
+        UIFactoryRegistry.registerUIFactory('mock', factory2);
+      }).not.toThrow();
+
+      const retrieved = UIFactoryRegistry.createUIFactory({ type: 'mock' });
+      expect(retrieved).toBe(factory2);
+    });
+  });
+
   describe('create()', () => {
     beforeEach(() => {
       UIFactoryRegistry.clear();
@@ -226,6 +290,90 @@ describe('UIFactoryRegistry', () => {
     });
   });
 
+  describe('createUIFactory()', () => {
+    beforeEach(() => {
+      UIFactoryRegistry.clear();
+      UIFactoryRegistry.registerUIFactory('mock', new MockUIFactory());
+      UIFactoryRegistry.registerUIFactory('terminal', new TerminalUIFactory());
+    });
+
+    it('should throw error when config type is empty string', () => {
+      const config: UIConfig = { type: '' };
+      expect(() => {
+        UIFactoryRegistry.createUIFactory(config);
+      }).toThrow('UI config must include a valid type string');
+    });
+
+    it('should throw error when config type is null', () => {
+      const config: UIConfig = { type: null as unknown as string };
+      expect(() => {
+        UIFactoryRegistry.createUIFactory(config);
+      }).toThrow('UI config must include a valid type string');
+    });
+
+    it('should throw error when config type is not registered', () => {
+      const config: UIConfig = { type: 'unregistered' };
+      expect(() => {
+        UIFactoryRegistry.createUIFactory(config);
+      }).toThrow('UI factory not found for type: unregistered');
+    });
+
+    it('should create registered UIFactory from valid config', () => {
+      const config: UIConfig = { type: 'mock', options: { test: true } };
+      const factory = UIFactoryRegistry.createUIFactory(config);
+      expect(factory).toBeInstanceOf(MockUIFactory);
+    });
+
+    it('should create terminal UIFactory from valid terminal config', () => {
+      const config: UIConfig = { type: 'terminal' };
+      const factory = UIFactoryRegistry.createUIFactory(config);
+      expect(factory).toBeInstanceOf(TerminalUIFactory);
+    });
+  });
+
+  describe('createUIFactory default selection', () => {
+    const envKey = 'CLAUDE_UI_TYPE';
+    let originalEnv: string | undefined;
+
+    beforeEach(() => {
+      originalEnv = process.env[envKey];
+    });
+
+    afterEach(() => {
+      if (originalEnv === undefined) {
+        delete process.env[envKey];
+      } else {
+        process.env[envKey] = originalEnv;
+      }
+    });
+
+    it('should default to terminal UIFactory when env is not set', () => {
+      jest.isolateModules(() => {
+        delete process.env[envKey];
+        const registryModule = require('../../src/ui/factories/UIFactoryRegistry') as {
+          UIFactoryRegistry: typeof UIFactoryRegistry;
+        };
+        const terminalModule = require('../../src/ui/factories/TerminalUIFactory') as {
+          TerminalUIFactory: typeof TerminalUIFactory;
+        };
+        const factory = registryModule.UIFactoryRegistry.createUIFactory();
+        expect(factory).toBeInstanceOf(terminalModule.TerminalUIFactory);
+      });
+    });
+
+    it('should use env-selected UIFactory when env is set', () => {
+      jest.isolateModules(() => {
+        process.env[envKey] = 'mock';
+        const registryModule = require('../../src/ui/factories/UIFactoryRegistry') as {
+          UIFactoryRegistry: typeof UIFactoryRegistry;
+        };
+        registryModule.UIFactoryRegistry.registerUIFactory('mock', new MockUIFactory());
+        const factory = registryModule.UIFactoryRegistry.createUIFactory();
+        expect(factory).toBeInstanceOf(MockUIFactory);
+      });
+    });
+  });
+
   describe('has()', () => {
     beforeEach(() => {
       UIFactoryRegistry.clear();
@@ -286,6 +434,7 @@ describe('UIFactoryRegistry', () => {
     it('should clear all registered factories', () => {
       UIFactoryRegistry.register('mock', new MockPermissionUIFactory());
       UIFactoryRegistry.register('terminal', new TerminalPermissionUIFactory());
+      UIFactoryRegistry.registerUIFactory('ui', new MockUIFactory());
 
       expect(UIFactoryRegistry.getRegisteredTypes()).toHaveLength(2);
 
@@ -294,6 +443,9 @@ describe('UIFactoryRegistry', () => {
       expect(UIFactoryRegistry.getRegisteredTypes()).toEqual([]);
       expect(UIFactoryRegistry.has('mock')).toBe(false);
       expect(UIFactoryRegistry.has('terminal')).toBe(false);
+      expect(() => {
+        UIFactoryRegistry.createUIFactory({ type: 'ui' });
+      }).toThrow('UI factory not found for type: ui');
     });
 
     it('should not throw when clearing empty registry', () => {
@@ -328,6 +480,19 @@ describe('UIFactoryRegistry', () => {
 
       const retrievedFactory = UIFactoryRegistry.get('terminal');
       expect(retrievedFactory).toBeInstanceOf(TerminalPermissionUIFactory);
+    });
+  });
+
+  describe('Permission UI compatibility', () => {
+    it('should keep permission and UI factories separate for same type', () => {
+      UIFactoryRegistry.register('mock', new MockPermissionUIFactory());
+      UIFactoryRegistry.registerUIFactory('mock', new MockUIFactory());
+
+      const permissionFactory = UIFactoryRegistry.create({ type: 'mock' });
+      const uiFactory = UIFactoryRegistry.createUIFactory({ type: 'mock' });
+
+      expect(permissionFactory).toBeInstanceOf(MockPermissionUIFactory);
+      expect(uiFactory).toBeInstanceOf(MockUIFactory);
     });
   });
 });

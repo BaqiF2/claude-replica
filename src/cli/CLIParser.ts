@@ -104,6 +104,11 @@ const VALID_OUTPUT_FORMATS: OutputFormat[] = ['text', 'json', 'stream-json', 'ma
 const VALID_SETTING_SOURCES: SettingSource[] = ['user', 'project', 'local'];
 
 /**
+ * 默认版本文本（可通过环境变量 VERSION 配置）
+ */
+const DEFAULT_VERSION = process.env.VERSION || '0.1.0';
+
+/**
  * CLI 参数解析器
  */
 export class CLIParser {
@@ -332,6 +337,13 @@ claude-replica - Claude Code 智能代码助手命令行工具
   claude-replica --model haiku     使用 Haiku 模型
   /resume                          在交互模式下恢复会话
 `.trim();
+  }
+
+  /**
+   * 获取版本文本
+   */
+  getVersionText(): string {
+    return `claude-replica v${DEFAULT_VERSION}`;
   }
 
   /**
