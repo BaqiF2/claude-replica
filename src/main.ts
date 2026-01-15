@@ -94,10 +94,10 @@ export class Application {
 
   async run(args: string[]): Promise<number> {
     try {
-      // 1. 解析命令行参数
+      // 1. 解析命令行参数 TODO 基于UI层适配处理？
       const options = this.cliParser.parse(args);
 
-      // 2. 早期返回：help/version（无需完整初始化）
+      // 2. 早期返回：help/version（无需完整初始化）TODO 能否适配其他UI？
       const earlyExitCode = await this.handleEarlyReturns(options);
       if (earlyExitCode !== null) {
         return earlyExitCode;
@@ -106,7 +106,7 @@ export class Application {
       // 3. 初始化应用（包括 Logger）
       await this.initialize(options);
 
-      // 4. 无头模式
+      // 4. 无头模式（单次运行）
       if (options.print) {
         return await this.runNonInteractive(options);
       }
