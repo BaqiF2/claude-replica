@@ -59,7 +59,7 @@ export class NonInteractiveRunner implements ApplicationRunner {
     };
 
     try {
-      const result = await this.executeQuery(prompt, tempSession, options);
+      const result = await this.executeQuery(prompt, tempSession);
       this.outputResult(result, options.outputFormat || 'text');
       return EXIT_CODE_SUCCESS;
     } catch (error) {
@@ -72,7 +72,6 @@ export class NonInteractiveRunner implements ApplicationRunner {
   private async executeQuery(
     prompt: string,
     session: Session,
-    _options?: ApplicationOptions
   ): Promise<string> {
     await this.sessionManager.addMessage(session, {
       role: 'user',
@@ -86,31 +85,30 @@ export class NonInteractiveRunner implements ApplicationRunner {
       timestamp: new Date(),
     };
 
-    const queryResult = await this.messageRouter.routeMessage(message, session);
+    const queryParams = await this.messageRouter.routeMessage(message, session);
 
     await this.logger.debug('Query built', {
-      prompt: queryResult.prompt,
-      model: queryResult.options.model,
+      ...queryParams,
     });
 
     const abortController = new AbortController();
 
     try {
       const sdkResult = await this.sdkExecutor.execute({
-        prompt: queryResult.prompt,
-        model: queryResult.options.model,
-        systemPrompt: queryResult.options.systemPrompt,
-        allowedTools: queryResult.options.allowedTools,
-        disallowedTools: queryResult.options.disallowedTools,
-        cwd: queryResult.options.cwd,
-        permissionMode: queryResult.options.permissionMode,
-        canUseTool: queryResult.options.canUseTool,
-        maxTurns: queryResult.options.maxTurns,
-        maxBudgetUsd: queryResult.options.maxBudgetUsd,
-        maxThinkingTokens: queryResult.options.maxThinkingTokens,
-        mcpServers: queryResult.options.mcpServers,
-        agents: queryResult.options.agents,
-        sandbox: queryResult.options.sandbox,
+        prompt: queryParams.prompt,
+        model: queryParams.options.model,
+        systemPrompt: queryParams.options.systemPrompt,
+        allowedTools: queryParams.options.allowedTools,
+        disallowedTools: queryParams.options.disallowedTools,
+        cwd: queryParams.options.cwd,
+        permissionMode: queryParams.options.permissionMode,
+        canUseTool: queryParams.options.canUseTool,
+        maxTurns: queryParams.options.maxTurns,
+        maxBudgetUsd: queryParams.options.maxBudgetUsd,
+        maxThinkingTokens: queryParams.options.maxThinkingTokens,
+        mcpServers: queryParams.options.mcpServers,
+        agents: queryParams.options.agents,
+        sandbox: queryParams.options.sandbox,
         abortController,
         resume: session.sdkSessionId,
       });
