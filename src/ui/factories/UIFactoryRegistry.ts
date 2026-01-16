@@ -18,7 +18,8 @@ import { TerminalPermissionUIFactory } from './TerminalPermissionUIFactory';
 import { TerminalUIFactory } from './TerminalUIFactory';
 import type { UIFactory } from './UIFactory';
 
-const DEFAULT_UI_FACTORY_TYPE = process.env.CLAUDE_UI_TYPE || 'terminal';
+const DEFAULT_UI_FACTORY_TYPE_ENV = 'CLAUDE_UI_TYPE';
+const DEFAULT_UI_FACTORY_TYPE_FALLBACK = 'terminal';
 
 /**
  * UI Configuration Interface
@@ -126,7 +127,7 @@ export class UIFactoryRegistry {
    */
   static createUIFactory(config?: UIConfig): UIFactory {
     if (config == null) {
-      return this.getUIFactory(DEFAULT_UI_FACTORY_TYPE);
+      return this.getUIFactory(this.getDefaultUIFactoryType());
     }
 
     if (!config.type) {
@@ -148,6 +149,10 @@ export class UIFactoryRegistry {
     }
 
     return factory;
+  }
+
+  private static getDefaultUIFactoryType(): string {
+    return process.env[DEFAULT_UI_FACTORY_TYPE_ENV] || DEFAULT_UI_FACTORY_TYPE_FALLBACK;
   }
 
   /**
