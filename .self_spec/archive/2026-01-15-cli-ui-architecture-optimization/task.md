@@ -6,8 +6,8 @@
 
 ## Reference
 
-- Design: [design.md](./design.md)
-- Specification: [spec.md](./spec.md)
+- Design: [design.md](design.md)
+- Specification: [spec.md](spec.md)
 
 ## 任务
 
@@ -179,7 +179,7 @@
 
 - [x] 22. 重构handleEarlyReturns方法使用OutputInterface
    - 将console.log(this.parser.getHelpText())替换为this.output.info(this.parser.getHelpText())
-   - 将console.log(`claude-replica v${VERSION}`)替换为this.output.success(`claude-replica v${VERSION}`)
+   - 将console.log(`${VERSION}`)替换为this.output.success(`${VERSION}`)
    - 方法参数类型从CLIOptions改为OptionsInterface
    - _Requirements: Application类Output依赖解耦_
 

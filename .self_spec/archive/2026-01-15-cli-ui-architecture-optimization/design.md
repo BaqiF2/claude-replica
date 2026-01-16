@@ -307,7 +307,7 @@ private async handleEarlyReturns(options: CLIOptions): Promise<number | null> {
     return 0;
   }
   if (options.version) {
-    console.log(`claude-replica v${VERSION}`);
+    console.log(`${VERSION}`);
     return 0;
   }
 }
@@ -321,7 +321,7 @@ private async handleEarlyReturns(
     return 0;
   }
   if (options.version) {
-    this.output.success(`claude-replica v${VERSION}`);
+    this.output.success(`${VERSION}`);
     return 0;
   }
 }
@@ -619,7 +619,7 @@ UIFactoryRegistry.registerCLIOutput('gui', new GUICLIOutputFactory());
 
 ### A. 相关文档
 - [项目架构文档](../../CLAUDE.md)
-- [文件头文档规范](../../.claude/rules/file-header-documentation.md)
+- [文件头文档规范](../../../.claude/rules/file-header-documentation.md)
 - [实施方案计划](../jiggly-brewing-boole.md)
 
 ### B. 术语表

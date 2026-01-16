@@ -343,7 +343,7 @@ claude-replica - Claude Code 智能代码助手命令行工具
    * 获取版本文本
    */
   getVersionText(): string {
-    return `claude-replica v${DEFAULT_VERSION}`;
+    return `${DEFAULT_VERSION}`;
   }
 
   /**
