@@ -17,7 +17,6 @@ import * as dotenv from 'dotenv';
 // 在所有其他模块加载之前初始化环境变量
 dotenv.config({ quiet: process.env.DOTENV_QUIET === 'true' });
 
-import { CLIParser, CLIOptions } from './cli/CLIParser';
 import { ConfigManager } from './config';
 import { SessionManager, Session } from './core/SessionManager';
 import { MessageRouter } from './core/MessageRouter';
@@ -26,6 +25,10 @@ import { PermissionManager } from './permissions/PermissionManager';
 import { ToolRegistry } from './tools/ToolRegistry';
 import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from './ui/InteractiveUI';
 import { UIFactoryRegistry } from './ui/factories/UIFactoryRegistry';
+import type { UIFactory } from './ui/factories/UIFactory';
+import type { OptionsInterface } from './ui/OptionsInterface';
+import type { OutputInterface } from './ui/OutputInterface';
+import type { ParserInterface } from './ui/ParserInterface';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
 import { MCPService } from './mcp/MCPService';
@@ -48,9 +51,19 @@ const VERSION = process.env.VERSION || '0.1.0';
  * 可通过环境变量 SESSION_KEEP_COUNT 配置
  */
 const SESSION_KEEP_COUNT = parseInt(process.env.SESSION_KEEP_COUNT || '10', 10);
+const EXIT_CODE_SUCCESS = parseInt(process.env.EXIT_CODE_SUCCESS || '0', 10);
+const EXIT_CODE_GENERAL_ERROR = parseInt(process.env.EXIT_CODE_GENERAL_ERROR || '1', 10);
+const EXIT_CODE_CONFIG_ERROR = parseInt(process.env.EXIT_CODE_CONFIG_ERROR || '2', 10);
+
+type ApplicationOptions = OptionsInterface & {
+  print?: boolean;
+  prompt?: string;
+  outputFormat?: string;
+};
 
 export class Application {
-  private readonly cliParser: CLIParser;
+  private readonly parser: ParserInterface;
+  private readonly output: OutputInterface;
   private readonly configManager: ConfigManager;
   private readonly configBuilder: ConfigBuilder;
   private readonly sessionManager: SessionManager;
@@ -73,8 +86,9 @@ export class Application {
   private ui: InteractiveUI | null = null;
   private currentAbortController: AbortController | null = null;
 
-  constructor() {
-    this.cliParser = new CLIParser();
+  constructor(uiFactory: UIFactory = UIFactoryRegistry.createUIFactory()) {
+    this.parser = uiFactory.createParser();
+    this.output = uiFactory.createOutput();
     this.configManager = new ConfigManager();
     this.configBuilder = new ConfigBuilder();
     this.sessionManager = new SessionManager();
@@ -95,7 +109,8 @@ export class Application {
   async run(args: string[]): Promise<number> {
     try {
       // 1. 解析命令行参数
-      const options = this.cliParser.parse(args);
+      const options: OptionsInterface = this.parser.parse(args);
+      const appOptions = options as ApplicationOptions;
 
       // 2. 早期返回：help/version（无需完整初始化）
       const earlyExitCode = await this.handleEarlyReturns(options);
@@ -104,39 +119,43 @@ export class Application {
       }
 
       // 3. 初始化应用（包括 Logger）
-      await this.initialize(options);
+      await this.initialize(appOptions);
 
-      // 4. 无头模式
-      if (options.print) {
-        return await this.runNonInteractive(options);
+      // 4. 无头模式（单次运行）
+      if (appOptions.print) {
+        return await this.runNonInteractive(appOptions);
       }
 
       // 4. 交互模式
-      return await this.runInteractive(options);
+      return await this.runInteractive(appOptions);
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      return 1;
+      if (error instanceof Error && error.name === 'CLIParseError') {
+        this.output.error(`Argument error: ${error.message}`);
+        return EXIT_CODE_CONFIG_ERROR;
+      }
+      this.output.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      return EXIT_CODE_GENERAL_ERROR;
     }
   }
 
   /**
    * 处理早期返回（help/version），无需完整应用初始化
    */
-  private async handleEarlyReturns(options: CLIOptions): Promise<number | null> {
+  private async handleEarlyReturns(options: OptionsInterface): Promise<number | null> {
     if (options.help) {
-      console.log(this.cliParser.getHelpText());
-      return 0;
+      this.output.info(this.parser.getHelpText());
+      return EXIT_CODE_SUCCESS;
     }
 
     if (options.version) {
-      console.log(`claude-replica v${VERSION}`);
-      return 0;
+      this.output.success(`claude-replica v${VERSION}`);
+      return EXIT_CODE_SUCCESS;
     }
 
     return null;
   }
 
-  private async initialize(options: CLIOptions): Promise<void> {
+  private async initialize(options: ApplicationOptions): Promise<void> {
     // session清理
     await this.sessionManager.cleanOldSessions(SESSION_KEEP_COUNT)
 
@@ -147,7 +166,10 @@ export class Application {
 
     const workingDir = process.cwd();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    const permissionConfig = this.configBuilder.buildPermissionConfigOnly(options, projectConfig);
+    const permissionConfig = this.configBuilder.buildPermissionConfigOnly(
+      options as Parameters<ConfigBuilder['buildPermissionConfigOnly']>[0],
+      projectConfig
+    );
 
     // Create UI factory from configuration (default to terminal)
     const uiFactory = UIFactoryRegistry.create(permissionConfig.ui);
@@ -177,7 +199,7 @@ export class Application {
   }
 
 
-  private async runInteractive(_options: CLIOptions): Promise<number> {
+  private async runInteractive(_options: ApplicationOptions): Promise<number> {
     await this.logger.info('Starting interactive mode');
     const session = await this.getOrCreateSession();
 
@@ -239,19 +261,19 @@ export class Application {
 
     try {
       await this.ui.start();
-      return 0;
+      return EXIT_CODE_SUCCESS;
     } catch (error) {
       await this.logger.error('Interactive mode error', error);
-      return 1;
+      return EXIT_CODE_GENERAL_ERROR;
     }
   }
 
-  private async runNonInteractive(options: CLIOptions): Promise<number> {
+  private async runNonInteractive(options: ApplicationOptions): Promise<number> {
     await this.logger.info('Starting non-interactive mode');
     const prompt = options.prompt || (await this.readStdin());
     if (!prompt) {
       await this.logger.error('Error: No query content provided');
-      return 2;
+      return EXIT_CODE_CONFIG_ERROR;
     }
 
     // 创建临时会话对象（不持久化到磁盘）
@@ -276,12 +298,12 @@ export class Application {
 
       this.outputResult(result, options.outputFormat || 'text');
 
-      return 0;
+      return EXIT_CODE_SUCCESS;
     } catch (error) {
       await this.logger.error('Query execution failed', error);
 
-      console.error('Error:', error instanceof Error ? error.message : String(error));
-      return 1;
+      this.output.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      return EXIT_CODE_GENERAL_ERROR;
     }
   }
 
@@ -407,44 +429,46 @@ Available commands:
   /exit        - Exit program
 `.trim();
 
-    console.log(helpText);
+    this.output.info(helpText);
   }
 
   private async showSessions(): Promise<void> {
     const sessions = await this.sessionManager.listSessions();
     if (sessions.length === 0) {
-      console.log('No saved sessions');
+      this.output.info('No saved sessions');
       return;
     }
 
-    console.log('\nSession list:');
+    this.output.blankLine();
+    const lines = ['Session list:'];
     for (const session of sessions) {
       const status = session.expired ? '(expired)' : '';
       const time = session.lastAccessedAt.toLocaleString();
-      console.log(`  ${session.id} - ${time} ${status}`);
+      lines.push(`  ${session.id} - ${time} ${status}`);
     }
-    console.log('');
+    this.output.section(lines.join('\n'));
   }
 
   private async showConfig(): Promise<void> {
     const projectConfig = await this.configManager.loadProjectConfig(process.cwd());
 
-    console.log('\nCurrent configuration:');
-    console.log(JSON.stringify(projectConfig, null, 2));
-    console.log('');
+    this.output.blankLine();
+    const lines = ['Current configuration:', JSON.stringify(projectConfig, null, 2)];
+    this.output.section(lines.join('\n'));
   }
 
   private showPermissions(): void {
     const config = this.permissionManager.getConfig();
 
-    console.log('\nPermission settings:');
-    console.log(`  Mode: ${config.mode}`);
-    console.log(`  Allowed tools: ${config.allowedTools?.join(', ') || '(all)'}`);
-    console.log(`  Disallowed tools: ${config.disallowedTools?.join(', ') || '(none)'}`);
-    console.log(
-      `  Skip permission checks: ${config.allowDangerouslySkipPermissions ? 'yes' : 'no'}`
-    );
-    console.log('');
+    this.output.blankLine();
+    const lines = [
+      'Permission settings:',
+      `  Mode: ${config.mode}`,
+      `  Allowed tools: ${config.allowedTools?.join(', ') || '(all)'}`,
+      `  Disallowed tools: ${config.disallowedTools?.join(', ') || '(none)'}`,
+      `  Skip permission checks: ${config.allowDangerouslySkipPermissions ? 'yes' : 'no'}`,
+    ];
+    this.output.section(lines.join('\n'));
   }
 
   private async handleMCPCommand(parts: string[]): Promise<void> {
@@ -477,7 +501,7 @@ Available commands:
   private async handleResumeCommand(): Promise<void> {
     // 验证是否在交互模式中
     if (!this.ui) {
-      console.log('Warning: /resume command is only available in interactive mode');
+      this.output.info('Warning: /resume command is only available in interactive mode');
       return;
     }
 
@@ -486,7 +510,7 @@ Available commands:
 
     // 如果没有可用会话，显示提示并返回
     if (sessions.length === 0) {
-      console.log('No available sessions to resume');
+      this.output.info('No available sessions to resume');
       return;
     }
 
@@ -544,17 +568,22 @@ Available commands:
       // 显示成功消息
       if (hasValidSdkSession) {
         if (forkSession) {
-          console.log(`\nCreated new branch from session: ${selectedSession.id}${forkIndicator}`);
+          this.output.blankLine();
+          this.output.success(
+            `Created new branch from session: ${selectedSession.id}${forkIndicator}`
+          );
         } else {
-          console.log(`\nResumed session: ${selectedSession.id}${forkIndicator}`);
+          this.output.blankLine();
+          this.output.success(`Resumed session: ${selectedSession.id}${forkIndicator}`);
         }
       } else {
-        console.log(
-          `\nContinuing session: ${selectedSession.id}${forkIndicator} (new SDK session)`
+        this.output.blankLine();
+        this.output.success(
+          `Continuing session: ${selectedSession.id}${forkIndicator} (new SDK session)`
         );
       }
     } catch (error) {
-      console.error(
+      this.output.error(
         `Failed to resume session: ${error instanceof Error ? error.message : String(error)}`
       );
     }
@@ -562,7 +591,7 @@ Available commands:
 
   private showMCPCommandHelp(subcommand?: string): void {
     if (subcommand) {
-      console.log(`Unknown MCP subcommand: ${subcommand}`);
+      this.output.info(`Unknown MCP subcommand: ${subcommand}`);
     }
 
     const helpText = `
@@ -573,49 +602,53 @@ MCP commands:
   /mcp validate  - Validate MCP configuration
 `.trim();
 
-    console.log(helpText);
+    this.output.info(helpText);
   }
 
   private async showMCPConfig(): Promise<void> {
     try {
       const result = await this.mcpService.listServerConfig(process.cwd());
       if (result.servers.length === 0) {
-        console.log(`No MCP servers configured at ${result.configPath}`);
-        console.log('Use /mcp edit to add MCP servers.');
-        console.log('Use /mcp validate to validate MCP configuration.');
+        this.output.info(`No MCP servers configured at ${result.configPath}`);
+        this.output.info('Use /mcp edit to add MCP servers.');
+        this.output.info('Use /mcp validate to validate MCP configuration.');
         return;
       }
 
-      console.log(`\nMCP configuration: ${result.configPath}`);
-      console.log('MCP servers:');
-      for (const server of result.servers) {
-        console.log(`\n- ${server.name}`);
-        console.log(`  Transport: ${server.type}`);
-        console.log('  Config:');
+      this.output.blankLine();
+      this.output.section(`MCP configuration: ${result.configPath}\nMCP servers:`);
+      result.servers.forEach((server, index) => {
+        if (index > 0) {
+          this.output.blankLine();
+        }
+        this.output.info(`- ${server.name}`);
+        this.output.info(`  Transport: ${server.type}`);
+        this.output.info('  Config:');
         const configLines = JSON.stringify(server.config, null, 2).split('\n');
         for (const line of configLines) {
-          console.log(`    ${line}`);
+          this.output.info(`    ${line}`);
         }
-      }
+      });
 
-      console.log('\nCommands:');
-      console.log('  /mcp edit     - Edit MCP configuration');
-      console.log('  /mcp validate - Validate MCP configuration');
-      console.log('');
+      this.output.blankLine();
+      this.output.info('Commands:');
+      this.output.info('  /mcp edit     - Edit MCP configuration');
+      this.output.info('  /mcp validate - Validate MCP configuration');
+      this.output.blankLine();
     } catch (error) {
       await this.logger.error('Failed to show MCP configuration', error);
-      console.error('Error:', error instanceof Error ? error.message : String(error));
+      this.output.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   private async editMCPConfig(): Promise<void> {
     try {
       const result = await this.mcpService.editConfig(process.cwd());
-      console.log(`MCP configuration updated: ${result.configPath}`);
-      console.log('Reload the application to apply the updated configuration.');
+      this.output.success(`MCP configuration updated: ${result.configPath}`);
+      this.output.info('Reload the application to apply the updated configuration.');
     } catch (error) {
       await this.logger.error('MCP config edit failed', error);
-      console.error('Error:', error instanceof Error ? error.message : String(error));
+      this.output.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -624,14 +657,14 @@ MCP commands:
       const result = await this.mcpService.validateConfig(process.cwd());
 
       if (result.valid) {
-        console.log(`MCP configuration is valid. Servers: ${result.serverCount}`);
-        console.log(
+        this.output.success(`MCP configuration is valid. Servers: ${result.serverCount}`);
+        this.output.info(
           `Transports: stdio ${result.transportCounts.stdio}, sse ${result.transportCounts.sse}, http ${result.transportCounts.http}`
         );
         return;
       }
 
-      console.log(
+      this.output.info(
         `MCP configuration is invalid. Errors: ${result.errors.length}, Path: ${result.configPath}`
       );
       for (const error of result.errors) {
@@ -646,18 +679,18 @@ MCP commands:
           details.push(`column: ${error.column}`);
         }
         const suffix = details.length > 0 ? ` (${details.join(', ')})` : '';
-        console.log(`- ${error.message}${suffix}`);
+        this.output.info(`- ${error.message}${suffix}`);
       }
     } catch (error) {
       await this.logger.error('MCP config validation failed', error);
-      console.error('Error:', error instanceof Error ? error.message : String(error));
+      this.output.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   private async executeQuery(
     prompt: string,
     session: Session,
-    _options?: CLIOptions
+    _options?: ApplicationOptions
   ): Promise<string> {
     await this.sessionManager.addMessage(session, {
       role: 'user',
@@ -856,7 +889,7 @@ MCP commands:
       : 'text';
 
     const formattedOutput = this.outputFormatter.format(queryResult, outputFormat);
-    console.log(formattedOutput);
+    this.output.info(formattedOutput);
   }
 }
 

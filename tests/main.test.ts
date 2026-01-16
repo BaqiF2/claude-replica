@@ -8,6 +8,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
+import { CLIParser } from '../src/cli/CLIParser';
 
 // 模拟 SDK 模块 - 返回正确的 AsyncGenerator
 jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
@@ -521,16 +522,12 @@ describe('非交互模式高级功能', () => {
   });
 
   it('应该支持位置参数作为查询内容', async () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    
+    const parser = new CLIParser();
+
     // 位置参数应该被解析为查询内容
-    const exitCode = await main(['测试查询']);
-    
-    // 没有 -p 标志时，应该进入交互模式，但由于没有 TTY，会失败
-    // 这里我们只测试参数解析是否正确
-    expect(typeof exitCode).toBe('number');
-    
-    consoleSpy.mockRestore();
+    const options = parser.parse(['测试查询']);
+
+    expect(options.prompt).toBe('测试查询');
   });
 
   it('应该支持组合多个选项', async () => {
@@ -878,9 +875,8 @@ describe('handleResumeCommand 方法', () => {
       await app.handleResumeCommand();
 
       // 验证显示分叉标记
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        '\nResumed session: session-456 🔀'
-      );
+      expect(consoleLogSpy).toHaveBeenCalledWith('');
+      expect(consoleLogSpy).toHaveBeenCalledWith('Resumed session: session-456 🔀');
 
       consoleLogSpy.mockRestore();
     });
@@ -998,4 +994,3 @@ describe('handleResumeCommand 方法', () => {
     });
   });
 });
-

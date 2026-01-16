@@ -5,7 +5,7 @@ Claude Replica replicates Claude Code functionality using the Claude Agent SDK, 
 ## Core Architecture
 
 ### Main Entry Flow
-1. **cli.ts** - CLI entry point, parses arguments
+1. **cli.ts** - CLI entry point, creates UIFactory via UIFactoryRegistry and starts Application
 2. **main.ts** - Application class orchestrates subsystems
 3. **MessageRouter** - Routes messages to SDK, builds prompts
 4. **SDKQueryExecutor** - Wraps SDK query() function
@@ -14,6 +14,10 @@ Claude Replica replicates Claude Code functionality using the Claude Agent SDK, 
 
 ### SDK Integration
 All SDK interactions flow through `src/sdk/SDKQueryExecutor.ts`. When modifying SDK integration, only change `SDKQueryExecutor.ts` and `MessageRouter.ts`. SDK is imported from `@anthropic-ai/claude-agent-sdk`.
+
+### UI Factory Layer
+- **UIFactoryRegistry** (`src/ui/factories/UIFactoryRegistry.ts`): Selects UIFactory via `CLAUDE_UI_TYPE`
+- **UIFactory** (`src/ui/factories/UIFactory.ts`): Creates ParserInterface and OutputInterface
 
 ### Configuration
 Three-level configuration (priority: Local > Project > User):

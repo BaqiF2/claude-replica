@@ -132,7 +132,7 @@ npm run format:check       # Check formatting without changes
 ## Core Architecture
 
 ### Main Entry Flow
-1. **`cli.ts`** - CLI entry point, parses arguments with `CLIParser`
+1. **`cli.ts`** - CLI entry point, creates UIFactory via `UIFactoryRegistry` and starts `Application`
 2. **`main.ts`** - `Application` class orchestrates all subsystems
 3. **`MessageRouter`** - Routes user messages to SDK, builds system prompts
 4. **`SDKQueryExecutor`** - Wraps Claude Agent SDK `query()` function
@@ -148,6 +148,10 @@ All SDK interactions flow through `src/sdk/SDKQueryExecutor.ts`:
 - Supports session resumption via SDK session IDs
 
 **Critical**: When modifying SDK integration, only change `SDKQueryExecutor.ts` and `MessageRouter.ts`. The SDK is imported from `@anthropic-ai/claude-agent-sdk`.
+
+### UI Factory Layer
+- **UIFactoryRegistry** (`src/ui/factories/UIFactoryRegistry.ts`): Selects UIFactory via `CLAUDE_UI_TYPE`
+- **UIFactory** (`src/ui/factories/UIFactory.ts`): Creates ParserInterface and OutputInterface
 
 ### Configuration System
 

@@ -3,16 +3,22 @@
  *
  * Core Class:
  * - UIFactoryRegistry: Registry for managing UI factory registration and retrieval
+ * - Extension: Supports both PermissionUIFactory and UIFactory registration
  *
  * Responsibilities:
- * - Register UI factories by type
- * - Retrieve factories by type
- * - Create factories from configuration
- * - Provide default factory selection
+ * - Register permission UI factories by type
+ * - Retrieve permission UI factories by type
+ * - Create permission UI factories from configuration
+ * - Register UIFactory instances by type
+ * - Create UIFactory instances from configuration
  */
 
 import { PermissionUIFactory } from './PermissionUIFactory';
 import { TerminalPermissionUIFactory } from './TerminalPermissionUIFactory';
+import { TerminalUIFactory } from './TerminalUIFactory';
+import type { UIFactory } from './UIFactory';
+
+const DEFAULT_UI_FACTORY_TYPE = process.env.CLAUDE_UI_TYPE || 'terminal';
 
 /**
  * UI Configuration Interface
@@ -35,6 +41,8 @@ export interface UIConfig {
 export class UIFactoryRegistry {
   /** Internal registry of factories by type */
   private static factories: Map<string, PermissionUIFactory> = new Map();
+  /** Internal registry of UIFactory instances by type */
+  private static uiFactories: Map<string, UIFactory> = new Map();
 
   /**
    * Register a UI factory for a specific type
@@ -52,6 +60,24 @@ export class UIFactoryRegistry {
     }
 
     this.factories.set(type, factory);
+  }
+
+  /**
+   * Register a UIFactory for a specific type
+   *
+   * @param type UI type identifier (e.g., 'terminal', 'web')
+   * @param factory UIFactory instance to register
+   */
+  static registerUIFactory(type: string, factory: UIFactory): void {
+    if (!type || typeof type !== 'string') {
+      throw new Error('UI factory type must be a non-empty string');
+    }
+
+    if (!factory) {
+      throw new Error('UI factory instance is required');
+    }
+
+    this.uiFactories.set(type, factory);
   }
 
   /**
@@ -93,6 +119,38 @@ export class UIFactoryRegistry {
   }
 
   /**
+   * Create a UIFactory based on configuration
+   *
+   * @param config UI configuration (optional)
+   * @returns UIFactory instance
+   */
+  static createUIFactory(config?: UIConfig): UIFactory {
+    if (config == null) {
+      return this.getUIFactory(DEFAULT_UI_FACTORY_TYPE);
+    }
+
+    if (!config.type) {
+      throw new Error('UI config must include a valid type string');
+    }
+
+    return this.getUIFactory(config.type);
+  }
+
+  private static getUIFactory(type: string): UIFactory {
+    if (!type || typeof type !== 'string') {
+      throw new Error('UI factory type must be a non-empty string');
+    }
+
+    const factory = this.uiFactories.get(type);
+
+    if (!factory) {
+      throw new Error(`UI factory not found for type: ${type}`);
+    }
+
+    return factory;
+  }
+
+  /**
    * Check if a factory type is registered
    *
    * @param type UI type identifier
@@ -116,8 +174,10 @@ export class UIFactoryRegistry {
    */
   static clear(): void {
     this.factories.clear();
+    this.uiFactories.clear();
   }
 }
 
 // Register default terminal factory on module load
 UIFactoryRegistry.register('terminal', new TerminalPermissionUIFactory());
+UIFactoryRegistry.registerUIFactory('terminal', new TerminalUIFactory());
