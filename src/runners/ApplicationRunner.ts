@@ -5,12 +5,13 @@
  * - ApplicationRunner: 定义统一的运行器契约，支持策略模式。
  */
 
+import type { ConfigOverrides } from '../config/ConfigOverrides';
 import type { OptionsInterface } from '../ui/OptionsInterface';
 
 /**
  * Application options type
  */
-export type ApplicationOptions = OptionsInterface & {
+export type ApplicationOptions = OptionsInterface & ConfigOverrides & {
   print?: boolean;
   prompt?: string;
   outputFormat?: string;

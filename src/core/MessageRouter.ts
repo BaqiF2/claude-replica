@@ -18,23 +18,21 @@
  * - setPermissionMode(): 设置权限模式并同步到 SDK
  */
 
-import { ConfigManager } from '../config/ConfigManager';
 import {
-  PermissionMode,
   AgentDefinition,
-  McpServerConfig,
-  SandboxSettings,
-  HookEvent,
   HookCallbackMatcher,
+  HookEvent,
+  McpServerConfig,
+  PermissionMode,
+  SandboxSettings,
 } from '../config/SDKConfigLoader';
-import { ToolRegistry } from '../tools/ToolRegistry';
-import { PermissionManager } from '../permissions/PermissionManager';
-import { Session, ContentBlock } from './SessionManager';
-import { ImageHandler, ImageData } from '../image/ImageHandler';
-import { getPresetAgents } from '../agents/PresetAgents';
-import { StreamContentBlock, TextContentBlock, ImageContentBlock } from '../sdk/SDKQueryExecutor';
-import type { CanUseTool as SDKCanUseTool } from '@anthropic-ai/claude-agent-sdk';
-import type { Query } from '@anthropic-ai/claude-agent-sdk';
+import {ToolRegistry} from '../tools/ToolRegistry';
+import {PermissionManager} from '../permissions/PermissionManager';
+import {ContentBlock, Session} from './SessionManager';
+import {ImageData, ImageHandler} from '../image/ImageHandler';
+import {getPresetAgents} from '../agents/PresetAgents';
+import {ImageContentBlock, StreamContentBlock, TextContentBlock} from '../sdk/SDKQueryExecutor';
+import type {CanUseTool as SDKCanUseTool, Query} from '@anthropic-ai/claude-agent-sdk';
 
 /**
  * 消息接口
@@ -98,8 +96,6 @@ export interface QueryResult {
  * MessageRouter 选项接口
  */
 export interface MessageRouterOptions {
-  /** 配置管理器 */
-  configManager: ConfigManager;
   /** 工具注册表（可选） */
   toolRegistry?: ToolRegistry;
   /** 权限管理器 */
@@ -169,9 +165,6 @@ const DEFAULT_MODEL = process.env.CLAUDE_REPLICA_DEFAULT_MODEL || 'sonnet';
  * - 构建 SDK 查询选项
  */
 export class MessageRouter {
-  /** 配置管理器（保留接口兼容性） */
-  // @ts-expect-error - Unused but kept for interface compatibility
-  private readonly _configManager: ConfigManager;
   /** 工具注册表 */
   private readonly toolRegistry: ToolRegistry;
   /** 权限管理器 */
@@ -186,7 +179,6 @@ export class MessageRouter {
   private mcpServers?: Record<string, McpServerConfig>;
 
   constructor(options: MessageRouterOptions) {
-    this._configManager = options.configManager;
     this.toolRegistry = options.toolRegistry || new ToolRegistry();
     this.permissionManager = options.permissionManager;
     // 使用传入的工作目录，如果没有则使用默认值
@@ -483,11 +475,8 @@ export class MessageRouter {
    * @returns 权限处理函数
    */
   createPermissionHandler(_session: Session): SDKCanUseTool {
-    // 使用权限管理器创建处理函数
-    const baseHandler = this.permissionManager.createCanUseToolHandler();
-
     // 直接返回 baseHandler，它已经是符合 SDK 规范的 SDKCanUseTool
-    return baseHandler;
+    return this.permissionManager.createCanUseToolHandler();
   }
 
   /**

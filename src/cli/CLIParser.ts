@@ -11,6 +11,8 @@
  */
 
 import * as dotenv from 'dotenv';
+import type { ConfigOverrides } from '../config/ConfigOverrides';
+import type { PermissionMode } from '../permissions/PermissionManager';
 
 // 加载环境变量配置
 dotenv.config({ quiet: process.env.DOTENV_QUIET === 'true' });
@@ -26,11 +28,6 @@ export class CLIParseError extends Error {
 }
 
 /**
- * 权限模式类型
- */
-export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
-
-/**
  * 输出格式类型
  */
 export type OutputFormat = 'text' | 'json' | 'stream-json' | 'markdown';
@@ -43,22 +40,15 @@ export type SettingSource = 'user' | 'project' | 'local';
 /**
  * CLI 选项接口
  */
-export interface CLIOptions {
+export interface CLIOptions extends ConfigOverrides {
   // 基本选项
   print?: boolean; // -p, --print
   prompt?: string; // 查询内容
 
   // 模型和提示
-  model?: string; // --model
   systemPrompt?: string; // --system-prompt
   systemPromptFile?: string; // --system-prompt-file
   appendSystemPrompt?: string; // --append-system-prompt
-
-  // 工具和权限
-  allowedTools?: string[]; // --allowed-tools
-  disallowedTools?: string[]; // --disallowed-tools
-  permissionMode?: PermissionMode; // --permission-mode
-  allowDangerouslySkipPermissions?: boolean; // --dangerously-skip-permissions
 
   // 输出
   outputFormat?: OutputFormat; // --output-format
@@ -71,11 +61,6 @@ export interface CLIOptions {
   settingSources?: SettingSource[]; // --setting-sources
 
   // 高级选项
-  maxTurns?: number; // --max-turns
-  maxBudgetUsd?: number; // --max-budget-usd
-  maxThinkingTokens?: number; // --max-thinking-tokens
-  enableFileCheckpointing?: boolean; // --enable-file-checkpointing
-  sandbox?: boolean; // --sandbox
   timeout?: number; // --timeout (秒)
 
   // 其他

@@ -24,5 +24,6 @@ export {
 } from './SDKConfigLoader';
 
 export { ConfigManager } from './ConfigManager';
+export { ConfigOverrides } from './ConfigOverrides';
 
 export { EnvConfig, EnvConfiguration, ENV_KEYS } from './EnvConfig';

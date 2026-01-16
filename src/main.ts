@@ -36,7 +36,6 @@ import { OutputFormatter } from './output/OutputFormatter';
 import { SecurityManager } from './security/SecurityManager';
 import { SDKQueryExecutor } from './sdk';
 import { Logger } from './logging/Logger';
-import { ConfigBuilder } from './config/ConfigBuilder';
 import { CustomToolManager } from './custom-tools';
 import { RunnerFactory, ApplicationOptions } from './runners';
 
@@ -55,7 +54,6 @@ export class Application {
   private readonly parser: ParserInterface;
   private readonly output: OutputInterface;
   private readonly configManager: ConfigManager;
-  private readonly configBuilder: ConfigBuilder;
   private readonly sessionManager: SessionManager;
   private readonly toolRegistry: ToolRegistry;
   private readonly hookManager: HookManager;
@@ -78,7 +76,6 @@ export class Application {
     this.parser = uiFactory.createParser();
     this.output = uiFactory.createOutput();
     this.configManager = new ConfigManager();
-    this.configBuilder = new ConfigBuilder();
     this.sessionManager = new SessionManager();
     this.toolRegistry = new ToolRegistry();
     this.hookManager = new HookManager();
@@ -150,11 +147,7 @@ export class Application {
     await this.configManager.ensureUserConfigDir();
 
     const workingDir = process.cwd();
-    const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    const permissionConfig = this.configBuilder.buildPermissionConfigOnly(
-      options as Parameters<ConfigBuilder['buildPermissionConfigOnly']>[0],
-      projectConfig
-    );
+    const permissionConfig = await this.configManager.loadPermissionConfig(options, workingDir);
 
     // Create UI factory from configuration (default to terminal)
     const uiFactory = UIFactoryRegistry.create(permissionConfig.ui);
@@ -162,7 +155,6 @@ export class Application {
     this.permissionManager = new PermissionManager(permissionConfig, uiFactory, this.toolRegistry);
 
     this.messageRouter = new MessageRouter({
-      configManager: this.configManager,
       toolRegistry: this.toolRegistry,
       permissionManager: this.permissionManager,
       workingDirectory: workingDir,
