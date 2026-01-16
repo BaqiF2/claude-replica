@@ -1,0 +1,98 @@
+process.env.DOTENV_QUIET = 'true';
+
+jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
+  query: jest.fn(),
+  createSdkMcpServer: jest.fn().mockImplementation((config) => config),
+  tool: jest.fn().mockImplementation((name, description, schema, handler) => ({
+    name,
+    description,
+    schema,
+    handler,
+  })),
+}));
+
+import type { OutputInterface } from '../../src/ui/OutputInterface';
+import type { ParserInterface } from '../../src/ui/ParserInterface';
+import type { UIFactory } from '../../src/ui/factories/UIFactory';
+import { CLIParseError } from '../../src/cli/CLIParser';
+import { Application } from '../../src/main';
+
+const EXPECTED_CONFIG_ERROR_EXIT_CODE = parseInt(
+  process.env.EXIT_CODE_CONFIG_ERROR || '2',
+  10
+);
+const EXPECTED_GENERAL_ERROR_EXIT_CODE = parseInt(
+  process.env.EXIT_CODE_GENERAL_ERROR || '1',
+  10
+);
+const EXPECTED_ERROR_CALL_COUNT = parseInt(
+  process.env.APP_OUTPUT_ERROR_CALL_COUNT || '1',
+  10
+);
+
+class StubOutput implements OutputInterface {
+  info = jest.fn();
+  warn = jest.fn();
+  error = jest.fn();
+  success = jest.fn();
+  section = jest.fn();
+  blankLine = jest.fn();
+}
+
+class StubUIFactory implements UIFactory {
+  private readonly parser: ParserInterface;
+  private readonly output: OutputInterface;
+
+  constructor(parser: ParserInterface, output: OutputInterface) {
+    this.parser = parser;
+    this.output = output;
+  }
+
+  createParser(): ParserInterface {
+    return this.parser;
+  }
+
+  createOutput(): OutputInterface {
+    return this.output;
+  }
+}
+
+describe('Application error output', () => {
+  it('formats CLI parse errors like console.error did', async () => {
+    const errorMessage = 'invalid option';
+    const parser: ParserInterface = {
+      parse: () => {
+        throw new CLIParseError(errorMessage);
+      },
+      getHelpText: () => 'help',
+      getVersionText: () => 'version',
+    };
+    const output = new StubOutput();
+    const app = new Application(new StubUIFactory(parser, output));
+
+    const exitCode = await app.run(['--unknown-option']);
+
+    expect(exitCode).toBe(EXPECTED_CONFIG_ERROR_EXIT_CODE);
+    expect(output.error).toHaveBeenCalledTimes(EXPECTED_ERROR_CALL_COUNT);
+    expect(output.error).toHaveBeenCalledWith(`Argument error: ${errorMessage}`);
+  });
+
+  it('formats unexpected errors like console.error did', async () => {
+    const errorMessage = 'unexpected';
+    const parser: ParserInterface = {
+      parse: () => {
+        throw new Error(errorMessage);
+      },
+      getHelpText: () => 'help',
+      getVersionText: () => 'version',
+    };
+    const output = new StubOutput();
+    const app = new Application(new StubUIFactory(parser, output));
+
+    const exitCode = await app.run(['--anything']);
+
+    expect(exitCode).toBe(EXPECTED_GENERAL_ERROR_EXIT_CODE);
+    expect(output.error).toHaveBeenCalledTimes(EXPECTED_ERROR_CALL_COUNT);
+    expect(output.error).toHaveBeenCalledWith(`Error: ${errorMessage}`);
+  });
+});
