@@ -22,6 +22,7 @@ import {
 } from './SDKQueryExecutor';
 import type { SDKMessage, SDKAssistantMessage, Query } from '@anthropic-ai/claude-agent-sdk';
 import type { PermissionMode } from '../config/SDKConfigLoader';
+import type { InteractiveUIInterface } from '../ui/InteractiveUIInterface';
 
 /**
  * 流式会话状态
@@ -222,6 +223,8 @@ export interface StreamingQueryManagerOptions {
   sdkExecutor: SDKQueryExecutor;
   /** 会话管理器 */
   sessionManager: SessionManager;
+  /** 交互式 UI 实例（可选） */
+  ui?: InteractiveUIInterface;
   /** 工具调用回调 - 当检测到工具调用时触发 */
   onToolUse?: (info: ToolUseInfo) => void;
   /** 工具结果回调 - 当检测到工具结果时触发 */

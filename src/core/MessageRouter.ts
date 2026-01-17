@@ -26,13 +26,13 @@ import {
   PermissionMode,
   SandboxSettings,
 } from '../config/SDKConfigLoader';
-import {ToolRegistry} from '../tools/ToolRegistry';
-import {PermissionManager} from '../permissions/PermissionManager';
-import {ContentBlock, Session} from './SessionManager';
-import {ImageData, ImageHandler} from '../image/ImageHandler';
-import {getPresetAgents} from '../agents/PresetAgents';
-import {ImageContentBlock, StreamContentBlock, TextContentBlock} from '../sdk/SDKQueryExecutor';
-import type {CanUseTool as SDKCanUseTool, Query} from '@anthropic-ai/claude-agent-sdk';
+import { ToolRegistry } from '../tools/ToolRegistry';
+import { PermissionManager } from '../permissions/PermissionManager';
+import { ContentBlock, Session } from './SessionManager';
+import { ImageData, ImageHandler } from '../image/ImageHandler';
+import { getPresetAgents } from '../agents/PresetAgents';
+import { ImageContentBlock, StreamContentBlock, TextContentBlock } from '../sdk/SDKQueryExecutor';
+import type { CanUseTool as SDKCanUseTool, Query } from '@anthropic-ai/claude-agent-sdk';
 
 /**
  * 消息接口

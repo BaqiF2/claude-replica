@@ -1,0 +1,958 @@
+/**
+ * File: TerminalInteractiveUI
+ *
+ * Purpose:
+ * - Terminal-based Interactive UI implementation using callbacks and config.
+ */
+import * as readline from 'readline';
+import type {
+  InteractiveUIConfig,
+  InteractiveUICallbacks,
+  InteractiveUIInterface,
+  MessageRole,
+  PermissionMode,
+  Snapshot,
+} from './InteractiveUIInterface';
+import type { Session, SessionStats } from '../core/SessionManager';
+
+/**
+ * ANSI color codes.
+ */
+const COLORS = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+  // Foreground colors
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  gray: '\x1b[90m',
+  // Background colors
+  bgRed: '\x1b[41m',
+  bgGreen: '\x1b[42m',
+  bgYellow: '\x1b[43m',
+  bgBlue: '\x1b[44m',
+};
+
+const ESC_DOUBLE_PRESS_WINDOW_MS = parseInt(
+  process.env.TERMINAL_UI_ESC_DOUBLE_PRESS_WINDOW_MS || '300',
+  10
+);
+const SHIFT_TAB_BUFFER_LIMIT = parseInt(process.env.TERMINAL_UI_SHIFT_TAB_BUFFER_LIMIT || '10', 10);
+const TOOL_ARG_PREVIEW_MAX_LENGTH = parseInt(
+  process.env.TERMINAL_UI_TOOL_ARG_PREVIEW_MAX_LENGTH || '30',
+  10
+);
+const TOOL_RESULT_MAX_LENGTH = parseInt(
+  process.env.TERMINAL_UI_TOOL_RESULT_MAX_LENGTH || '200',
+  10
+);
+const THINKING_MAX_LINES = parseInt(process.env.TERMINAL_UI_THINKING_MAX_LINES || '3', 10);
+const THINKING_MAX_LINE_LENGTH = parseInt(
+  process.env.TERMINAL_UI_THINKING_MAX_LINE_LENGTH || '100',
+  10
+);
+const COMPUTING_FRAME_INTERVAL_MS = parseInt(
+  process.env.TERMINAL_UI_COMPUTING_FRAME_INTERVAL_MS || '500',
+  10
+);
+const SESSION_ID_PREVIEW_LENGTH = parseInt(
+  process.env.TERMINAL_UI_SESSION_ID_PREVIEW_LENGTH || '8',
+  10
+);
+const SESSION_PREVIEW_MAX_LENGTH = parseInt(
+  process.env.TERMINAL_UI_SESSION_PREVIEW_MAX_LENGTH || '60',
+  10
+);
+const RELATIVE_SECONDS_IN_MINUTE = parseInt(
+  process.env.TERMINAL_UI_RELATIVE_SECONDS_IN_MINUTE || '60',
+  10
+);
+const RELATIVE_MINUTES_IN_HOUR = parseInt(
+  process.env.TERMINAL_UI_RELATIVE_MINUTES_IN_HOUR || '60',
+  10
+);
+const RELATIVE_HOURS_IN_DAY = parseInt(process.env.TERMINAL_UI_RELATIVE_HOURS_IN_DAY || '24', 10);
+const RELATIVE_DAYS_IN_WEEK = parseInt(process.env.TERMINAL_UI_RELATIVE_DAYS_IN_WEEK || '7', 10);
+const RELATIVE_DAYS_IN_MONTH = parseInt(process.env.TERMINAL_UI_RELATIVE_DAYS_IN_MONTH || '30', 10);
+const RELATIVE_WEEKS_IN_MONTH = parseInt(
+  process.env.TERMINAL_UI_RELATIVE_WEEKS_IN_MONTH || '4',
+  10
+);
+const RELATIVE_MONTHS_IN_YEAR = parseInt(
+  process.env.TERMINAL_UI_RELATIVE_MONTHS_IN_YEAR || '12',
+  10
+);
+const RELATIVE_DAYS_IN_YEAR = parseInt(process.env.TERMINAL_UI_RELATIVE_DAYS_IN_YEAR || '365', 10);
+const DATE_PAD_LENGTH = parseInt(process.env.TERMINAL_UI_DATE_PAD_LENGTH || '2', 10);
+const TOKENS_IN_K = parseInt(process.env.TERMINAL_UI_TOKENS_IN_K || '1000', 10);
+const TOKENS_K_DECIMALS = parseInt(process.env.TERMINAL_UI_TOKENS_K_DECIMALS || '1', 10);
+const COST_DECIMALS = parseInt(process.env.TERMINAL_UI_COST_DECIMALS || '3', 10);
+const COST_DISPLAY_THRESHOLD = parseFloat(process.env.TERMINAL_UI_COST_DISPLAY_THRESHOLD || '0.01');
+const CLEAR_LINE_DIRECTION = parseInt(
+  process.env.TERMINAL_UI_CLEAR_LINE_DIRECTION || '0',
+  10
+) as readline.Direction;
+
+/**
+ * Permission mode color mapping.
+ */
+const PERMISSION_MODE_COLORS: Record<PermissionMode, keyof typeof COLORS> = {
+  default: 'green',
+  acceptEdits: 'yellow',
+  bypassPermissions: 'red',
+  plan: 'blue',
+};
+
+/**
+ * Permission mode labels.
+ */
+const PERMISSION_MODE_LABELS: Record<PermissionMode, string> = {
+  default: 'De' + 'fault',
+  acceptEdits: 'Accept Edits',
+  bypassPermissions: 'Bypass Permissions',
+  plan: 'Plan Mode',
+};
+
+/**
+ * Permission mode emojis.
+ */
+const PERMISSION_MODE_EMOJIS: Record<PermissionMode, string> = {
+  default: '🟢',
+  acceptEdits: '🟡',
+  bypassPermissions: '🔴',
+  plan: '🔵',
+};
+
+export class TerminalInteractiveUI implements InteractiveUIInterface {
+  private readonly onMessage: InteractiveUICallbacks['onMessage'];
+  private readonly onCommand: InteractiveUICallbacks['onCommand'];
+  private readonly onInterrupt: InteractiveUICallbacks['onInterrupt'];
+  private readonly onRewind: InteractiveUICallbacks['onRewind'];
+  private readonly onPermissionModeChange?: InteractiveUICallbacks['onPermissionModeChange'];
+  private readonly onQueueMessage?: InteractiveUICallbacks['onQueueMessage'];
+  private readonly input: NodeJS.ReadableStream;
+  private readonly output: NodeJS.WritableStream;
+  private readonly enableColors: boolean;
+  private rl: readline.Interface | null = null;
+  private isRunning = false;
+  /** Indicates if a message is being processed for non-blocking input. */
+  private isProcessingMessage = false;
+  private lastEscTime = 0;
+  private progressInterval: ReturnType<typeof setInterval> | null = null;
+  private currentPermissionMode: PermissionMode = 'default';
+  /** Shift+Tab detection buffer. */
+  private shiftTabBuffer = '';
+  private keyListener?: (data: Buffer) => void;
+
+  constructor(callbacks: InteractiveUICallbacks, config: InteractiveUIConfig = {}) {
+    this.onMessage = callbacks.onMessage;
+    this.onCommand = callbacks.onCommand;
+    this.onInterrupt = callbacks.onInterrupt;
+    this.onRewind = callbacks.onRewind;
+    this.onPermissionModeChange = callbacks.onPermissionModeChange;
+    this.onQueueMessage = callbacks.onQueueMessage;
+    this.input = config.input || process.stdin;
+    this.output = config.output || process.stdout;
+    this.enableColors = config.enableColors ?? true;
+  }
+
+  /**
+   * Start the interactive session.
+   */
+  async start(): Promise<void> {
+    if (this.isRunning) {
+      return;
+    }
+
+    this.isRunning = true;
+
+    this.rl = readline.createInterface({
+      input: this.input,
+      output: this.output,
+      terminal: true,
+    });
+
+    if (this.input === process.stdin && process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
+
+    this.setupKeyListener();
+    this.displayWelcome();
+    await this.inputLoop();
+  }
+
+  /**
+   * Stop the interactive session.
+   */
+  stop(): void {
+    this.isRunning = false;
+
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+
+    if (this.rl) {
+      this.rl.close();
+      this.rl = null;
+    }
+
+    if (this.keyListener) {
+      this.input.removeListener('data', this.keyListener);
+      this.keyListener = undefined;
+    }
+
+    if (this.input === process.stdin && process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+  }
+
+  /**
+   * Display a message.
+   */
+  displayMessage(message: string, role: MessageRole): void {
+    const prefix = this.getMessagePrefix(role);
+    const coloredMessage = this.colorize(message, this.getRoleColor(role));
+    this.writeLine(`${prefix} ${coloredMessage}`);
+  }
+
+  /**
+   * Display tool invocation.
+   */
+  displayToolUse(tool: string, args: Record<string, unknown>): void {
+    const icon = this.colorize('⏺', 'cyan');
+    const toolName = this.colorize(tool, 'bold');
+    const argPairs = Object.entries(args)
+      .map(([key, value]) => {
+        const displayValue =
+          typeof value === 'string'
+            ? `"${value.length > TOOL_ARG_PREVIEW_MAX_LENGTH ? value.slice(0, TOOL_ARG_PREVIEW_MAX_LENGTH) + '...' : value}"`
+            : JSON.stringify(value);
+        return `${key}: ${displayValue}`;
+      })
+      .join(', ');
+    const argsDisplay = argPairs ? `(${argPairs})` : '';
+    this.writeLine(`${icon} ${toolName}${this.colorize(argsDisplay, 'gray')}`);
+  }
+
+  /**
+   * Display tool execution result.
+   */
+  displayToolResult(tool: string, result: string, isError = false): void {
+    const resultIcon = isError ? '⎿' : '⎿';
+    const color = isError ? 'red' : 'gray';
+    const firstLine = result.split('\n')[0];
+    const displayResult =
+      firstLine.length > TOOL_RESULT_MAX_LENGTH
+        ? firstLine.slice(0, TOOL_RESULT_MAX_LENGTH) + '...'
+        : firstLine;
+    if (displayResult.trim()) {
+      this.writeLine(`  ${resultIcon}  ${this.colorize(displayResult.trim(), color)}`);
+    }
+    void tool;
+  }
+
+  /**
+   * Display thinking status.
+   */
+  displayThinking(content?: string): void {
+    const icon = this.colorize('∴', 'magenta');
+    const label = this.colorize('Thinking…', 'magenta');
+    this.writeLine(`${icon} ${label}`);
+
+    if (content && content.trim()) {
+      const lines = content.trim().split('\n').slice(0, THINKING_MAX_LINES);
+      for (const line of lines) {
+        const displayLine =
+          line.length > THINKING_MAX_LINE_LENGTH
+            ? line.slice(0, THINKING_MAX_LINE_LENGTH) + '...'
+            : line;
+        this.writeLine(`  ${this.colorize(displayLine, 'gray')}`);
+      }
+    }
+  }
+
+  /**
+   * Display computing status with animation.
+   */
+  displayComputing(): void {
+    this.clearProgress();
+
+    const frames = ['●', '○'];
+    let frameIndex = 0;
+
+    const initialIcon = this.colorize(frames[0], 'green');
+    const label = this.colorize('Computing…', 'green');
+    const hint = this.colorize(' (esc to interrupt)', 'gray');
+
+    this.write(`${initialIcon} ${label}${hint}`);
+
+    this.progressInterval = setInterval(() => {
+      frameIndex++;
+      const frame = frames[frameIndex % frames.length];
+      this.clearLine();
+      const icon = this.colorize(frame, 'green');
+      this.write(`\r${icon} ${label}${hint}`);
+    }, COMPUTING_FRAME_INTERVAL_MS);
+  }
+
+  /**
+   * Stop computing status.
+   */
+  stopComputing(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+      this.clearLine();
+      this.write('\r');
+    }
+  }
+
+  /**
+   * Set processing state.
+   */
+  setProcessingState(processing: boolean): void {
+    this.isProcessingMessage = processing;
+  }
+
+  /**
+   * Clear progress indicator.
+   */
+  clearProgress(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+      this.clearLine();
+      this.write('\r');
+    }
+  }
+
+  /**
+   * Prompt for confirmation.
+   */
+  promptConfirmation(message: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.rl) {
+        resolve(false);
+        return;
+      }
+
+      const prompt = `${this.colorize('?', 'yellow')} ${message} ${this.colorize('(y/n)', 'gray')} `;
+      this.rl.question(prompt, (answer) => {
+        const normalized = answer.trim().toLowerCase();
+        if (normalized === 'y' || normalized === 'yes' || normalized === '') {
+          this.writeLine(this.colorize('✓ 是', 'green'));
+          resolve(true);
+        } else {
+          this.writeLine(this.colorize('✗ 否', 'red'));
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  /**
+   * Display rewind menu.
+   */
+  async showRewindMenu(snapshots: Snapshot[]): Promise<Snapshot | null> {
+    if (snapshots.length === 0) {
+      this.writeLine(this.colorize('没有可用的回退点', 'yellow'));
+      return null;
+    }
+
+    this.writeLine('');
+    this.writeLine(this.colorize('═══ 回退菜单 ═══', 'bold'));
+    this.writeLine(this.colorize('选择要回退到的时间点 (输入 0 取消):', 'gray'));
+    this.writeLine('');
+
+    snapshots.forEach((snapshot, index) => {
+      const timeStr = this.formatTime(snapshot.timestamp);
+      const filesCount = snapshot.files.length;
+      const filesInfo = filesCount > 0 ? `(${filesCount} 个文件)` : '';
+      this.writeLine(
+        `  ${this.colorize(`[${index + 1}]`, 'cyan')} ${timeStr} - ${snapshot.description} ${this.colorize(filesInfo, 'gray')}`
+      );
+    });
+
+    this.writeLine('');
+
+    if (this.rl) {
+      for (;;) {
+        const answer = await this.promptRaw(
+          `${this.colorize('?', 'yellow')} 请选择 (0-${snapshots.length}): `
+        );
+        if (answer === null) {
+          return null;
+        }
+        const trimmed = answer.trim();
+        const num = parseInt(trimmed, 10);
+        if (trimmed === '0') {
+          this.writeLine(this.colorize('✗ 已取消', 'gray'));
+          return null;
+        }
+        if (!isNaN(num) && num >= 1 && num <= snapshots.length) {
+          const selected = snapshots[num - 1];
+          this.writeLine(this.colorize(`✓ 已选择: ${selected.description}`, 'green'));
+          return selected;
+        }
+        this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+      }
+    }
+
+    return new Promise((resolve) => {
+      const prompt = `${this.colorize('?', 'yellow')} 请选择 (0-${snapshots.length}): `;
+      this.write(prompt);
+      const handleInput = (data: Buffer) => {
+        const input = data.toString().trim();
+        const num = parseInt(input, 10);
+        if (input === '0') {
+          this.writeLine(this.colorize('✗ 已取消', 'gray'));
+          this.input.removeListener('data', handleInput);
+          resolve(null);
+        } else if (!isNaN(num) && num >= 1 && num <= snapshots.length) {
+          const selected = snapshots[num - 1];
+          this.writeLine(this.colorize(`✓ 已选择: ${selected.description}`, 'green'));
+          this.input.removeListener('data', handleInput);
+          resolve(selected);
+        } else {
+          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+          this.write(prompt);
+        }
+      };
+      this.input.on('data', handleInput);
+    });
+  }
+
+  /**
+   * Display session menu.
+   */
+  async showSessionMenu(sessions: Session[]): Promise<Session | null> {
+    if (sessions.length === 0) {
+      this.writeLine(this.colorize('没有可用的会话', 'yellow'));
+      return null;
+    }
+
+    this.writeLine('');
+    this.writeLine(this.colorize('═══ 会话菜单 ═══', 'bold'));
+    this.writeLine(this.colorize('选择要恢复的会话 (输入 0 取消):', 'gray'));
+    this.writeLine('');
+
+    sessions.forEach((session, index) => {
+      const sessionIdShort = session.id.substring(0, SESSION_ID_PREVIEW_LENGTH);
+      const relativeTime = this.formatRelativeTime(session.lastAccessedAt);
+      const absoluteTime = this.formatAbsoluteTime(session.lastAccessedAt);
+      const statsSummary = this.formatStatsSummary(session.stats);
+      const forkIndicator = session.parentSessionId ? '🔀 ' : '';
+      this.writeLine(
+        `  ${this.colorize(`[${index + 1}]`, 'cyan')} ${forkIndicator}${this.colorize(sessionIdShort, 'bold')} - ${relativeTime} (${absoluteTime}) - ${statsSummary}`
+      );
+      if (session.stats?.lastMessagePreview) {
+        const preview =
+          session.stats.lastMessagePreview.length > SESSION_PREVIEW_MAX_LENGTH
+            ? session.stats.lastMessagePreview.substring(0, SESSION_PREVIEW_MAX_LENGTH) + '...'
+            : session.stats.lastMessagePreview;
+        this.writeLine(`      ${this.colorize(preview, 'gray')}`);
+      }
+    });
+
+    this.writeLine('');
+
+    if (this.rl) {
+      for (;;) {
+        const answer = await this.promptRaw(
+          `${this.colorize('?', 'yellow')} 请选择 (0-${sessions.length}): `
+        );
+        if (answer === null) {
+          return null;
+        }
+        const trimmed = answer.trim();
+        const num = parseInt(trimmed, 10);
+        if (trimmed === '0') {
+          this.writeLine(this.colorize('✗ 已取消', 'gray'));
+          return null;
+        }
+        if (!isNaN(num) && num >= 1 && num <= sessions.length) {
+          const selected = sessions[num - 1];
+          const sessionIdShort = selected.id.substring(0, SESSION_ID_PREVIEW_LENGTH);
+          this.writeLine(this.colorize(`✓ 已选择会话: ${sessionIdShort}`, 'green'));
+          return selected;
+        }
+        this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+      }
+    }
+
+    return new Promise((resolve) => {
+      const prompt = `${this.colorize('?', 'yellow')} 请选择 (0-${sessions.length}): `;
+      this.write(prompt);
+      const handleInput = (data: Buffer) => {
+        const input = data.toString().trim();
+        const num = parseInt(input, 10);
+        if (input === '0') {
+          this.writeLine(this.colorize('✗ 已取消', 'gray'));
+          this.input.removeListener('data', handleInput);
+          resolve(null);
+        } else if (!isNaN(num) && num >= 1 && num <= sessions.length) {
+          const selected = sessions[num - 1];
+          const sessionIdShort = selected.id.substring(0, SESSION_ID_PREVIEW_LENGTH);
+          this.writeLine(this.colorize(`✓ 已选择会话: ${sessionIdShort}`, 'green'));
+          this.input.removeListener('data', handleInput);
+          resolve(selected);
+        } else {
+          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+          this.write(prompt);
+        }
+      };
+      this.input.on('data', handleInput);
+    });
+  }
+
+  /**
+   * Display a confirmation menu.
+   */
+  async showConfirmationMenu(
+    title: string,
+    options: Array<{ key: string; label: string; description?: string }>,
+    defaultKey?: string
+  ): Promise<boolean> {
+    this.writeLine('');
+    this.writeLine(this.colorize(`═══ ${title} ═══`, 'bold'));
+    this.writeLine('');
+
+    options.forEach((option) => {
+      const key = option.key.toLowerCase();
+      const isDefault = defaultKey && key === defaultKey.toLowerCase();
+      const prefix = isDefault ? this.colorize('▶', 'green') : ' ';
+      const keyColor = this.colorize(`[${key}]`, 'cyan');
+      this.writeLine(`  ${prefix} ${keyColor} ${option.label}`);
+      if (option.description) {
+        this.writeLine(`      ${this.colorize(option.description, 'gray')}`);
+      }
+    });
+
+    this.writeLine('');
+
+    if (this.rl) {
+      for (;;) {
+        const answer = await this.promptRaw(
+          `${this.colorize('?', 'yellow')} 请选择 (${options.map((o) => o.key).join('/')}): `
+        );
+        if (answer === null) {
+          return false;
+        }
+        const trimmed = answer.trim().toLowerCase();
+        const matchedOption = options.find((o) => o.key.toLowerCase() === trimmed);
+        if (matchedOption) {
+          return matchedOption.key === 'n' || matchedOption.key === 'N';
+        }
+        if (defaultKey && trimmed === '') {
+          return defaultKey === 'n' || defaultKey === 'N';
+        }
+        this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+      }
+    }
+
+    return new Promise((resolve) => {
+      const prompt = `${this.colorize('?', 'yellow')} 请选择 (${options.map((o) => o.key).join('/')}): `;
+      this.write(prompt);
+      const handleInput = (data: Buffer) => {
+        const input = data.toString().trim().toLowerCase();
+        const matchedOption = options.find((o) => o.key.toLowerCase() === input);
+        if (matchedOption) {
+          this.writeLine(this.colorize(`✓ 已选择: ${matchedOption.label}`, 'green'));
+          this.input.removeListener('data', handleInput);
+          resolve(matchedOption.key === 'n' || matchedOption.key === 'N');
+        } else if (defaultKey && input === '') {
+          this.writeLine(
+            this.colorize(`✓ 已选择: ${options.find((o) => o.key === defaultKey)?.label}`, 'green')
+          );
+          this.input.removeListener('data', handleInput);
+          resolve(defaultKey === 'n' || defaultKey === 'N');
+        } else {
+          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+          this.write(prompt);
+        }
+      };
+      this.input.on('data', handleInput);
+    });
+  }
+
+  /**
+   * Set initial permission mode.
+   */
+  setInitialPermissionMode(mode: PermissionMode): void {
+    this.currentPermissionMode = mode;
+  }
+
+  /**
+   * Set permission mode with notification.
+   */
+  setPermissionMode(mode: PermissionMode): void {
+    this.currentPermissionMode = mode;
+    const label = PERMISSION_MODE_LABELS[mode];
+    const emoji = PERMISSION_MODE_EMOJIS[mode];
+    this.displayInfo(`Switched to: ${emoji} ${label}`);
+  }
+
+  /**
+   * Display permission status.
+   */
+  displayPermissionStatus(mode: PermissionMode): void {
+    this.currentPermissionMode = mode;
+    const color = PERMISSION_MODE_COLORS[mode];
+    const label = PERMISSION_MODE_LABELS[mode];
+    const statusLine = `Permission Mode: ${this.colorize(`[${label}]`, color)}`;
+    this.writeLine(statusLine);
+  }
+
+  /**
+   * Setup key listener for terminal input.
+   */
+  private setupKeyListener(): void {
+    if (this.input !== process.stdin) {
+      return;
+    }
+
+    const handleInput = (key: Buffer) => {
+      const keyStr = key.toString();
+      this.shiftTabBuffer += keyStr;
+
+      if (this.shiftTabBuffer.endsWith('\x1b[Z')) {
+        const newMode = this.cyclePermissionMode();
+        const label = PERMISSION_MODE_LABELS[newMode];
+        const color = PERMISSION_MODE_COLORS[newMode];
+        const emoji = PERMISSION_MODE_EMOJIS[newMode];
+        this.writeLine('');
+        this.writeLine(this.colorize(`ℹ️ Switched to: ${emoji} ${label}`, color));
+        this.shiftTabBuffer = '';
+        return;
+      }
+
+      if (this.shiftTabBuffer.length > SHIFT_TAB_BUFFER_LIMIT) {
+        this.shiftTabBuffer = '';
+      }
+
+      if (keyStr === '\x1b') {
+        const now = Date.now();
+        if (now - this.lastEscTime < ESC_DOUBLE_PRESS_WINDOW_MS) {
+          this.lastEscTime = 0;
+          this.onRewind()
+            .catch((err) => {
+              this.displayError(`Rewind failed: ${err.message}`);
+            })
+            .finally(() => {
+              this.lastEscTime = 0;
+            });
+        } else {
+          this.lastEscTime = now;
+          this.onInterrupt();
+        }
+      }
+
+      if (keyStr === '\x03') {
+        this.stop();
+        process.exit(0);
+      }
+    };
+
+    this.keyListener = handleInput;
+    this.input.on('data', handleInput);
+  }
+
+  /**
+   * Input loop with non-blocking processing.
+   */
+  private async inputLoop(): Promise<void> {
+    while (this.isRunning && this.rl) {
+      try {
+        const input = await this.prompt();
+        if (input === null) {
+          break;
+        }
+
+        const trimmedInput = input.trim();
+        if (trimmedInput.length === 0) {
+          continue;
+        }
+
+        if (trimmedInput.startsWith('/')) {
+          await this.onCommand(trimmedInput);
+          continue;
+        }
+
+        if (this.isProcessingMessage && this.onQueueMessage) {
+          this.onQueueMessage(trimmedInput);
+        } else {
+          this.isProcessingMessage = true;
+          this.onMessage(trimmedInput)
+            .catch((error) => {
+              if (error instanceof Error) {
+                this.displayError(error.message);
+              }
+            })
+            .finally(() => {
+              this.isProcessingMessage = false;
+            });
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          this.displayError(error.message);
+        }
+      }
+    }
+  }
+
+  /**
+   * Display error status.
+   */
+  displayError(message: string): void {
+    this.writeLine(`${this.colorize('❌ 错误:', 'red')} ${message}`);
+  }
+
+  /**
+   * Display warning status.
+   */
+  displayWarning(message: string): void {
+    this.writeLine(`${this.colorize('⚠️ 警告:', 'yellow')} ${message}`);
+  }
+
+  /**
+   * Display success status.
+   */
+  displaySuccess(message: string): void {
+    this.writeLine(`${this.colorize('✅ 成功:', 'green')} ${message}`);
+  }
+
+  /**
+   * Display info status.
+   */
+  displayInfo(message: string): void {
+    this.writeLine(`${this.colorize('ℹ️ 信息:', 'blue')} ${message}`);
+  }
+
+  /**
+   * Format relative time.
+   */
+  formatRelativeTime(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / RELATIVE_SECONDS_IN_MINUTE);
+    const diffHours = Math.floor(diffMinutes / RELATIVE_MINUTES_IN_HOUR);
+    const diffDays = Math.floor(diffHours / RELATIVE_HOURS_IN_DAY);
+    const diffWeeks = Math.floor(diffDays / RELATIVE_DAYS_IN_WEEK);
+    const diffMonths = Math.floor(diffDays / RELATIVE_DAYS_IN_MONTH);
+    const diffYears = Math.floor(diffDays / RELATIVE_DAYS_IN_YEAR);
+
+    if (diffSeconds < RELATIVE_SECONDS_IN_MINUTE) {
+      return '刚刚';
+    }
+    if (diffMinutes < RELATIVE_MINUTES_IN_HOUR) {
+      return `${diffMinutes}分钟前`;
+    }
+    if (diffHours < RELATIVE_HOURS_IN_DAY) {
+      return `${diffHours}小时前`;
+    }
+    if (diffDays < RELATIVE_DAYS_IN_WEEK) {
+      return `${diffDays}天前`;
+    }
+    if (diffWeeks < RELATIVE_WEEKS_IN_MONTH) {
+      return `${diffWeeks}周前`;
+    }
+    if (diffMonths < RELATIVE_MONTHS_IN_YEAR) {
+      return `${diffMonths}个月前`;
+    }
+    return `${diffYears}年前`;
+  }
+
+  /**
+   * Format absolute time.
+   */
+  formatAbsoluteTime(date: Date): string {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(DATE_PAD_LENGTH, '0');
+    const day = date.getDate().toString().padStart(DATE_PAD_LENGTH, '0');
+    const hours = date.getHours().toString().padStart(DATE_PAD_LENGTH, '0');
+    const minutes = date.getMinutes().toString().padStart(DATE_PAD_LENGTH, '0');
+    const seconds = date.getSeconds().toString().padStart(DATE_PAD_LENGTH, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
+   * Format stats summary.
+   */
+  formatStatsSummary(stats?: SessionStats): string {
+    if (!stats) {
+      return '(0 条消息, 0 tokens, $0)';
+    }
+
+    const totalTokens = stats.totalInputTokens + stats.totalOutputTokens;
+    let tokensDisplay: string;
+
+    if (totalTokens >= TOKENS_IN_K) {
+      const tokensInK = totalTokens / TOKENS_IN_K;
+      tokensDisplay =
+        tokensInK % 1 === 0 ? `${tokensInK}k` : `${tokensInK.toFixed(TOKENS_K_DECIMALS)}k`;
+    } else {
+      tokensDisplay = totalTokens.toString();
+    }
+
+    const costDisplay =
+      stats.totalCostUsd >= COST_DISPLAY_THRESHOLD
+        ? `$${stats.totalCostUsd.toFixed(COST_DECIMALS)}`
+        : '$0';
+
+    return `(${stats.messageCount} 条消息, ${tokensDisplay} tokens, ${costDisplay})`;
+  }
+
+  /**
+   * Get permission emoji.
+   */
+  private getPermissionEmoji(): string {
+    return PERMISSION_MODE_EMOJIS[this.currentPermissionMode];
+  }
+
+  /**
+   * Input prompt.
+   */
+  private prompt(): Promise<string | null> {
+    const promptStr = `${this.colorize('> ', 'cyan')}${this.getPermissionEmoji()} `;
+    return this.promptRaw(promptStr);
+  }
+
+  /**
+   * Readline prompt with custom string.
+   */
+  private promptRaw(promptStr: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      if (!this.rl || !this.isRunning) {
+        resolve(null);
+        return;
+      }
+
+      const closeHandler = () => {
+        resolve(null);
+      };
+
+      this.rl.once('close', closeHandler);
+      this.rl.question(promptStr, (answer) => {
+        this.rl?.removeListener('close', closeHandler);
+        resolve(answer);
+      });
+    });
+  }
+
+  /**
+   * Display welcome message.
+   */
+  private displayWelcome(): void {
+    this.writeLine('');
+    this.writeLine(this.colorize('╔════════════════════════════════════════╗', 'cyan'));
+    this.writeLine(this.colorize('║     Claude Code Replica - 交互模式     ║', 'cyan'));
+    this.writeLine(this.colorize('╚════════════════════════════════════════╝', 'cyan'));
+    this.writeLine('');
+    this.writeLine(this.colorize('提示:', 'bold'));
+    this.writeLine('  • 输入消息与 Claude 对话');
+    this.writeLine('  • 按 Esc 中断当前操作');
+    this.writeLine('  • 按 Esc + Esc 打开回退菜单');
+    this.writeLine('  • 按 Shift+Tab 切换权限模式');
+    this.writeLine('  • 输入 /help 查看可用命令');
+    this.writeLine('  • 按 Ctrl+C 退出');
+    this.writeLine('');
+  }
+
+  /**
+   * Cycle permission mode.
+   */
+  private cyclePermissionMode(): PermissionMode {
+    const modes: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
+    const currentIndex = modes.indexOf(this.currentPermissionMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    const newMode = modes[nextIndex];
+    this.currentPermissionMode = newMode;
+    if (this.onPermissionModeChange) {
+      this.onPermissionModeChange(newMode);
+    }
+    return newMode;
+  }
+
+  /**
+   * Get message prefix.
+   */
+  private getMessagePrefix(role: MessageRole): string {
+    switch (role) {
+      case 'user':
+        return this.colorize('>', 'cyan');
+      case 'assistant':
+        return this.colorize('⏺', 'blue');
+      case 'system':
+        return this.colorize('⚙️', 'gray');
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Get role color.
+   */
+  private getRoleColor(role: MessageRole): keyof typeof COLORS {
+    switch (role) {
+      case 'user':
+        return 'green';
+      case 'assistant':
+        return 'white';
+      case 'system':
+        return 'gray';
+      default:
+        return 'white';
+    }
+  }
+
+  /**
+   * Format time for menu displays.
+   */
+  private formatTime(date: Date): string {
+    const hours = date.getHours().toString().padStart(DATE_PAD_LENGTH, '0');
+    const minutes = date.getMinutes().toString().padStart(DATE_PAD_LENGTH, '0');
+    const seconds = date.getSeconds().toString().padStart(DATE_PAD_LENGTH, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
+   * Apply color to output.
+   */
+  private colorize(text: string, color: keyof typeof COLORS): string {
+    if (!this.enableColors) {
+      return text;
+    }
+    return `${COLORS[color]}${text}${COLORS.reset}`;
+  }
+
+  /**
+   * Write raw output.
+   */
+  private write(text: string): void {
+    this.output.write(text);
+  }
+
+  /**
+   * Write a line of output.
+   */
+  private writeLine(text: string): void {
+    this.output.write(text + '\n');
+  }
+
+  /**
+   * Clear the current line.
+   */
+  private clearLine(): void {
+    if (this.output === process.stdout && process.stdout.isTTY) {
+      process.stdout.clearLine(CLEAR_LINE_DIRECTION);
+    }
+  }
+}

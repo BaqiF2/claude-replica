@@ -1,18 +1,18 @@
 /**
- * InteractiveUI 单元测试
+ * TerminalInteractiveUI 单元测试
  *
  * 测试交互式 UI 组件的核心功能
  * **验证: 需求 1.4, 1.5, 1.6, 15.2, 27.1, 27.2, 27.3, 27.4, 27.5**
  */
 
-import { EventEmitter, Readable, Writable } from 'stream';
-import {
-  InteractiveUI,
+import { Readable, Writable } from 'stream';
+import { TerminalInteractiveUI } from '../../src/ui/TerminalInteractiveUI';
+import type {
   InteractiveUIOptions,
   Snapshot,
   MessageRole,
   PermissionMode,
-} from '../../src/ui/InteractiveUI';
+} from '../../src/ui/InteractiveUIInterface';
 import { Session } from '../../src/core/SessionManager';
 
 /**
@@ -46,12 +46,12 @@ function createMockOutput(): Writable & { getOutput: () => string; clear: () => 
 }
 
 /**
- * 创建测试用的 InteractiveUI 实例
+ * 创建测试用的 TerminalInteractiveUI 实例
  */
 function createTestUI(
   overrides: Partial<InteractiveUIOptions> = {}
 ): {
-  ui: InteractiveUI;
+  ui: TerminalInteractiveUI;
   input: ReturnType<typeof createMockInput>;
   output: ReturnType<typeof createMockOutput>;
   onMessage: jest.Mock;
@@ -66,7 +66,7 @@ function createTestUI(
   const onInterrupt = jest.fn();
   const onRewind = jest.fn().mockResolvedValue(undefined);
 
-  const ui = new InteractiveUI({
+  const options: InteractiveUIOptions = {
     onMessage,
     onCommand,
     onInterrupt,
@@ -75,18 +75,33 @@ function createTestUI(
     output,
     enableColors: false, // 禁用颜色以便测试
     ...overrides,
-  });
+  };
+
+  const ui = new TerminalInteractiveUI(
+    {
+      onMessage: options.onMessage,
+      onCommand: options.onCommand,
+      onInterrupt: options.onInterrupt,
+      onRewind: options.onRewind,
+      onPermissionModeChange: options.onPermissionModeChange,
+      onQueueMessage: options.onQueueMessage,
+    },
+    {
+      input: options.input,
+      output: options.output,
+      enableColors: options.enableColors,
+    }
+  );
 
   return { ui, input, output, onMessage, onCommand, onInterrupt, onRewind };
 }
 
-describe('InteractiveUI', () => {
+describe('TerminalInteractiveUI', () => {
   describe('构造函数', () => {
     it('应正确初始化', () => {
       const { ui } = createTestUI();
 
-      expect(ui).toBeInstanceOf(InteractiveUI);
-      expect(ui).toBeInstanceOf(EventEmitter);
+      expect(ui).toBeInstanceOf(TerminalInteractiveUI);
     });
 
     it('应使用默认选项', () => {
@@ -301,36 +316,6 @@ describe('InteractiveUI', () => {
 
       // UI 已停止，验证不会抛出错误
       expect(ui).toBeDefined();
-    });
-
-    it('应触发 stop 事件', () => {
-      const { ui } = createTestUI();
-      const stopHandler = jest.fn();
-
-      ui.on('stop', stopHandler);
-      ui.stop();
-
-      expect(stopHandler).toHaveBeenCalled();
-    });
-  });
-
-  describe('事件发射', () => {
-    it('应继承 EventEmitter', () => {
-      const { ui } = createTestUI();
-
-      expect(ui).toBeInstanceOf(EventEmitter);
-      expect(typeof ui.on).toBe('function');
-      expect(typeof ui.emit).toBe('function');
-    });
-
-    it('应能监听自定义事件', () => {
-      const { ui } = createTestUI();
-      const handler = jest.fn();
-
-      ui.on('custom', handler);
-      ui.emit('custom', 'data');
-
-      expect(handler).toHaveBeenCalledWith('data');
     });
   });
 

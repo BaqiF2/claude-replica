@@ -148,7 +148,10 @@ export class ConfigManager {
    * @param projectConfig - 原始项目配置（未合并 CLI 选项）
    * @returns 权限配置对象
    */
-  buildPermissionConfigOnly(options: ConfigOverrides, projectConfig: ProjectConfig): PermissionConfig {
+  buildPermissionConfigOnly(
+    options: ConfigOverrides,
+    projectConfig: ProjectConfig
+  ): PermissionConfig {
     // 先应用 CLI 选项
     const mergedConfig = this.build(options, projectConfig);
 

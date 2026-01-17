@@ -25,7 +25,7 @@
   - [RewindManager](#rewindmanager)
   - [PluginManager](#pluginmanager)
 - [UI API](#ui-api)
-  - [InteractiveUI](#interactiveui)
+  - [TerminalInteractiveUI](#terminalinteractiveui)
   - [OutputFormatter](#outputformatter)
 - [类型定义](#类型定义)
 
@@ -727,61 +727,58 @@ interface PluginInstallResult {
 
 ## UI API
 
-### InteractiveUI
+### TerminalInteractiveUI
 
-交互式用户界面。
+终端交互式 UI 实现，符合 InteractiveUIInterface。
 
 ```typescript
-import { InteractiveUI, InteractiveUIOptions } from 'claude-replica';
+import {
+  TerminalInteractiveUI,
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
+} from 'claude-replica';
 
-const ui = new InteractiveUI(options: InteractiveUIOptions);
+const callbacks: InteractiveUICallbacks = {
+  onMessage: async (message) => {},
+  onCommand: async (command) => {},
+  onInterrupt: () => {},
+  onRewind: async () => {},
+  onPermissionModeChange: async (mode) => {},
+  onQueueMessage: (message) => {},
+};
 
-// 启动 UI
-await ui.start(): Promise<void>;
+const config: InteractiveUIConfig = {
+  input: process.stdin,
+  output: process.stdout,
+  enableColors: true,
+};
 
-// 停止 UI
-ui.stop(): void;
+const ui = new TerminalInteractiveUI(callbacks, config);
 
-// 显示消息
-ui.displayMessage(message: string, role: 'user' | 'assistant'): void;
+await ui.start();
+ui.stop();
 
-// 显示工具调用
-ui.displayToolUse(tool: string, args: unknown): void;
+ui.displayMessage(message, 'user');
+ui.displayToolUse('Read', { path: 'file.txt' });
+ui.displayToolResult('Read', 'ok');
+ui.displayThinking('Reasoning...');
+ui.displayComputing();
+ui.stopComputing();
+ui.clearProgress();
 
-// 显示进度
-ui.displayProgress(message: string, status?: ProgressStatus): void;
+ui.displayError('error');
+ui.displayWarning('warning');
+ui.displaySuccess('success');
+ui.displayInfo('info');
 
-// 清除进度
-ui.clearProgress(): void;
-
-// 显示错误
-ui.displayError(message: string): void;
-
-// 显示警告
-ui.displayWarning(message: string): void;
-
-// 显示成功
-ui.displaySuccess(message: string): void;
-
-// 请求用户确认
-const confirmed = await ui.promptConfirmation(message: string): Promise<boolean>;
-
-// 显示回退菜单
-const selected = await ui.showRewindMenu(
-  snapshots: Snapshot[]
-): Promise<Snapshot | null>;
+const confirmed = await ui.promptConfirmation('Continue?');
+const selected = await ui.showRewindMenu(snapshots);
 ```
 
 #### InteractiveUIOptions 接口
 
 ```typescript
-interface InteractiveUIOptions {
-  onMessage: (message: string) => Promise<void>;
-  onInterrupt: () => void;
-  onRewind: () => Promise<void>;
-}
-
-type ProgressStatus = 'running' | 'success' | 'error' | 'warning';
+type InteractiveUIOptions = InteractiveUICallbacks & InteractiveUIConfig;
 ```
 
 ### OutputFormatter
@@ -858,6 +855,10 @@ import {
   Plugin,
   
   // UI 类型
+  TerminalInteractiveUI,
+  InteractiveUIInterface,
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
   InteractiveUIOptions,
   OutputFormat,
   QueryResult,

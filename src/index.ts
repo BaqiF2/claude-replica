@@ -127,7 +127,15 @@ export {
 } from './plugins';
 
 // UI 组件
-export { InteractiveUI, InteractiveUIOptions, MessageRole, MenuItem } from './ui';
+export {
+  InteractiveUIInterface,
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
+  InteractiveUIOptions,
+  MessageRole,
+  MenuItem,
+  TerminalInteractiveUI,
+} from './ui';
 
 // 输出组件
 export {

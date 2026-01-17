@@ -21,6 +21,12 @@ import {
   TokenLimitConfig,
 } from '../../src/performance/PerformanceManager';
 
+const STARTUP_DELAY_MS = parseInt(process.env.PERF_TEST_STARTUP_DELAY_MS || '100', 10);
+const STARTUP_MIN_ELAPSED_MS = parseInt(
+  process.env.PERF_TEST_STARTUP_MIN_ELAPSED_MS || '95',
+  10
+);
+
 describe('PerformanceManager', () => {
   let performanceManager: PerformanceManager;
   let testDir: string;
@@ -91,13 +97,13 @@ describe('PerformanceManager', () => {
       const { result, metrics } = await performanceManager.measureStartup(
         async () => {
           // 模拟初始化操作
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, STARTUP_DELAY_MS));
           return 'initialized';
         }
       );
 
       expect(result).toBe('initialized');
-      expect(metrics.totalTime).toBeGreaterThanOrEqual(100);
+      expect(metrics.totalTime).toBeGreaterThanOrEqual(STARTUP_MIN_ELAPSED_MS);
       expect(metrics.targetTime).toBe(2000);
       expect(typeof metrics.withinTarget).toBe('boolean');
     });

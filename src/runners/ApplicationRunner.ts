@@ -11,11 +11,12 @@ import type { OptionsInterface } from '../ui/OptionsInterface';
 /**
  * Application options type
  */
-export type ApplicationOptions = OptionsInterface & ConfigOverrides & {
-  print?: boolean;
-  prompt?: string;
-  outputFormat?: string;
-};
+export type ApplicationOptions = OptionsInterface &
+  ConfigOverrides & {
+    print?: boolean;
+    prompt?: string;
+    outputFormat?: string;
+  };
 
 /**
  * ApplicationRunner interface - defines the contract for different execution modes

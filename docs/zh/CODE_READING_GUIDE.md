@@ -564,7 +564,7 @@ canUseTool(params) {
   ↓
 1. Application.runInteractive()
    ├─ getOrCreateSession()
-   └─ new InteractiveUI({ onMessage, onInterrupt, onRewind })
+   └─ uiFactory.createInteractiveUI(callbacks)
       ↓
 2. UI.start() → 进入交互循环
    ↓

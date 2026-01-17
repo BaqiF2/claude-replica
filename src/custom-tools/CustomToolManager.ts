@@ -74,7 +74,10 @@ export class CustomToolManager {
       // Parse the CUSTOM_TOOL_MODULES environment variable (comma-separated list)
       // Default to 'math' for backward compatibility
       const modulesEnv = process.env.CUSTOM_TOOL_MODULES ?? 'math';
-      const folderNames = modulesEnv.split(',').map(name => name.trim()).filter(Boolean);
+      const folderNames = modulesEnv
+        .split(',')
+        .map((name) => name.trim())
+        .filter(Boolean);
 
       // Process each folder
       for (const folderName of folderNames) {
@@ -84,15 +87,15 @@ export class CustomToolManager {
           const module = await import(modulePath);
 
           // Extract tools from the module (filter for valid tool definitions)
-          const tools = Object.values(module).filter((tool):
-            tool is ToolDefinition =>
-            typeof tool === 'object' &&
-            tool !== null &&
-            'name' in tool &&
-            'description' in tool &&
-            'module' in tool &&
-            'schema' in tool &&
-            'handler' in tool
+          const tools = Object.values(module).filter(
+            (tool): tool is ToolDefinition =>
+              typeof tool === 'object' &&
+              tool !== null &&
+              'name' in tool &&
+              'description' in tool &&
+              'module' in tool &&
+              'schema' in tool &&
+              'handler' in tool
           );
 
           if (tools.length === 0) {
@@ -209,10 +212,7 @@ export class CustomToolManager {
    * @param sdkExecutor - The SDK executor to register servers with
    * @param logger - The logger for recording registration status
    */
-  async registerMcpServers(
-    sdkExecutor: SDKQueryExecutor,
-    logger: Logger
-  ): Promise<void> {
+  async registerMcpServers(sdkExecutor: SDKQueryExecutor, logger: Logger): Promise<void> {
     const customMcpServers = this.createMcpServers();
 
     if (Object.keys(customMcpServers).length > 0) {

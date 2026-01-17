@@ -23,7 +23,13 @@ import type { MCPService } from '../mcp/MCPService';
 import type { RewindManager, Snapshot as RewindSnapshot } from '../rewind/RewindManager';
 import type { Logger } from '../logging/Logger';
 import type { ConfigManager } from '../config';
-import { InteractiveUI, Snapshot as UISnapshot, PermissionMode } from '../ui/InteractiveUI';
+import type { UIFactory } from '../ui/factories/UIFactory';
+import type {
+  InteractiveUICallbacks,
+  InteractiveUIInterface,
+  PermissionMode,
+  Snapshot as UISnapshot,
+} from '../ui/InteractiveUIInterface';
 import { StreamingQueryManager as StreamingQueryManagerImpl } from '../sdk';
 
 const EXIT_CODE_SUCCESS = parseInt(process.env.EXIT_CODE_SUCCESS || '0', 10);
@@ -36,7 +42,7 @@ import('../sdk').then((module) => {
 });
 
 export class InteractiveRunner implements ApplicationRunner {
-  private ui: InteractiveUI | null = null;
+  private ui: InteractiveUIInterface | null = null;
   private streamingQueryManager: StreamingQueryManager | null = null;
   private currentAbortController: AbortController | null = null;
 
@@ -49,6 +55,7 @@ export class InteractiveRunner implements ApplicationRunner {
     private readonly mcpService: MCPService,
     private readonly rewindManager: RewindManager | null,
     private readonly configManager: ConfigManager,
+    private readonly uiFactory: UIFactory,
     private readonly logger: Logger
   ) {}
 
@@ -56,7 +63,7 @@ export class InteractiveRunner implements ApplicationRunner {
     await this.logger.info('Starting interactive mode');
     const session = await this.getOrCreateSession();
 
-    this.ui = new InteractiveUI({
+    const callbacks: InteractiveUICallbacks = {
       onMessage: async (message: string) => {
         this.ui!.setProcessingState(true);
         try {
@@ -76,12 +83,15 @@ export class InteractiveRunner implements ApplicationRunner {
           this.streamingQueryManager.queueMessage(message);
         }
       },
-    });
+    };
+
+    this.ui = this.uiFactory.createInteractiveUI(callbacks);
 
     this.streamingQueryManager = new StreamingQueryManagerImpl({
       messageRouter: this.messageRouter,
       sdkExecutor: this.sdkExecutor,
       sessionManager: this.sessionManager,
+      ui: this.ui,
       onThinking: (content) => {
         if (this.ui) {
           this.ui.stopComputing();

@@ -11,8 +11,10 @@
  */
 
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import ts from 'typescript';
 
 // 模拟 SDK 模块
 jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
@@ -26,6 +28,81 @@ import { Session, SessionManager } from '../../src/core/SessionManager';
 import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { MockPermissionUIFactory } from '../test-helpers/MockPermissionUI';
+
+const STREAMING_QUERY_MANAGER_PATH = path.join(
+  __dirname,
+  '../../src/sdk/StreamingQueryManager.ts'
+);
+const STREAMING_QUERY_MANAGER_ENCODING = 'utf-8';
+
+const sourceText = fsSync.readFileSync(
+  STREAMING_QUERY_MANAGER_PATH,
+  STREAMING_QUERY_MANAGER_ENCODING
+);
+const sourceFile = ts.createSourceFile(
+  STREAMING_QUERY_MANAGER_PATH,
+  sourceText,
+  ts.ScriptTarget.Latest,
+  true
+);
+
+const getInterfaceDeclaration = (name: string): ts.InterfaceDeclaration => {
+  let found: ts.InterfaceDeclaration | undefined;
+  sourceFile.forEachChild((node) => {
+    if (ts.isInterfaceDeclaration(node) && node.name.text === name) {
+      found = node;
+    }
+  });
+
+  if (!found) {
+    throw new Error(`Interface not found: ${name}`);
+  }
+
+  return found;
+};
+
+const getPropertySignature = (
+  iface: ts.InterfaceDeclaration,
+  name: string
+): ts.PropertySignature => {
+  const member = iface.members.find((item) => {
+    if (!ts.isPropertySignature(item)) {
+      return false;
+    }
+    if (!item.name || !ts.isIdentifier(item.name)) {
+      return false;
+    }
+    return item.name.text === name;
+  });
+
+  if (!member || !ts.isPropertySignature(member)) {
+    throw new Error(`Property not found: ${name}`);
+  }
+
+  return member;
+};
+
+const assertTypeReference = (node: ts.TypeNode | undefined, name: string): void => {
+  expect(node).toBeDefined();
+  if (!node) {
+    return;
+  }
+  expect(ts.isTypeReferenceNode(node)).toBe(true);
+  if (!ts.isTypeReferenceNode(node)) {
+    return;
+  }
+  expect(node.typeName.getText(sourceFile)).toBe(name);
+};
+
+describe('StreamingQueryManagerOptions', () => {
+  it('defines optional ui property', () => {
+    const optionsInterface = getInterfaceDeclaration('StreamingQueryManagerOptions');
+    const uiProperty = getPropertySignature(optionsInterface, 'ui');
+
+    expect(uiProperty.questionToken).toBeDefined();
+    assertTypeReference(uiProperty.type, 'InteractiveUIInterface');
+  });
+});
 
 // 创建模拟的 Session 对象
 function createMockSession(workingDirectory: string = '/test/project'): Session {

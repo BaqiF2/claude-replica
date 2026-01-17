@@ -138,7 +138,8 @@ claude-replica/
 │   │   ├── ToolRegistry.ts
 │   │   └── index.ts
 │   ├── ui/                # 交互式 UI
-│   │   ├── InteractiveUI.ts
+│   │   ├── InteractiveUIInterface.ts
+│   │   ├── TerminalInteractiveUI.ts
 │   │   └── index.ts
 │   ├── cli.ts             # CLI 入口
 │   ├── index.ts           # 主导出
@@ -172,7 +173,7 @@ claude-replica/
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        CLI 层                                │
-│  CLIParser → InteractiveUI / OutputFormatter                │
+│  CLIParser → TerminalInteractiveUI / OutputFormatter        │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -203,7 +204,7 @@ claude-replica/
 4. **消息路由** → MessageRouter 构建查询选项
 5. **SDK 调用** → 调用 Claude Agent SDK 的 query() 函数
 6. **流式处理** → StreamingMessageProcessor 处理响应
-7. **输出** → InteractiveUI 或 OutputFormatter 显示结果
+7. **输出** → TerminalInteractiveUI（InteractiveUIInterface）或 OutputFormatter 显示结果
 
 ## 核心模块
 
