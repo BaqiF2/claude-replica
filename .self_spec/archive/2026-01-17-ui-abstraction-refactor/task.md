@@ -13,27 +13,27 @@
 
 #### Scenario 1: InteractiveUIInterface 定义完整的生命周期方法
 
-- [ ] 1. [测试] InteractiveUIInterface 生命周期方法 - 编写测试用例
+- [x] 1. [测试] InteractiveUIInterface 生命周期方法 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIInterface.test.ts`
    - 验证接口包含 start() 和 stop() 方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _Scenario: InteractiveUIInterface 定义完整的生命周期方法_
    - _TaskGroup: 1_
 
-- [ ] 2. [验证] Red 阶段
+- [x] 2. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期失败(接口未定义)
    - _Validates: 1_
    - _TaskGroup: 1_
 
-- [ ] 3. [实现] 创建 InteractiveUIInterface 接口
+- [x] 3. [实现] 创建 InteractiveUIInterface 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 定义生命周期方法: `start(): Promise<void>`, `stop(): void`
    - 添加规范的文件头文档
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _TaskGroup: 1_
 
-- [ ] 4. [验证] Green 阶段
+- [x] 4. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期通过
    - _Validates: 3_
@@ -41,26 +41,26 @@
 
 #### Scenario 2: InteractiveUIInterface 定义完整的消息显示方法
 
-- [ ] 5. [测试] InteractiveUIInterface 消息显示方法 - 编写测试用例
+- [x] 5. [测试] InteractiveUIInterface 消息显示方法 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIInterface.test.ts`
    - 验证接口包含 displayMessage、displayToolUse、displayToolResult 方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _Scenario: InteractiveUIInterface 定义完整的消息显示方法_
    - _TaskGroup: 2_
 
-- [ ] 6. [验证] Red 阶段
+- [x] 6. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期失败
    - _Validates: 5_
    - _TaskGroup: 2_
 
-- [ ] 7. [实现] 扩展 InteractiveUIInterface 接口
+- [x] 7. [实现] 扩展 InteractiveUIInterface 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加消息显示方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _TaskGroup: 2_
 
-- [ ] 8. [验证] Green 阶段
+- [x] 8. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期通过
    - _Validates: 7_
@@ -68,26 +68,26 @@
 
 #### Scenario 3: InteractiveUIInterface 定义完整的进度指示方法
 
-- [ ] 9. [测试] InteractiveUIInterface 进度指示方法 - 编写测试用例
+- [x] 9. [测试] InteractiveUIInterface 进度指示方法 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIInterface.test.ts`
    - 验证接口包含 displayThinking、displayComputing、stopComputing、clearProgress 方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _Scenario: InteractiveUIInterface 定义完整的进度指示方法_
    - _TaskGroup: 3_
 
-- [ ] 10. [验证] Red 阶段
+- [x] 10. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期失败
    - _Validates: 9_
    - _TaskGroup: 3_
 
-- [ ] 11. [实现] 扩展 InteractiveUIInterface 接口
+- [x] 11. [实现] 扩展 InteractiveUIInterface 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加进度指示方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _TaskGroup: 3_
 
-- [ ] 12. [验证] Green 阶段
+- [x] 12. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期通过
    - _Validates: 11_
@@ -95,26 +95,26 @@
 
 #### Scenario 4: InteractiveUIInterface 定义完整的状态通知方法
 
-- [ ] 13. [测试] InteractiveUIInterface 状态通知方法 - 编写测试用例
+- [x] 13. [测试] InteractiveUIInterface 状态通知方法 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIInterface.test.ts`
    - 验证接口包含 displayError、displayWarning、displaySuccess、displayInfo 方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _Scenario: InteractiveUIInterface 定义完整的状态通知方法_
    - _TaskGroup: 4_
 
-- [ ] 14. [验证] Red 阶段
+- [x] 14. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期失败
    - _Validates: 13_
    - _TaskGroup: 4_
 
-- [ ] 15. [实现] 扩展 InteractiveUIInterface 接口
+- [x] 15. [实现] 扩展 InteractiveUIInterface 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加状态通知方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _TaskGroup: 4_
 
-- [ ] 16. [验证] Green 阶段
+- [x] 16. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期通过
    - _Validates: 15_
@@ -122,26 +122,26 @@
 
 #### Scenario 5: InteractiveUIInterface 定义完整的用户交互方法
 
-- [ ] 17. [测试] InteractiveUIInterface 用户交互方法 - 编写测试用例
+- [x] 17. [测试] InteractiveUIInterface 用户交互方法 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIInterface.test.ts`
    - 验证接口包含 promptConfirmation、showRewindMenu、showSessionMenu、showConfirmationMenu 方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _Scenario: InteractiveUIInterface 定义完整的用户交互方法_
    - _TaskGroup: 5_
 
-- [ ] 18. [验证] Red 阶段
+- [x] 18. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期失败
    - _Validates: 17_
    - _TaskGroup: 5_
 
-- [ ] 19. [实现] 扩展 InteractiveUIInterface 接口
+- [x] 19. [实现] 扩展 InteractiveUIInterface 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加用户交互方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _TaskGroup: 5_
 
-- [ ] 20. [验证] Green 阶段
+- [x] 20. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期通过
    - _Validates: 19_
@@ -149,26 +149,26 @@
 
 #### Scenario 6: InteractiveUIInterface 定义完整的权限管理方法
 
-- [ ] 21. [测试] InteractiveUIInterface 权限管理方法 - 编写测试用例
+- [x] 21. [测试] InteractiveUIInterface 权限管理方法 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIInterface.test.ts`
    - 验证接口包含 setInitialPermissionMode、setPermissionMode、displayPermissionStatus 方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _Scenario: InteractiveUIInterface 定义完整的权限管理方法_
    - _TaskGroup: 6_
 
-- [ ] 22. [验证] Red 阶段
+- [x] 22. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期失败
    - _Validates: 21_
    - _TaskGroup: 6_
 
-- [ ] 23. [实现] 扩展 InteractiveUIInterface 接口
+- [x] 23. [实现] 扩展 InteractiveUIInterface 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加权限管理方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _TaskGroup: 6_
 
-- [ ] 24. [验证] Green 阶段
+- [x] 24. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期通过
    - _Validates: 23_
@@ -176,26 +176,26 @@
 
 #### Scenario 7: InteractiveUIInterface 定义完整的处理状态管理方法
 
-- [ ] 25. [测试] InteractiveUIInterface 处理状态管理方法 - 编写测试用例
+- [x] 25. [测试] InteractiveUIInterface 处理状态管理方法 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIInterface.test.ts`
    - 验证接口包含 setProcessingState 方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _Scenario: InteractiveUIInterface 定义完整的处理状态管理方法_
    - _TaskGroup: 7_
 
-- [ ] 26. [验证] Red 阶段
+- [x] 26. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期失败
    - _Validates: 25_
    - _TaskGroup: 7_
 
-- [ ] 27. [实现] 扩展 InteractiveUIInterface 接口
+- [x] 27. [实现] 扩展 InteractiveUIInterface 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加处理状态管理方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _TaskGroup: 7_
 
-- [ ] 28. [验证] Green 阶段
+- [x] 28. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期通过
    - _Validates: 27_
@@ -203,26 +203,26 @@
 
 #### Scenario 8: InteractiveUIInterface 定义完整的工具方法
 
-- [ ] 29. [测试] InteractiveUIInterface 工具方法 - 编写测试用例
+- [x] 29. [测试] InteractiveUIInterface 工具方法 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIInterface.test.ts`
    - 验证接口包含 formatRelativeTime、formatAbsoluteTime、formatStatsSummary 方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _Scenario: InteractiveUIInterface 定义完整的工具方法_
    - _TaskGroup: 8_
 
-- [ ] 30. [验证] Red 阶段
+- [x] 30. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期失败
    - _Validates: 29_
    - _TaskGroup: 8_
 
-- [ ] 31. [实现] 扩展 InteractiveUIInterface 接口
+- [x] 31. [实现] 扩展 InteractiveUIInterface 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加工具方法
    - _Requirements: 系统必须提供 InteractiveUIInterface 抽象接口_
    - _TaskGroup: 8_
 
-- [ ] 32. [验证] Green 阶段
+- [x] 32. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIInterface.test.ts`
    - 预期通过
    - _Validates: 31_
@@ -230,26 +230,26 @@
 
 #### Scenario 9: InteractiveUICallbacks 定义所有必需回调
 
-- [ ] 33. [测试] InteractiveUICallbacks 必需回调 - 编写测试用例
+- [x] 33. [测试] InteractiveUICallbacks 必需回调 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUICallbacks.test.ts`
    - 验证接口包含 onMessage、onCommand、onInterrupt、onRewind 属性
    - _Requirements: 系统必须提供 InteractiveUICallbacks 回调接口_
    - _Scenario: InteractiveUICallbacks 定义所有必需回调_
    - _TaskGroup: 9_
 
-- [ ] 34. [验证] Red 阶段
+- [x] 34. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUICallbacks.test.ts`
    - 预期失败
    - _Validates: 33_
    - _TaskGroup: 9_
 
-- [ ] 35. [实现] 定义 InteractiveUICallbacks 接口
+- [x] 35. [实现] 定义 InteractiveUICallbacks 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加必需回调属性
    - _Requirements: 系统必须提供 InteractiveUICallbacks 回调接口_
    - _TaskGroup: 9_
 
-- [ ] 36. [验证] Green 阶段
+- [x] 36. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUICallbacks.test.ts`
    - 预期通过
    - _Validates: 35_
@@ -257,26 +257,26 @@
 
 #### Scenario 10: InteractiveUICallbacks 定义可选回调
 
-- [ ] 37. [测试] InteractiveUICallbacks 可选回调 - 编写测试用例
+- [x] 37. [测试] InteractiveUICallbacks 可选回调 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUICallbacks.test.ts`
    - 验证接口包含 onPermissionModeChange、onQueueMessage 可选属性
    - _Requirements: 系统必须提供 InteractiveUICallbacks 回调接口_
    - _Scenario: InteractiveUICallbacks 定义可选回调_
    - _TaskGroup: 10_
 
-- [ ] 38. [验证] Red 阶段
+- [x] 38. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUICallbacks.test.ts`
    - 预期失败
    - _Validates: 37_
    - _TaskGroup: 10_
 
-- [ ] 39. [实现] 扩展 InteractiveUICallbacks 接口
+- [x] 39. [实现] 扩展 InteractiveUICallbacks 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加可选回调属性
    - _Requirements: 系统必须提供 InteractiveUICallbacks 回调接口_
    - _TaskGroup: 10_
 
-- [ ] 40. [验证] Green 阶段
+- [x] 40. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUICallbacks.test.ts`
    - 预期通过
    - _Validates: 39_
@@ -284,26 +284,26 @@
 
 #### Scenario 11: InteractiveUIConfig 定义所有配置项
 
-- [ ] 41. [测试] InteractiveUIConfig 配置项 - 编写测试用例
+- [x] 41. [测试] InteractiveUIConfig 配置项 - 编写测试用例
    - 测试文件: `tests/ui/InteractiveUIConfig.test.ts`
    - 验证接口包含 input、output、enableColors 可选属性
    - _Requirements: 系统必须提供 InteractiveUIConfig 配置接口_
    - _Scenario: InteractiveUIConfig 定义所有配置项_
    - _TaskGroup: 11_
 
-- [ ] 42. [验证] Red 阶段
+- [x] 42. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIConfig.test.ts`
    - 预期失败
    - _Validates: 41_
    - _TaskGroup: 11_
 
-- [ ] 43. [实现] 定义 InteractiveUIConfig 接口
+- [x] 43. [实现] 定义 InteractiveUIConfig 接口
    - 实现文件: `src/ui/InteractiveUIInterface.ts`
    - 添加配置项属性
    - _Requirements: 系统必须提供 InteractiveUIConfig 配置接口_
    - _TaskGroup: 11_
 
-- [ ] 44. [验证] Green 阶段
+- [x] 44. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/InteractiveUIConfig.test.ts`
    - 预期通过
    - _Validates: 43_
@@ -311,20 +311,20 @@
 
 #### Scenario 12: TerminalInteractiveUI 使用回调函数替代 EventEmitter
 
-- [ ] 45. [测试] TerminalInteractiveUI 不继承 EventEmitter - 编写测试用例
+- [x] 45. [测试] TerminalInteractiveUI 不继承 EventEmitter - 编写测试用例
    - 测试文件: `tests/ui/TerminalInteractiveUI.test.ts`
    - 验证类不继承 EventEmitter,构造函数接收 InteractiveUICallbacks
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _Scenario: TerminalInteractiveUI 使用回调函数替代 EventEmitter_
    - _TaskGroup: 12_
 
-- [ ] 46. [验证] Red 阶段
+- [x] 46. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 45_
    - _TaskGroup: 12_
 
-- [ ] 47. [实现] 创建 TerminalInteractiveUI 类
+- [x] 47. [实现] 创建 TerminalInteractiveUI 类
    - 实现文件: `src/ui/TerminalInteractiveUI.ts`
    - 实现 InteractiveUIInterface 接口
    - 构造函数接收 InteractiveUICallbacks 和 InteractiveUIConfig
@@ -333,7 +333,7 @@
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _TaskGroup: 12_
 
-- [ ] 48. [验证] Green 阶段
+- [x] 48. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 47_
@@ -341,26 +341,26 @@
 
 #### Scenario 13: TerminalInteractiveUI 调用 onMessage 回调
 
-- [ ] 49. [测试] TerminalInteractiveUI onMessage 回调 - 编写测试用例
+- [x] 49. [测试] TerminalInteractiveUI onMessage 回调 - 编写测试用例
    - 测试文件: `tests/ui/TerminalInteractiveUI.test.ts`
    - 验证用户输入消息后调用 callbacks.onMessage
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _Scenario: TerminalInteractiveUI 调用 onMessage 回调_
    - _TaskGroup: 13_
 
-- [ ] 50. [验证] Red 阶段
+- [x] 50. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 49_
    - _TaskGroup: 13_
 
-- [ ] 51. [实现] 替换 EventEmitter 调用为回调
+- [x] 51. [实现] 替换 EventEmitter 调用为回调
    - 实现文件: `src/ui/TerminalInteractiveUI.ts`
    - 将 `this.emit('message')` 替换为 `this.callbacks.onMessage()`
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _TaskGroup: 13_
 
-- [ ] 52. [验证] Green 阶段
+- [x] 52. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 51_
@@ -368,26 +368,26 @@
 
 #### Scenario 14: TerminalInteractiveUI 调用 onCommand 回调
 
-- [ ] 53. [测试] TerminalInteractiveUI onCommand 回调 - 编写测试用例
+- [x] 53. [测试] TerminalInteractiveUI onCommand 回调 - 编写测试用例
    - 测试文件: `tests/ui/TerminalInteractiveUI.test.ts`
    - 验证用户输入命令后调用 callbacks.onCommand
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _Scenario: TerminalInteractiveUI 调用 onCommand 回调_
    - _TaskGroup: 14_
 
-- [ ] 54. [验证] Red 阶段
+- [x] 54. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 53_
    - _TaskGroup: 14_
 
-- [ ] 55. [实现] 替换 EventEmitter 调用为回调
+- [x] 55. [实现] 替换 EventEmitter 调用为回调
    - 实现文件: `src/ui/TerminalInteractiveUI.ts`
    - 将 `this.emit('command')` 替换为 `this.callbacks.onCommand()`
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _TaskGroup: 14_
 
-- [ ] 56. [验证] Green 阶段
+- [x] 56. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 55_
@@ -395,26 +395,26 @@
 
 #### Scenario 15: TerminalInteractiveUI 调用 onInterrupt 回调
 
-- [ ] 57. [测试] TerminalInteractiveUI onInterrupt 回调 - 编写测试用例
+- [x] 57. [测试] TerminalInteractiveUI onInterrupt 回调 - 编写测试用例
    - 测试文件: `tests/ui/TerminalInteractiveUI.test.ts`
    - 验证按 Esc 键后调用 callbacks.onInterrupt
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _Scenario: TerminalInteractiveUI 调用 onInterrupt 回调_
    - _TaskGroup: 15_
 
-- [ ] 58. [验证] Red 阶段
+- [x] 58. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 57_
    - _TaskGroup: 15_
 
-- [ ] 59. [实现] 替换 EventEmitter 调用为回调
+- [x] 59. [实现] 替换 EventEmitter 调用为回调
    - 实现文件: `src/ui/TerminalInteractiveUI.ts`
    - 将 `this.emit('interrupt')` 替换为 `this.callbacks.onInterrupt()`
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _TaskGroup: 15_
 
-- [ ] 60. [验证] Green 阶段
+- [x] 60. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 59_
@@ -422,26 +422,26 @@
 
 #### Scenario 16: TerminalInteractiveUI 调用 onRewind 回调
 
-- [ ] 61. [测试] TerminalInteractiveUI onRewind 回调 - 编写测试用例
+- [x] 61. [测试] TerminalInteractiveUI onRewind 回调 - 编写测试用例
    - 测试文件: `tests/ui/TerminalInteractiveUI.test.ts`
    - 验证双击 Esc 键后调用 callbacks.onRewind
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _Scenario: TerminalInteractiveUI 调用 onRewind 回调_
    - _TaskGroup: 16_
 
-- [ ] 62. [验证] Red 阶段
+- [x] 62. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 61_
    - _TaskGroup: 16_
 
-- [ ] 63. [实现] 替换 EventEmitter 调用为回调
+- [x] 63. [实现] 替换 EventEmitter 调用为回调
    - 实现文件: `src/ui/TerminalInteractiveUI.ts`
    - 将 `this.emit('rewind')` 替换为 `this.callbacks.onRewind()`
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _TaskGroup: 16_
 
-- [ ] 64. [验证] Green 阶段
+- [x] 64. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 63_
@@ -449,26 +449,26 @@
 
 #### Scenario 17: TerminalInteractiveUI 调用 onPermissionModeChange 回调
 
-- [ ] 65. [测试] TerminalInteractiveUI onPermissionModeChange 回调 - 编写测试用例
+- [x] 65. [测试] TerminalInteractiveUI onPermissionModeChange 回调 - 编写测试用例
    - 测试文件: `tests/ui/TerminalInteractiveUI.test.ts`
    - 验证按 Shift+Tab 键后调用 callbacks.onPermissionModeChange
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _Scenario: TerminalInteractiveUI 调用 onPermissionModeChange 回调_
    - _TaskGroup: 17_
 
-- [ ] 66. [验证] Red 阶段
+- [x] 66. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 65_
    - _TaskGroup: 17_
 
-- [ ] 67. [实现] 替换 EventEmitter 调用为回调
+- [x] 67. [实现] 替换 EventEmitter 调用为回调
    - 实现文件: `src/ui/TerminalInteractiveUI.ts`
    - 将 `this.emit('permission-mode-change')` 替换为 `this.callbacks.onPermissionModeChange?.()`
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _TaskGroup: 17_
 
-- [ ] 68. [验证] Green 阶段
+- [x] 68. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 67_
@@ -476,26 +476,26 @@
 
 #### Scenario 18: TerminalInteractiveUI 调用 onQueueMessage 回调
 
-- [ ] 69. [测试] TerminalInteractiveUI onQueueMessage 回调 - 编写测试用例
+- [x] 69. [测试] TerminalInteractiveUI onQueueMessage 回调 - 编写测试用例
    - 测试文件: `tests/ui/TerminalInteractiveUI.test.ts`
    - 验证处理中输入消息后调用 callbacks.onQueueMessage
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _Scenario: TerminalInteractiveUI 调用 onQueueMessage 回调_
    - _TaskGroup: 18_
 
-- [ ] 70. [验证] Red 阶段
+- [x] 70. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 69_
    - _TaskGroup: 18_
 
-- [ ] 71. [实现] 替换 EventEmitter 调用为回调
+- [x] 71. [实现] 替换 EventEmitter 调用为回调
    - 实现文件: `src/ui/TerminalInteractiveUI.ts`
    - 将 `this.emit('queue-message')` 替换为 `this.callbacks.onQueueMessage?.()`
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _TaskGroup: 18_
 
-- [ ] 72. [验证] Green 阶段
+- [x] 72. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 71_
@@ -503,26 +503,26 @@
 
 #### Scenario 19: TerminalInteractiveUI 保留终端特定功能
 
-- [ ] 73. [测试] TerminalInteractiveUI 终端特定功能 - 编写测试用例
+- [x] 73. [测试] TerminalInteractiveUI 终端特定功能 - 编写测试用例
    - 测试文件: `tests/ui/TerminalInteractiveUI.test.ts`
    - 验证保留 ANSI 颜色、TTY 检测、键盘监听、Readline 功能
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _Scenario: TerminalInteractiveUI 保留终端特定功能_
    - _TaskGroup: 19_
 
-- [ ] 74. [验证] Red 阶段
+- [x] 74. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 73_
    - _TaskGroup: 19_
 
-- [ ] 75. [实现] 保留所有终端特定实现
+- [x] 75. [实现] 保留所有终端特定实现
    - 实现文件: `src/ui/TerminalInteractiveUI.ts`
    - 确保 ANSI 颜色系统、TTY 检测、键盘事件监听、Readline 处理全部保留
    - _Requirements: 系统必须实现 TerminalInteractiveUI 类_
    - _TaskGroup: 19_
 
-- [ ] 76. [验证] Green 阶段
+- [x] 76. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/TerminalInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 75_
@@ -530,26 +530,26 @@
 
 #### Scenario 20: UIFactory 定义 createInteractiveUI 方法
 
-- [ ] 77. [测试] UIFactory createInteractiveUI 方法 - 编写测试用例
+- [x] 77. [测试] UIFactory createInteractiveUI 方法 - 编写测试用例
    - 测试文件: `tests/ui/factories/UIFactory.test.ts`
    - 验证接口包含 createInteractiveUI 方法
    - _Requirements: UIFactory 接口必须扩展支持创建 InteractiveUI_
    - _Scenario: UIFactory 定义 createInteractiveUI 方法_
    - _TaskGroup: 20_
 
-- [ ] 78. [验证] Red 阶段
+- [x] 78. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/factories/UIFactory.test.ts`
    - 预期失败
    - _Validates: 77_
    - _TaskGroup: 20_
 
-- [ ] 79. [实现] 扩展 UIFactory 接口
+- [x] 79. [实现] 扩展 UIFactory 接口
    - 实现文件: `src/ui/factories/UIFactory.ts`
    - 添加 `createInteractiveUI(callbacks: InteractiveUICallbacks, config?: InteractiveUIConfig): InteractiveUIInterface` 方法
    - _Requirements: UIFactory 接口必须扩展支持创建 InteractiveUI_
    - _TaskGroup: 20_
 
-- [ ] 80. [验证] Green 阶段
+- [x] 80. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/factories/UIFactory.test.ts`
    - 预期通过
    - _Validates: 79_
@@ -557,26 +557,26 @@
 
 #### Scenario 21: TerminalUIFactory 实现 createInteractiveUI 方法
 
-- [ ] 81. [测试] TerminalUIFactory createInteractiveUI 实现 - 编写测试用例
+- [x] 81. [测试] TerminalUIFactory createInteractiveUI 实现 - 编写测试用例
    - 测试文件: `tests/ui/factories/TerminalUIFactory.test.ts`
    - 验证 createInteractiveUI 返回 TerminalInteractiveUI 实例
    - _Requirements: UIFactory 接口必须扩展支持创建 InteractiveUI_
    - _Scenario: TerminalUIFactory 实现 createInteractiveUI 方法_
    - _TaskGroup: 21_
 
-- [ ] 82. [验证] Red 阶段
+- [x] 82. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/factories/TerminalUIFactory.test.ts`
    - 预期失败
    - _Validates: 81_
    - _TaskGroup: 21_
 
-- [ ] 83. [实现] 实现 TerminalUIFactory.createInteractiveUI
+- [x] 83. [实现] 实现 TerminalUIFactory.createInteractiveUI
    - 实现文件: `src/ui/factories/TerminalUIFactory.ts`
    - 返回 `new TerminalInteractiveUI(callbacks, config)`
    - _Requirements: UIFactory 接口必须扩展支持创建 InteractiveUI_
    - _TaskGroup: 21_
 
-- [ ] 84. [验证] Green 阶段
+- [x] 84. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/factories/TerminalUIFactory.test.ts`
    - 预期通过
    - _Validates: 83_
@@ -586,26 +586,26 @@
 
 #### Scenario 22: InteractiveRunner 构造函数接收 UIFactory 参数
 
-- [ ] 85. [测试] InteractiveRunner 构造函数 UIFactory 参数 - 编写测试用例
+- [x] 85. [测试] InteractiveRunner 构造函数 UIFactory 参数 - 编写测试用例
    - 测试文件: `tests/runners/InteractiveRunner.test.ts`
    - 验证构造函数包含 uiFactory 参数
    - _Requirements: InteractiveRunner 必须通过依赖注入使用 UIFactory_
    - _Scenario: InteractiveRunner 构造函数接收 UIFactory 参数_
    - _TaskGroup: 22_
 
-- [ ] 86. [验证] Red 阶段
+- [x] 86. [验证] Red 阶段
    - 运行: `npm test -- tests/runners/InteractiveRunner.test.ts`
    - 预期失败
    - _Validates: 85_
    - _TaskGroup: 22_
 
-- [ ] 87. [实现] 修改 InteractiveRunner 构造函数
+- [x] 87. [实现] 修改 InteractiveRunner 构造函数
    - 实现文件: `src/runners/InteractiveRunner.ts`
    - 添加 `private readonly uiFactory: UIFactory` 参数
    - _Requirements: InteractiveRunner 必须通过依赖注入使用 UIFactory_
    - _TaskGroup: 22_
 
-- [ ] 88. [验证] Green 阶段
+- [x] 88. [验证] Green 阶段
    - 运行: `npm test -- tests/runners/InteractiveRunner.test.ts`
    - 预期通过
    - _Validates: 87_
@@ -613,26 +613,26 @@
 
 #### Scenario 23: InteractiveRunner 使用 UIFactory 创建 InteractiveUI
 
-- [ ] 89. [测试] InteractiveRunner 使用工厂创建 UI - 编写测试用例
+- [x] 89. [测试] InteractiveRunner 使用工厂创建 UI - 编写测试用例
    - 测试文件: `tests/runners/InteractiveRunner.test.ts`
    - 验证调用 uiFactory.createInteractiveUI() 创建 UI
    - _Requirements: InteractiveRunner 必须通过依赖注入使用 UIFactory_
    - _Scenario: InteractiveRunner 使用 UIFactory 创建 InteractiveUI_
    - _TaskGroup: 23_
 
-- [ ] 90. [验证] Red 阶段
+- [x] 90. [验证] Red 阶段
    - 运行: `npm test -- tests/runners/InteractiveRunner.test.ts`
    - 预期失败
    - _Validates: 89_
    - _TaskGroup: 23_
 
-- [ ] 91. [实现] 使用工厂创建 UI 实例
+- [x] 91. [实现] 使用工厂创建 UI 实例
    - 实现文件: `src/runners/InteractiveRunner.ts`
    - 替换 `new InteractiveUI(...)` 为 `this.uiFactory.createInteractiveUI(...)`
    - _Requirements: InteractiveRunner 必须通过依赖注入使用 UIFactory_
    - _TaskGroup: 23_
 
-- [ ] 92. [验证] Green 阶段
+- [x] 92. [验证] Green 阶段
    - 运行: `npm test -- tests/runners/InteractiveRunner.test.ts`
    - 预期通过
    - _Validates: 91_
@@ -640,26 +640,26 @@
 
 #### Scenario 24-29: InteractiveRunner 回调处理(onMessage, onCommand, onInterrupt, onRewind, onPermissionModeChange, onQueueMessage)
 
-- [ ] 93. [测试] InteractiveRunner 所有回调处理 - 编写测试用例
+- [x] 93. [测试] InteractiveRunner 所有回调处理 - 编写测试用例
    - 测试文件: `tests/runners/InteractiveRunner.test.ts`
    - 验证所有回调正确处理对应事件
    - _Requirements: InteractiveRunner 必须通过依赖注入使用 UIFactory_
    - _Scenario: 多个回调处理场景_
    - _TaskGroup: 24_
 
-- [ ] 94. [验证] Red 阶段
+- [x] 94. [验证] Red 阶段
    - 运行: `npm test -- tests/runners/InteractiveRunner.test.ts`
    - 预期失败
    - _Validates: 93_
    - _TaskGroup: 24_
 
-- [ ] 95. [实现] 实现所有回调函数
+- [x] 95. [实现] 实现所有回调函数
    - 实现文件: `src/runners/InteractiveRunner.ts`
    - 实现 onMessage、onCommand、onInterrupt、onRewind、onPermissionModeChange、onQueueMessage
    - _Requirements: InteractiveRunner 必须通过依赖注入使用 UIFactory_
    - _TaskGroup: 24_
 
-- [ ] 96. [验证] Green 阶段
+- [x] 96. [验证] Green 阶段
    - 运行: `npm test -- tests/runners/InteractiveRunner.test.ts`
    - 预期通过
    - _Validates: 95_
@@ -667,26 +667,26 @@
 
 #### Scenario 30: StreamingQueryManagerOptions 定义 ui 参数
 
-- [ ] 97. [测试] StreamingQueryManagerOptions ui 参数 - 编写测试用例
+- [x] 97. [测试] StreamingQueryManagerOptions ui 参数 - 编写测试用例
    - 测试文件: `tests/sdk/StreamingQueryManager.test.ts`
    - 验证接口包含 ui 可选属性
    - _Requirements: StreamingQueryManager 必须明确接收 UI 参数_
    - _Scenario: StreamingQueryManagerOptions 定义 ui 参数_
    - _TaskGroup: 25_
 
-- [ ] 98. [验证] Red 阶段
+- [x] 98. [验证] Red 阶段
    - 运行: `npm test -- tests/sdk/StreamingQueryManager.test.ts`
    - 预期失败
    - _Validates: 97_
    - _TaskGroup: 25_
 
-- [ ] 99. [实现] 扩展 StreamingQueryManagerOptions 接口
+- [x] 99. [实现] 扩展 StreamingQueryManagerOptions 接口
    - 实现文件: `src/sdk/StreamingQueryManager.ts`
    - 添加 `ui?: InteractiveUIInterface` 属性
    - _Requirements: StreamingQueryManager 必须明确接收 UI 参数_
    - _TaskGroup: 25_
 
-- [ ] 100. [验证] Green 阶段
+- [x] 100. [验证] Green 阶段
    - 运行: `npm test -- tests/sdk/StreamingQueryManager.test.ts`
    - 预期通过
    - _Validates: 99_
@@ -694,26 +694,26 @@
 
 #### Scenario 31: InteractiveRunner 创建 StreamingQueryManager 时传递 ui
 
-- [ ] 101. [测试] StreamingQueryManager 接收 ui - 编写测试用例
+- [x] 101. [测试] StreamingQueryManager 接收 ui - 编写测试用例
    - 测试文件: `tests/runners/InteractiveRunner.test.ts`
    - 验证创建时传递 ui 参数
    - _Requirements: StreamingQueryManager 必须明确接收 UI 参数_
    - _Scenario: InteractiveRunner 创建 StreamingQueryManager 时传递 ui_
    - _TaskGroup: 26_
 
-- [ ] 102. [验证] Red 阶段
+- [x] 102. [验证] Red 阶段
    - 运行: `npm test -- tests/runners/InteractiveRunner.test.ts`
    - 预期失败
    - _Validates: 101_
    - _TaskGroup: 26_
 
-- [ ] 103. [实现] 传递 ui 参数
+- [x] 103. [实现] 传递 ui 参数
    - 实现文件: `src/runners/InteractiveRunner.ts`
    - 在创建 StreamingQueryManager 时传递 `ui: this.ui`
    - _Requirements: StreamingQueryManager 必须明确接收 UI 参数_
    - _TaskGroup: 26_
 
-- [ ] 104. [验证] Green 阶段
+- [x] 104. [验证] Green 阶段
    - 运行: `npm test -- tests/runners/InteractiveRunner.test.ts`
    - 预期通过
    - _Validates: 103_
@@ -721,26 +721,26 @@
 
 #### Scenario 32: RunnerFactory 构造函数接收 UIFactory 参数
 
-- [ ] 105. [测试] RunnerFactory 构造函数 UIFactory 参数 - 编写测试用例
+- [x] 105. [测试] RunnerFactory 构造函数 UIFactory 参数 - 编写测试用例
    - 测试文件: `tests/runners/RunnerFactory.test.ts`
    - 验证构造函数包含 uiFactory 参数
    - _Requirements: RunnerFactory 和 main.ts 必须传递 UIFactory_
    - _Scenario: RunnerFactory 构造函数接收 UIFactory 参数_
    - _TaskGroup: 27_
 
-- [ ] 106. [验证] Red 阶段
+- [x] 106. [验证] Red 阶段
    - 运行: `npm test -- tests/runners/RunnerFactory.test.ts`
    - 预期失败
    - _Validates: 105_
    - _TaskGroup: 27_
 
-- [ ] 107. [实现] 修改 RunnerFactory 构造函数
+- [x] 107. [实现] 修改 RunnerFactory 构造函数
    - 实现文件: `src/runners/RunnerFactory.ts`
    - 添加 `private readonly uiFactory: UIFactory` 参数
    - _Requirements: RunnerFactory 和 main.ts 必须传递 UIFactory_
    - _TaskGroup: 27_
 
-- [ ] 108. [验证] Green 阶段
+- [x] 108. [验证] Green 阶段
    - 运行: `npm test -- tests/runners/RunnerFactory.test.ts`
    - 预期通过
    - _Validates: 107_
@@ -748,26 +748,26 @@
 
 #### Scenario 33: RunnerFactory 创建 InteractiveRunner 时传递 UIFactory
 
-- [ ] 109. [测试] RunnerFactory 传递 UIFactory - 编写测试用例
+- [x] 109. [测试] RunnerFactory 传递 UIFactory - 编写测试用例
    - 测试文件: `tests/runners/RunnerFactory.test.ts`
    - 验证创建 InteractiveRunner 时传递 uiFactory
    - _Requirements: RunnerFactory 和 main.ts 必须传递 UIFactory_
    - _Scenario: RunnerFactory 创建 InteractiveRunner 时传递 UIFactory_
    - _TaskGroup: 28_
 
-- [ ] 110. [验证] Red 阶段
+- [x] 110. [验证] Red 阶段
    - 运行: `npm test -- tests/runners/RunnerFactory.test.ts`
    - 预期失败
    - _Validates: 109_
    - _TaskGroup: 28_
 
-- [ ] 111. [实现] 传递 uiFactory
+- [x] 111. [实现] 传递 uiFactory
    - 实现文件: `src/runners/RunnerFactory.ts`
    - 在 createRunner 中传递 `this.uiFactory`
    - _Requirements: RunnerFactory 和 main.ts 必须传递 UIFactory_
    - _TaskGroup: 28_
 
-- [ ] 112. [验证] Green 阶段
+- [x] 112. [验证] Green 阶段
    - 运行: `npm test -- tests/runners/RunnerFactory.test.ts`
    - 预期通过
    - _Validates: 111_
@@ -775,26 +775,26 @@
 
 #### Scenario 34: main.ts 创建 RunnerFactory 时传递 UIFactory
 
-- [ ] 113. [测试] main.ts 传递 UIFactory - 编写测试用例
+- [x] 113. [测试] main.ts 传递 UIFactory - 编写测试用例
    - 测试文件: `tests/main.test.ts`
    - 验证 Application 创建 RunnerFactory 时传递 uiFactory
    - _Requirements: RunnerFactory 和 main.ts 必须传递 UIFactory_
    - _Scenario: main.ts 创建 RunnerFactory 时传递 UIFactory_
    - _TaskGroup: 29_
 
-- [ ] 114. [验证] Red 阶段
+- [x] 114. [验证] Red 阶段
    - 运行: `npm test -- tests/main.test.ts`
    - 预期失败
    - _Validates: 113_
    - _TaskGroup: 29_
 
-- [ ] 115. [实现] 传递 uiFactory
+- [x] 115. [实现] 传递 uiFactory
    - 实现文件: `src/main.ts`
    - 在创建 RunnerFactory 时传递 `this.uiFactory`
    - _Requirements: RunnerFactory 和 main.ts 必须传递 UIFactory_
    - _TaskGroup: 29_
 
-- [ ] 116. [验证] Green 阶段
+- [x] 116. [验证] Green 阶段
    - 运行: `npm test -- tests/main.test.ts`
    - 预期通过
    - _Validates: 115_
@@ -804,26 +804,26 @@
 
 #### Scenario 35: src/ui/index.ts 导出 InteractiveUIInterface
 
-- [ ] 117. [测试] src/ui/index.ts 导出检查 - 编写测试用例
+- [x] 117. [测试] src/ui/index.ts 导出检查 - 编写测试用例
    - 测试文件: `tests/ui/index.test.ts`
    - 验证导出 InteractiveUIInterface、InteractiveUICallbacks、InteractiveUIConfig、TerminalInteractiveUI
    - _Requirements: 系统必须更新公共导出和测试基础设施_
    - _Scenario: src/ui/index.ts 导出 InteractiveUIInterface_
    - _TaskGroup: 30_
 
-- [ ] 118. [验证] Red 阶段
+- [x] 118. [验证] Red 阶段
    - 运行: `npm test -- tests/ui/index.test.ts`
    - 预期失败
    - _Validates: 117_
    - _TaskGroup: 30_
 
-- [ ] 119. [实现] 更新导出
+- [x] 119. [实现] 更新导出
    - 实现文件: `src/ui/index.ts`
    - 添加新接口和类的导出
    - _Requirements: 系统必须更新公共导出和测试基础设施_
    - _TaskGroup: 30_
 
-- [ ] 120. [验证] Green 阶段
+- [x] 120. [验证] Green 阶段
    - 运行: `npm test -- tests/ui/index.test.ts`
    - 预期通过
    - _Validates: 119_
@@ -831,26 +831,26 @@
 
 #### Scenario 36: MockInteractiveUI 实现 InteractiveUIInterface
 
-- [ ] 121. [测试] MockInteractiveUI 接口实现 - 编写测试用例
+- [x] 121. [测试] MockInteractiveUI 接口实现 - 编写测试用例
    - 测试文件: `tests/test-helpers/MockInteractiveUI.test.ts`
    - 验证 MockInteractiveUI 实现所有接口方法
    - _Requirements: 系统必须更新公共导出和测试基础设施_
    - _Scenario: MockInteractiveUI 实现 InteractiveUIInterface_
    - _TaskGroup: 31_
 
-- [ ] 122. [验证] Red 阶段
+- [x] 122. [验证] Red 阶段
    - 运行: `npm test -- tests/test-helpers/MockInteractiveUI.test.ts`
    - 预期失败
    - _Validates: 121_
    - _TaskGroup: 31_
 
-- [ ] 123. [实现] 更新 MockInteractiveUI
+- [x] 123. [实现] 更新 MockInteractiveUI
    - 实现文件: `tests/test-helpers/MockInteractiveUI.ts`
    - 实现 InteractiveUIInterface 接口
    - _Requirements: 系统必须更新公共导出和测试基础设施_
    - _TaskGroup: 31_
 
-- [ ] 124. [验证] Green 阶段
+- [x] 124. [验证] Green 阶段
    - 运行: `npm test -- tests/test-helpers/MockInteractiveUI.test.ts`
    - 预期通过
    - _Validates: 123_
@@ -858,26 +858,26 @@
 
 #### Scenario 37: 测试用例适配新的 InteractiveUI API
 
-- [ ] 125. [测试] 所有测试通过检查
+- [x] 125. [测试] 所有测试通过检查
    - 测试文件: 所有测试
    - 验证所有测试适配新 API 并通过
    - _Requirements: 系统必须更新公共导出和测试基础设施_
    - _Scenario: 测试用例适配新的 InteractiveUI API_
    - _TaskGroup: 32_
 
-- [ ] 126. [验证] Red 阶段
+- [x] 126. [验证] Red 阶段
    - 运行: `npm test`
    - 预期部分失败
    - _Validates: 125_
    - _TaskGroup: 32_
 
-- [ ] 127. [实现] 适配所有测试用例
+- [x] 127. [实现] 适配所有测试用例
    - 实现文件: `tests/integration/resume-command.test.ts`, `tests/ui/InteractiveUI.test.ts` 等
    - 更新测试代码以使用新接口
    - _Requirements: 系统必须更新公共导出和测试基础设施_
    - _TaskGroup: 32_
 
-- [ ] 128. [验证] Green 阶段
+- [x] 128. [验证] Green 阶段
    - 运行: `npm test`
    - 预期全部通过
    - _Validates: 127_
@@ -887,26 +887,26 @@
 
 #### Scenario 38: 删除 InteractiveUI.ts 后编译通过
 
-- [ ] 129. [测试] 编译检查无 InteractiveUI 导入 - 编写测试用例
+- [x] 129. [测试] 编译检查无 InteractiveUI 导入 - 编写测试用例
    - 测试文件: 编译时检查
    - 验证删除后编译通过且无导入
    - _Requirements: 系统必须删除旧的 InteractiveUI.ts 文件_
    - _Scenario: 删除 InteractiveUI.ts 后编译通过_
    - _TaskGroup: 33_
 
-- [ ] 130. [验证] Red 阶段
+- [x] 130. [验证] Red 阶段
    - 运行: `npm run build`
    - 删除前编译通过
    - _Validates: 129_
    - _TaskGroup: 33_
 
-- [ ] 131. [实现] 删除 InteractiveUI.ts
+- [x] 131. [实现] 删除 InteractiveUI.ts
    - 实现文件: `src/ui/InteractiveUI.ts`
    - 删除文件
    - _Requirements: 系统必须删除旧的 InteractiveUI.ts 文件_
    - _TaskGroup: 33_
 
-- [ ] 132. [验证] Green 阶段
+- [x] 132. [验证] Green 阶段
    - 运行: `npm run build`
    - 预期编译通过
    - _Validates: 131_
@@ -914,25 +914,25 @@
 
 #### Scenario 39: 删除 InteractiveUI.ts 后测试通过
 
-- [ ] 133. [测试] 测试套件完整性检查
+- [x] 133. [测试] 测试套件完整性检查
    - 测试文件: 所有测试
    - 验证删除后所有测试通过
    - _Requirements: 系统必须删除旧的 InteractiveUI.ts 文件_
    - _Scenario: 删除 InteractiveUI.ts 后测试通过_
    - _TaskGroup: 34_
 
-- [ ] 134. [验证] Red 阶段
+- [x] 134. [验证] Red 阶段
    - 运行: `npm test`
    - 删除前测试通过
    - _Validates: 133_
    - _TaskGroup: 34_
 
-- [ ] 135. [实现] 确保无遗留引用
+- [x] 135. [实现] 确保无遗留引用
    - 检查所有导入并更新
    - _Requirements: 系统必须删除旧的 InteractiveUI.ts 文件_
    - _TaskGroup: 34_
 
-- [ ] 136. [验证] Green 阶段
+- [x] 136. [验证] Green 阶段
    - 运行: `npm test`
    - 预期全部通过
    - _Validates: 135_
@@ -942,25 +942,25 @@
 
 #### Scenario 40: 通过环境变量切换 Terminal UI
 
-- [ ] 137. [测试] 环境变量切换功能 - 编写集成测试
+- [x] 137. [测试] 环境变量切换功能 - 编写集成测试
    - 测试文件: `tests/integration/ui-type-switching.test.ts`
    - 验证 CLAUDE_UI_TYPE=terminal 时使用 TerminalInteractiveUI
    - _Requirements: 系统必须支持多种 UI 实现类型_
    - _Scenario: 通过环境变量切换 Terminal UI_
    - _TaskGroup: 35_
 
-- [ ] 138. [验证] Red 阶段
+- [x] 138. [验证] Red 阶段
    - 运行: `npm test -- tests/integration/ui-type-switching.test.ts`
    - 预期失败
    - _Validates: 137_
    - _TaskGroup: 35_
 
-- [ ] 139. [实现] 环境变量支持已在 UIFactoryRegistry 中实现
+- [x] 139. [实现] 环境变量支持已在 UIFactoryRegistry 中实现
    - 验证现有实现正确性
    - _Requirements: 系统必须支持多种 UI 实现类型_
    - _TaskGroup: 35_
 
-- [ ] 140. [验证] Green 阶段
+- [x] 140. [验证] Green 阶段
    - 运行: `npm test -- tests/integration/ui-type-switching.test.ts`
    - 预期通过
    - _Validates: 139_
@@ -968,25 +968,25 @@
 
 #### Scenario 41: 未设置环境变量时使用默认 Terminal UI
 
-- [ ] 141. [测试] 默认 UI 类型 - 编写集成测试
+- [x] 141. [测试] 默认 UI 类型 - 编写集成测试
    - 测试文件: `tests/integration/ui-type-switching.test.ts`
    - 验证未设置环境变量时使用 TerminalUIFactory
    - _Requirements: 系统必须支持多种 UI 实现类型_
    - _Scenario: 未设置环境变量时使用默认 Terminal UI_
    - _TaskGroup: 36_
 
-- [ ] 142. [验证] Red 阶段
+- [x] 142. [验证] Red 阶段
    - 运行: `npm test -- tests/integration/ui-type-switching.test.ts`
    - 预期失败
    - _Validates: 141_
    - _TaskGroup: 36_
 
-- [ ] 143. [实现] 默认值已在 UIFactoryRegistry 中实现
+- [x] 143. [实现] 默认值已在 UIFactoryRegistry 中实现
    - 验证现有实现正确性
    - _Requirements: 系统必须支持多种 UI 实现类型_
    - _TaskGroup: 36_
 
-- [ ] 144. [验证] Green 阶段
+- [x] 144. [验证] Green 阶段
    - 运行: `npm test -- tests/integration/ui-type-switching.test.ts`
    - 预期通过
    - _Validates: 143_
@@ -1014,12 +1014,12 @@
    - _Requirements: 所有需求_
    - _TaskGroup: 37_
 
-- [ ] 147. [实现] 更新文档
+- [x] 147. [实现] 更新文档
    - 更新 CLAUDE.md 和相关文档
    - _Requirements: 所有需求_
    - _TaskGroup: 37_
 
-- [ ] 148. [验证] 代码风格检查
+- [x] 148. [验证] 代码风格检查
    - 运行: `npm run lint && npm run format`
    - _Requirements: 所有需求_
    - _TaskGroup: 37_

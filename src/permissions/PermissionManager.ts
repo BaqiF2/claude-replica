@@ -304,7 +304,9 @@ export class PermissionManager {
 
     try {
       // 调用 UI 层收集用户答案
-      const answers = await this.permissionUI.promptUserQuestions(inputObj.questions as QuestionInput[]);
+      const answers = await this.permissionUI.promptUserQuestions(
+        inputObj.questions as QuestionInput[]
+      );
 
       // 构建 PermissionResult with updatedInput
       return {

@@ -22,6 +22,7 @@ import {
 } from './SDKQueryExecutor';
 import type { SDKMessage, SDKAssistantMessage, Query } from '@anthropic-ai/claude-agent-sdk';
 import type { PermissionMode } from '../config/SDKConfigLoader';
+import type { InteractiveUIInterface } from '../ui/InteractiveUIInterface';
 
 /**
  * 流式会话状态
@@ -205,8 +206,6 @@ export class LiveMessageGenerator {
         await new Promise<void>((resolve) => {
           this.notifyResolver = resolve;
         });
-        // 被通知后，检查是否应该停止
-        // 如果是停止信号，循环条件会终止；如果是新消息，下次循环会处理
       }
     }
   }
@@ -222,6 +221,8 @@ export interface StreamingQueryManagerOptions {
   sdkExecutor: SDKQueryExecutor;
   /** 会话管理器 */
   sessionManager: SessionManager;
+  /** 交互式 UI 实例（可选） */
+  ui?: InteractiveUIInterface;
   /** 工具调用回调 - 当检测到工具调用时触发 */
   onToolUse?: (info: ToolUseInfo) => void;
   /** 工具结果回调 - 当检测到工具结果时触发 */
@@ -295,13 +296,6 @@ export class StreamingQueryManager {
    * @returns 流式会话
    */
   startSession(session: Session): StreamingSession {
-    // 添加调试日志
-    if (process.env.DEBUG_SESSION) {
-      console.log(
-        `[StreamingQueryManager] startSession: sessionId=${session.id}, previousActiveSession=${this.activeSession?.session.id || 'none'}`
-      );
-    }
-
     // 如果已有活跃会话，先结束
     if (this.activeSession) {
       this.endSession();
@@ -321,13 +315,6 @@ export class StreamingQueryManager {
     this.lastResult = null;
     this.queryInstance = null;
     this.messageRouter.setQueryInstance(null);
-
-    // 添加调试日志
-    if (process.env.DEBUG_SESSION) {
-      console.log(
-        `[StreamingQueryManager] startSession completed: sessionId=${session.id}, executionPromise=${this.executionPromise}, queryInstance=${this.queryInstance ? 'exists' : 'null'}`
-      );
-    }
 
     return streamingSession;
   }
@@ -369,13 +356,6 @@ export class StreamingQueryManager {
     }
 
     try {
-      // 添加调试日志
-      if (process.env.DEBUG_SESSION) {
-        console.log(
-          `[StreamingQueryManager] sendMessage: sessionId=${this.activeSession.session.id}, executionPromise=${this.executionPromise ? 'exists' : 'null'}`
-        );
-      }
-
       // 使用 MessageRouter 构建流式消息（处理图像引用）
       const buildResult = await this.messageRouter.buildStreamMessage(
         rawMessage,
@@ -409,12 +389,6 @@ export class StreamingQueryManager {
 
       // 如果尚未启动执行，启动 SDK 执行循环
       if (!this.executionPromise) {
-        // 添加调试日志
-        if (process.env.DEBUG_SESSION) {
-          console.log(
-            `[StreamingQueryManager] Starting new execution for session: ${this.activeSession.session.id}`
-          );
-        }
         this.executionPromise = this.startExecution();
       }
 
@@ -444,7 +418,6 @@ export class StreamingQueryManager {
   queueMessage(rawMessage: string): void {
     // 使用 sendMessage 实现实时注入，忽略返回值
     this.sendMessage(rawMessage).catch(() => {
-      // 静默处理错误
     });
   }
 
@@ -504,15 +477,6 @@ export class StreamingQueryManager {
    * 清理会话资源，停止消息生成器，中断任何进行中的处理
    */
   endSession(): void {
-    const sessionId = this.activeSession?.session.id;
-
-    // 添加调试日志
-    if (process.env.DEBUG_SESSION) {
-      console.log(
-        `[StreamingQueryManager] endSession: sessionId=${sessionId}, executionPromise=${this.executionPromise ? 'exists' : 'null'}, queryInstance=${this.queryInstance ? 'exists' : 'null'}`
-      );
-    }
-
     if (this.liveGenerator) {
       // 清空队列并记录警告（如果有未处理消息）
       const clearedCount = this.liveGenerator.clearQueue();
@@ -533,13 +497,6 @@ export class StreamingQueryManager {
     this.queryInstance = null;
     this.messageRouter.setQueryInstance(null);
     this.toolUseMap.clear();
-
-    // 添加调试日志
-    if (process.env.DEBUG_SESSION) {
-      console.log(
-        `[StreamingQueryManager] endSession completed: sessionId=${sessionId}, all references cleared`
-      );
-    }
   }
 
   /**
@@ -599,7 +556,6 @@ export class StreamingQueryManager {
     }
 
     const sessionId = this.activeSession.session.sdkSessionId;
-    const hasExistingSession = !!sessionId;
 
     try {
       // 构建查询选项
@@ -607,12 +563,6 @@ export class StreamingQueryManager {
 
       // 使用 LiveMessageGenerator 创建持久消息流
       const messageGenerator = this.liveGenerator.generate();
-
-      // 添加调试日志
-      if (process.env.DEBUG_SESSION) {
-        console.log(`New Query instance created: 
-              (resume: ${hasExistingSession ? 'yes' : 'no'}) sessionId: ${sessionId} forkSession=${this.forkSession}`);
-      }
 
       // 执行流式查询并保存 query 实例
       const sdkResult = await this.sdkExecutor.executeStreaming(messageGenerator, {
@@ -648,13 +598,6 @@ export class StreamingQueryManager {
           if (this.activeSession && sdkSessionId !== this.activeSession.session.sdkSessionId) {
             this.activeSession.session.sdkSessionId = sdkSessionId;
             await this.sessionManager.saveSession(this.activeSession.session);
-
-            // 添加调试日志
-            if (process.env.DEBUG_SESSION) {
-              console.log(
-                `[StreamingQueryManager] Saved SDK session ID: ${sdkSessionId} for session: ${this.activeSession.session.id}`
-              );
-            }
           }
         },
       });
@@ -680,20 +623,11 @@ export class StreamingQueryManager {
       this.executionPromise = null;
 
       // 重置生成器状态
-      // 在新的架构下（SDK 会持续等待 generator），这个 reset() 只在以下情况执行：
-      // 1. SDK 执行被中断（abort）
-      // 2. SDK 执行出错
-      // 3. generator 主动停止（stop()）
       if (this.liveGenerator) {
         this.liveGenerator.reset();
-
         // 验证队列是否已清空（防御性编程）
         const remainingCount = this.liveGenerator.getPendingCount();
         if (remainingCount > 0) {
-          console.warn(
-            `Execution finished but ${remainingCount} message(s) remain in queue. ` +
-              `This may indicate an unexpected termination.`
-          );
           // 清空剩余消息，避免泄漏到下一次执行
           this.liveGenerator.clearQueue();
         }
@@ -707,92 +641,160 @@ export class StreamingQueryManager {
    * @param message - SDK 消息
    */
   private handleSDKMessage(message: SDKMessage): void {
-    // 处理助手消息中的内容（工具调用和文本响应）
     if (message.type === 'assistant') {
-      const assistantMessage = message as SDKAssistantMessage;
-      const content = assistantMessage.message?.content;
+      this.handleAssistantMessage(message as SDKAssistantMessage);
+    } else if (message.type === 'user' && 'message' in message) {
+      this.handleUserMessage(message);
+    }
+  }
 
-      if (content && Array.isArray(content)) {
-        // 收集文本内容
-        const textParts: string[] = [];
+  /**
+   * 处理助手消息中的内容块（thinking、text、tool_use）
+   *
+   * @param message - 助手消息
+   */
+  private handleAssistantMessage(message: SDKAssistantMessage): void {
+    const content = message.message?.content;
+    if (!content || !Array.isArray(content)) {
+      return;
+    }
 
-        for (const block of content) {
-          // 检测 thinking 内容块
-          if (block.type === 'thinking' && this.onThinking) {
-            const thinkingBlock = block as { type: 'thinking'; thinking?: string };
-            this.onThinking(thinkingBlock.thinking);
-          }
+    const textParts: string[] = [];
 
-          // 检测 text 内容块
-          if (block.type === 'text' && typeof (block as { text?: string }).text === 'string') {
-            textParts.push((block as { text: string }).text);
-          }
-
-          // 检测 tool_use 内容块
-          if (block.type === 'tool_use' && this.onToolUse) {
-            const toolUseBlock = block as {
-              type: 'tool_use';
-              id: string;
-              name: string;
-              input: Record<string, unknown>;
-            };
-
-            const toolInfo: ToolUseInfo = {
-              id: toolUseBlock.id,
-              name: toolUseBlock.name,
-              input: toolUseBlock.input,
-            };
-
-            // 存储工具调用信息，用于后续关联结果
-            this.toolUseMap.set(toolUseBlock.id, toolInfo);
-
-            // 触发工具调用回调
-            this.onToolUse(toolInfo);
-          }
+    for (const block of content) {
+      if (block.type === 'thinking') {
+        this.processThinkingBlock(block as { type: 'thinking'; thinking?: string });
+      } else if (block.type === 'text') {
+        const text = this.processTextBlock(block as { text?: string });
+        if (text) {
+          textParts.push(text);
         }
-
-        // 如果有文本内容，触发文本响应回调
-        if (textParts.length > 0 && this.onAssistantText) {
-          this.onAssistantText(textParts.join(''));
-        }
+      } else if (block.type === 'tool_use') {
+        this.processToolUseBlock(
+          block as {
+            type: 'tool_use';
+            id: string;
+            name: string;
+            input: Record<string, unknown>;
+          }
+        );
       }
     }
 
-    // 处理用户消息中的工具结果（SDK 会将工具结果作为 user 消息返回）
-    if (message.type === 'user' && 'message' in message) {
-      const userMessage = message as {
-        type: 'user';
-        message: {
-          role: 'user';
-          content: Array<{
-            type: string;
-            tool_use_id?: string;
-            content?: string;
-            is_error?: boolean;
-          }>;
-        };
+    // 如果有文本内容，触发文本响应回调
+    if (textParts.length > 0 && this.onAssistantText) {
+      this.onAssistantText(textParts.join(''));
+    }
+  }
+
+  /**
+   * 处理用户消息中的工具结果
+   *
+   * @param message - 用户消息
+   */
+  private handleUserMessage(message: SDKMessage): void {
+    const userMessage = message as {
+      type: 'user';
+      message: {
+        role: 'user';
+        content: Array<{
+          type: string;
+          tool_use_id?: string;
+          content?: string;
+          is_error?: boolean;
+        }>;
       };
+    };
 
-      const content = userMessage.message?.content;
-      if (content && Array.isArray(content)) {
-        for (const block of content) {
-          // 检测 tool_result 内容块
-          if (block.type === 'tool_result' && block.tool_use_id && this.onToolResult) {
-            const toolUseInfo = this.toolUseMap.get(block.tool_use_id);
+    const content = userMessage.message?.content;
+    if (!content || !Array.isArray(content)) {
+      return;
+    }
 
-            const resultInfo: ToolResultInfo = {
-              toolUseId: block.tool_use_id,
-              name: toolUseInfo?.name,
-              content:
-                typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
-              isError: block.is_error || false,
-            };
-
-            // 触发工具结果回调
-            this.onToolResult(resultInfo);
-          }
-        }
+    for (const block of content) {
+      if (block.type === 'tool_result' && block.tool_use_id) {
+        this.processToolResultBlock(block);
       }
     }
+  }
+
+  /**
+   * 处理 thinking 内容块
+   *
+   * @param block - thinking 内容块
+   */
+  private processThinkingBlock(block: { type: 'thinking'; thinking?: string }): void {
+    if (this.onThinking) {
+      this.onThinking(block.thinking);
+    }
+  }
+
+  /**
+   * 处理 text 内容块
+   *
+   * @param block - text 内容块
+   * @returns 提取的文本内容，如果不存在则返回 null
+   */
+  private processTextBlock(block: { text?: string }): string | null {
+    if (typeof block.text === 'string') {
+      return block.text;
+    }
+    return null;
+  }
+
+  /**
+   * 处理 tool_use 内容块
+   *
+   * @param block - tool_use 内容块
+   */
+  private processToolUseBlock(block: {
+    type: 'tool_use';
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
+  }): void {
+    if (!this.onToolUse) {
+      return;
+    }
+
+    const toolInfo: ToolUseInfo = {
+      id: block.id,
+      name: block.name,
+      input: block.input,
+    };
+
+    // 存储工具调用信息，用于后续关联结果
+    this.toolUseMap.set(block.id, toolInfo);
+
+    // 触发工具调用回调
+    this.onToolUse(toolInfo);
+  }
+
+  /**
+   * 处理 tool_result 内容块
+   *
+   * @param block - tool_result 内容块
+   */
+  private processToolResultBlock(block: {
+    type: string;
+    tool_use_id?: string;
+    content?: string;
+    is_error?: boolean;
+  }): void {
+    if (!this.onToolResult || !block.tool_use_id) {
+      return;
+    }
+
+    const toolUseInfo = this.toolUseMap.get(block.tool_use_id);
+
+    const resultInfo: ToolResultInfo = {
+      toolUseId: block.tool_use_id,
+      name: toolUseInfo?.name,
+      content: typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
+      isError: block.is_error || false,
+    };
+
+    // 触发工具结果回调
+    this.onToolResult(resultInfo);
   }
 }

@@ -13,6 +13,11 @@ import * as path from 'path';
 import * as os from 'os';
 import { SessionManager, Session, Message } from '../../src/core/SessionManager';
 
+const SESSION_TIMESTAMP_STEP_MS = parseInt(
+  process.env.SESSION_TEST_TIMESTAMP_STEP_MS || '1',
+  10
+);
+
 describe('Session Cleanup Configuration Integration Tests', () => {
   let tempDir: string;
   let sessionsDir: string;
@@ -25,6 +30,12 @@ describe('Session Cleanup Configuration Integration Tests', () => {
     content: [{ type: 'text', text: content }],
     timestamp: new Date(),
   });
+
+  const applySessionTimestamp = (session: Session, baseTime: number, offset: number): void => {
+    const timestamp = new Date(baseTime + offset * SESSION_TIMESTAMP_STEP_MS);
+    session.createdAt = timestamp;
+    session.lastAccessedAt = timestamp;
+  };
 
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'session-cleanup-test-'));
@@ -55,15 +66,14 @@ describe('Session Cleanup Configuration Integration Tests', () => {
 
       // Create 15 sessions
       const sessions: Session[] = [];
+      const baseTime = Date.now();
       for (let i = 0; i < 15; i++) {
         const session = await sessionManager.createSession(`test-session-${i}`);
+        applySessionTimestamp(session, baseTime, i);
         session.messages = [createMessage(`Test message ${i}`)];
         await sessionManager.saveSession(session);
         sessions.push(session);
       }
-
-      // Wait a bit to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Clean old sessions with default keep count (should be 10)
       await sessionManager.cleanOldSessions(10);
@@ -92,15 +102,14 @@ describe('Session Cleanup Configuration Integration Tests', () => {
 
       // Create 10 sessions
       const sessions: Session[] = [];
+      const baseTime = Date.now();
       for (let i = 0; i < 10; i++) {
         const session = await sessionManager.createSession(`test-session-${i}`);
+        applySessionTimestamp(session, baseTime, i);
         session.messages = [createMessage(`Test message ${i}`)];
         await sessionManager.saveSession(session);
         sessions.push(session);
       }
-
-      // Wait a bit to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Clean old sessions (should use SESSION_KEEP_COUNT=5 from env)
       await sessionManager.cleanOldSessions(parseInt(process.env.SESSION_KEEP_COUNT || '10', 10));
@@ -129,15 +138,14 @@ describe('Session Cleanup Configuration Integration Tests', () => {
 
       // Create 8 sessions
       const sessions: Session[] = [];
+      const baseTime = Date.now();
       for (let i = 0; i < 8; i++) {
         const session = await sessionManager.createSession(`test-session-${i}`);
+        applySessionTimestamp(session, baseTime, i);
         session.messages = [createMessage(`Test message ${i}`)];
         await sessionManager.saveSession(session);
         sessions.push(session);
       }
-
-      // Wait a bit to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Clean old sessions (should use SESSION_KEEP_COUNT=3 from env)
       await sessionManager.cleanOldSessions(parseInt(process.env.SESSION_KEEP_COUNT || '10', 10));
@@ -166,15 +174,14 @@ describe('Session Cleanup Configuration Integration Tests', () => {
 
       // Create only 5 sessions
       const sessions: Session[] = [];
+      const baseTime = Date.now();
       for (let i = 0; i < 5; i++) {
         const session = await sessionManager.createSession(`test-session-${i}`);
+        applySessionTimestamp(session, baseTime, i);
         session.messages = [createMessage(`Test message ${i}`)];
         await sessionManager.saveSession(session);
         sessions.push(session);
       }
-
-      // Wait a bit to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Clean old sessions (should keep all 5 sessions since count < keep count)
       await sessionManager.cleanOldSessions(parseInt(process.env.SESSION_KEEP_COUNT || '10', 10));
@@ -200,15 +207,14 @@ describe('Session Cleanup Configuration Integration Tests', () => {
 
       // Create 10 sessions
       const sessions: Session[] = [];
+      const baseTime = Date.now();
       for (let i = 0; i < 10; i++) {
         const session = await sessionManager.createSession(`test-session-${i}`);
+        applySessionTimestamp(session, baseTime, i);
         session.messages = [createMessage(`Test message ${i}`)];
         await sessionManager.saveSession(session);
         sessions.push(session);
       }
-
-      // Wait a bit to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Clean old sessions (parseInt should handle the string '7')
       await sessionManager.cleanOldSessions(parseInt(process.env.SESSION_KEEP_COUNT || '10', 10));
@@ -240,14 +246,13 @@ describe('Session Cleanup Configuration Integration Tests', () => {
       const cleanOldSessionsSpy = jest.spyOn(sessionManager, 'cleanOldSessions');
 
       // Create 8 sessions
+      const baseTime = Date.now();
       for (let i = 0; i < 8; i++) {
         const session = await sessionManager.createSession(`test-session-${i}`);
+        applySessionTimestamp(session, baseTime, i);
         session.messages = [createMessage(`Test message ${i}`)];
         await sessionManager.saveSession(session);
       }
-
-      // Wait a bit to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Call cleanOldSessions with the value from environment
       await sessionManager.cleanOldSessions(parseInt(process.env.SESSION_KEEP_COUNT || '10', 10));

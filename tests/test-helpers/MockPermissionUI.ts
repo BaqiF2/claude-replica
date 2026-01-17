@@ -18,6 +18,11 @@ import {
 import { PermissionUIResult } from '../../src/permissions/types';
 import type { OutputInterface } from '../../src/ui/OutputInterface';
 import type { ParserInterface } from '../../src/ui/ParserInterface';
+import type {
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
+  InteractiveUIInterface,
+} from '../../src/ui/InteractiveUIInterface';
 import type { UIFactory } from '../../src/ui/factories/UIFactory';
 
 export class MockPermissionUI implements PermissionUI {
@@ -62,5 +67,37 @@ export class MockPermissionUIFactory implements UIFactory {
     _input?: NodeJS.ReadableStream
   ): PermissionUI {
     return new MockPermissionUI();
+  }
+
+  createInteractiveUI(
+    _callbacks: InteractiveUICallbacks,
+    _config?: InteractiveUIConfig
+  ): InteractiveUIInterface {
+    return {
+      start: async () => undefined,
+      stop: () => undefined,
+      displayMessage: () => undefined,
+      displayToolUse: () => undefined,
+      displayToolResult: () => undefined,
+      displayThinking: () => undefined,
+      displayComputing: () => undefined,
+      stopComputing: () => undefined,
+      clearProgress: () => undefined,
+      displayError: () => undefined,
+      displayWarning: () => undefined,
+      displaySuccess: () => undefined,
+      displayInfo: () => undefined,
+      promptConfirmation: async () => true,
+      showRewindMenu: async () => null,
+      showSessionMenu: async () => null,
+      showConfirmationMenu: async () => true,
+      setInitialPermissionMode: () => undefined,
+      setPermissionMode: () => undefined,
+      displayPermissionStatus: () => undefined,
+      setProcessingState: () => undefined,
+      formatRelativeTime: () => '',
+      formatAbsoluteTime: () => '',
+      formatStatsSummary: () => '',
+    };
   }
 }

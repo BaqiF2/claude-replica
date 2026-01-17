@@ -27,8 +27,5 @@ export interface PermissionUIFactory {
    * @param input Input stream (optional, defaults to process.stdin)
    * @returns PermissionUI instance
    */
-  createPermissionUI(
-    output?: NodeJS.WritableStream,
-    input?: NodeJS.ReadableStream
-  ): PermissionUI;
+  createPermissionUI(output?: NodeJS.WritableStream, input?: NodeJS.ReadableStream): PermissionUI;
 }

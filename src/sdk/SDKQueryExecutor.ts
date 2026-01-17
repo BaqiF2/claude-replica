@@ -510,10 +510,7 @@ export class SDKQueryExecutor {
       }
 
       // 迭代处理消息流
-      // 关键修复：在流式输入模式下，不在收到 result 后立即 return
-      // 而是保存结果并继续循环，让 SDK 有机会处理更多消息
       for await (const message of queryGenerator) {
-        // 检查是否被中断
         if (this.abortController.signal.aborted) {
           return {
             response: accumulatedResponse,
@@ -548,8 +545,6 @@ export class SDKQueryExecutor {
         }
 
         // 处理结果消息
-        // 关键修复：不在 result 后立即 return，而是保存结果并继续循环
-        // 这样 SDK 可以继续从 messageGenerator 获取更多消息并处理
         if (message.type === 'result') {
           const resultMessage = message as SDKResultMessage;
 
@@ -561,7 +556,6 @@ export class SDKQueryExecutor {
               outputTokens: resultMessage.usage.output_tokens,
             };
 
-            // 保存成功结果，但不 return
             // 如果 messageGenerator 还有更多消息，SDK 会继续处理
             lastSuccessResult = {
               response: accumulatedResponse || resultMessage.result,
@@ -593,7 +587,6 @@ export class SDKQueryExecutor {
       }
 
       // for-await 循环结束（generator 停止或没有更多消息）
-      // 返回最后保存的结果
       if (lastErrorResult) {
         return lastErrorResult;
       }

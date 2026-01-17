@@ -16,7 +16,8 @@ const EXIT_CODE_GENERAL_ERROR = parseInt(process.env.EXIT_CODE_GENERAL_ERROR || 
 const uiFactory = UIFactoryRegistry.createUIFactory();
 const app = new Application(uiFactory);
 
-app.run(process.argv.slice(2))
+app
+  .run(process.argv.slice(2))
   .then((exitCode) => {
     process.exit(exitCode);
   })

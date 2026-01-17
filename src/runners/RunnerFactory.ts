@@ -21,6 +21,7 @@ import type { MCPService } from '../mcp/MCPService';
 import type { RewindManager } from '../rewind/RewindManager';
 import type { ConfigManager } from '../config';
 import type { Logger } from '../logging/Logger';
+import type { UIFactory } from '../ui/factories/UIFactory';
 
 export class RunnerFactory {
   constructor(
@@ -33,6 +34,7 @@ export class RunnerFactory {
     private readonly mcpService: MCPService,
     private readonly rewindManager: RewindManager | null,
     private readonly configManager: ConfigManager,
+    private readonly uiFactory: UIFactory,
     private readonly logger: Logger
   ) {}
 
@@ -58,6 +60,7 @@ export class RunnerFactory {
       this.mcpService,
       this.rewindManager,
       this.configManager,
+      this.uiFactory,
       this.logger
     );
   }

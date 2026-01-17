@@ -20,7 +20,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
-import {ProjectConfig} from '../config/SDKConfigLoader';
+import { ProjectConfig } from '../config/SDKConfigLoader';
 
 /**
  * 消息内容块类型
