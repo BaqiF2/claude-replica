@@ -18,6 +18,7 @@ import type { SDKQueryExecutor } from '../sdk';
 import type { SessionManager, Session } from '../core/SessionManager';
 import type { OutputFormatter, QueryResult as OutputQueryResult, OutputFormat } from '../output/OutputFormatter';
 import type { Logger } from '../logging/Logger';
+import type { ConfigManager } from '../config/ConfigManager';
 
 const EXIT_CODE_SUCCESS = parseInt(process.env.EXIT_CODE_SUCCESS || '0', 10);
 const EXIT_CODE_GENERAL_ERROR = parseInt(process.env.EXIT_CODE_GENERAL_ERROR || '1', 10);
@@ -33,6 +34,7 @@ export class NonInteractiveRunner implements ApplicationRunner {
     private readonly messageRouter: MessageRouter,
     private readonly sdkExecutor: SDKQueryExecutor,
     private readonly outputFormatter: OutputFormatter,
+    private readonly configManager: ConfigManager,
     private readonly logger: Logger
   ) {}
 
@@ -47,18 +49,24 @@ export class NonInteractiveRunner implements ApplicationRunner {
     // 创建临时会话对象（不持久化到磁盘）
     const tempSessionId = `temp-${Date.now()}`;
     const now = new Date();
+    const workingDir = process.cwd();
+
+    // 加载项目配置并合并 CLI 选项
+    const projectConfig = await this.configManager.loadProjectConfig(workingDir);
+    const mergedConfig = this.configManager.build(options, projectConfig);
+
     const tempSession: Session = {
       id: tempSessionId,
       createdAt: now,
       lastAccessedAt: now,
       messages: [],
       context: {
-        workingDirectory: process.cwd(),
-        projectConfig: {},
+        workingDirectory: workingDir,
+        projectConfig: mergedConfig,
         activeAgents: [],
       },
       expired: false,
-      workingDirectory: process.cwd(),
+      workingDirectory: workingDir,
     };
 
     try {

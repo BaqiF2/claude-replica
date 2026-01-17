@@ -44,6 +44,7 @@ export class RunnerFactory {
         this.messageRouter,
         this.sdkExecutor,
         this.outputFormatter,
+        this.configManager,
         this.logger
       );
     }
