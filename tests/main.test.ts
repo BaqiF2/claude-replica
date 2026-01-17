@@ -6,8 +6,10 @@
  */
 
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import ts from 'typescript';
 import { CLIParser } from '../src/cli/CLIParser';
 import { TestUIFactory } from './helpers/TestUIFactory';
 import { TerminalUIFactory } from '../src/ui/factories/TerminalUIFactory';
@@ -64,6 +66,95 @@ const EXPECTED_PERMISSION_UI_COUNT = parseInt(
   process.env.APP_PERMISSION_UI_INSTANCE_COUNT || '1',
   10
 );
+
+const MAIN_PATH = path.join(__dirname, '../src/main.ts');
+const MAIN_ENCODING = 'utf-8';
+const mainSourceText = fsSync.readFileSync(MAIN_PATH, MAIN_ENCODING);
+const mainSourceFile = ts.createSourceFile(
+  MAIN_PATH,
+  mainSourceText,
+  ts.ScriptTarget.Latest,
+  true
+);
+
+const getClassDeclaration = (name: string): ts.ClassDeclaration => {
+  let found: ts.ClassDeclaration | undefined;
+  mainSourceFile.forEachChild((node) => {
+    if (ts.isClassDeclaration(node) && node.name?.text === name) {
+      found = node;
+    }
+  });
+
+  if (!found) {
+    throw new Error(`Class not found: ${name}`);
+  }
+
+  return found;
+};
+
+const getMethodDeclaration = (
+  node: ts.ClassDeclaration,
+  name: string
+): ts.MethodDeclaration => {
+  const methodDecl = node.members.find((member) => {
+    if (!ts.isMethodDeclaration(member)) {
+      return false;
+    }
+    if (!member.name || !ts.isIdentifier(member.name)) {
+      return false;
+    }
+    return member.name.text === name;
+  });
+
+  if (!methodDecl || !ts.isMethodDeclaration(methodDecl)) {
+    throw new Error(`Method not found: ${name}`);
+  }
+
+  return methodDecl;
+};
+
+const getRunnerFactoryInstantiation = (methodDecl: ts.MethodDeclaration): ts.NewExpression => {
+  let found: ts.NewExpression | undefined;
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isNewExpression(node)) {
+      if (ts.isIdentifier(node.expression) && node.expression.text === 'RunnerFactory') {
+        found = node;
+      }
+    }
+    node.forEachChild(visit);
+  };
+
+  if (methodDecl.body) {
+    methodDecl.body.forEachChild(visit);
+  }
+
+  if (!found) {
+    throw new Error('RunnerFactory instantiation not found');
+  }
+
+  return found;
+};
+
+const containsThisUiFactoryArgument = (node: ts.Node): boolean => {
+  let found = false;
+
+  const visit = (child: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(child)) {
+      if (
+        child.expression.kind === ts.SyntaxKind.ThisKeyword &&
+        child.name.text === 'uiFactory'
+      ) {
+        found = true;
+        return;
+      }
+    }
+    child.forEachChild(visit);
+  };
+
+  visit(node);
+  return found;
+};
 beforeAll(async () => {
   originalHome = process.env.HOME;
   originalUserProfile = process.env.USERPROFILE;
@@ -100,6 +191,16 @@ afterAll(async () => {
 });
 
 describe('main 函数', () => {
+  describe('Application 初始化', () => {
+    it('应该在创建 RunnerFactory 时传递 uiFactory', () => {
+      const applicationClass = getClassDeclaration('Application');
+      const initializeMethod = getMethodDeclaration(applicationClass, 'initialize');
+      const runnerFactoryInstantiation = getRunnerFactoryInstantiation(initializeMethod);
+
+      expect(containsThisUiFactoryArgument(runnerFactoryInstantiation)).toBe(true);
+    });
+  });
+
   describe('--help 选项', () => {
     it('应该显示帮助信息并返回 0', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();

@@ -11,10 +11,7 @@
 
 import type { OutputInterface, OutputOptions } from './OutputInterface';
 
-const DEFAULT_BLANK_LINE_COUNT = parseInt(
-  process.env.CLAUDE_DEFAULT_BLANK_LINE_COUNT || '1',
-  10
-);
+const DEFAULT_BLANK_LINE_COUNT = parseInt(process.env.CLAUDE_DEFAULT_BLANK_LINE_COUNT || '1', 10);
 
 /**
  * Terminal Output

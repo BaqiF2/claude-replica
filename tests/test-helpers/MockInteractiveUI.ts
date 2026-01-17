@@ -2,7 +2,11 @@
  * Mock InteractiveUI for testing
  */
 
-import { Session } from '../../src/core/SessionManager';
+import type { Session, SessionStats } from '../../src/core/SessionManager';
+import type {
+  InteractiveUIInterface,
+} from '../../src/ui/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot } from '../../src/ui/InteractiveUIInterface';
 import { EventEmitter } from 'events';
 
 export interface MockInteractiveUIOptions {
@@ -10,7 +14,7 @@ export interface MockInteractiveUIOptions {
   selectIndex?: number | null; // null means cancel
 }
 
-export class MockInteractiveUI {
+export class MockInteractiveUI implements InteractiveUIInterface {
   private options: MockInteractiveUIOptions;
   private eventEmitter: EventEmitter;
 
@@ -60,19 +64,19 @@ export class MockInteractiveUI {
     // Mock implementation
   }
 
-  displayThinking(_content: string): void {
+  displayThinking(_content?: string): void {
     // Mock implementation
   }
 
-  displayToolUse(_name: string, _input: any): void {
+  displayToolUse(_name: string, _input: Record<string, unknown>): void {
     // Mock implementation
   }
 
-  displayToolResult(_name: string, _content: any, _isError: boolean): void {
+  displayToolResult(_name: string, _content: string, _isError?: boolean): void {
     // Mock implementation
   }
 
-  displayMessage(_text: string, _role: 'user' | 'assistant'): void {
+  displayMessage(_text: string, _role: MessageRole): void {
     // Mock implementation
   }
 
@@ -100,8 +104,40 @@ export class MockInteractiveUI {
     // Mock implementation
   }
 
-  setInitialPermissionMode(_mode: string): void {
+  clearProgress(): void {
     // Mock implementation
+  }
+
+  async promptConfirmation(_message: string): Promise<boolean> {
+    return false;
+  }
+
+  async showRewindMenu(_snapshots: Snapshot[]): Promise<Snapshot | null> {
+    return null;
+  }
+
+  setInitialPermissionMode(_mode: PermissionMode): void {
+    // Mock implementation
+  }
+
+  setPermissionMode(_mode: PermissionMode): void {
+    // Mock implementation
+  }
+
+  displayPermissionStatus(_mode: PermissionMode): void {
+    // Mock implementation
+  }
+
+  formatRelativeTime(_date: Date): string {
+    return '';
+  }
+
+  formatAbsoluteTime(_date: Date): string {
+    return '';
+  }
+
+  formatStatsSummary(_stats?: SessionStats): string {
+    return '';
   }
 
   stopAndWait(): Promise<void> {

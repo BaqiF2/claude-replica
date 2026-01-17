@@ -138,7 +138,8 @@ claude-replica/
 │   │   ├── ToolRegistry.ts
 │   │   └── index.ts
 │   ├── ui/                # Interactive UI
-│   │   ├── InteractiveUI.ts
+│   │   ├── InteractiveUIInterface.ts
+│   │   ├── TerminalInteractiveUI.ts
 │   │   └── index.ts
 │   ├── cli.ts             # CLI entry
 │   ├── index.ts           # Main export
@@ -172,7 +173,7 @@ claude-replica/
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        CLI Layer                                │
-│  CLIParser → InteractiveUI / OutputFormatter                │
+│  CLIParser → TerminalInteractiveUI / OutputFormatter        │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -203,7 +204,7 @@ claude-replica/
 4. **Message Routing** → MessageRouter builds query options
 5. **SDK Call** → Calls Claude Agent SDK's query() function
 6. **Streaming Processing** → StreamingMessageProcessor handles responses
-7. **Output** → InteractiveUI or OutputFormatter displays results
+7. **Output** → TerminalInteractiveUI (InteractiveUIInterface) or OutputFormatter displays results
 
 ## Core Modules
 

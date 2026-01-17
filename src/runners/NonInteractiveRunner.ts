@@ -16,7 +16,11 @@ import type { OutputInterface } from '../ui/OutputInterface';
 import type { MessageRouter } from '../core/MessageRouter';
 import type { SDKQueryExecutor } from '../sdk';
 import type { SessionManager, Session } from '../core/SessionManager';
-import type { OutputFormatter, QueryResult as OutputQueryResult, OutputFormat } from '../output/OutputFormatter';
+import type {
+  OutputFormatter,
+  QueryResult as OutputQueryResult,
+  OutputFormat,
+} from '../output/OutputFormatter';
 import type { Logger } from '../logging/Logger';
 import type { ConfigManager } from '../config/ConfigManager';
 
@@ -80,10 +84,7 @@ export class NonInteractiveRunner implements ApplicationRunner {
     }
   }
 
-  private async executeQuery(
-    prompt: string,
-    session: Session,
-  ): Promise<string> {
+  private async executeQuery(prompt: string, session: Session): Promise<string> {
     await this.sessionManager.addMessage(session, {
       role: 'user',
       content: prompt,

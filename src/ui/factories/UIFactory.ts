@@ -12,6 +12,11 @@
 import type { OutputInterface } from '../OutputInterface';
 import type { ParserInterface } from '../ParserInterface';
 import type { PermissionUI } from '../../permissions/PermissionUI';
+import type {
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
+  InteractiveUIInterface,
+} from '../InteractiveUIInterface';
 
 /**
  * UI Factory Interface
@@ -40,8 +45,17 @@ export interface UIFactory {
    * @param input Input stream (optional, defaults to process.stdin)
    * @returns PermissionUI instance
    */
-  createPermissionUI(
-    output?: NodeJS.WritableStream,
-    input?: NodeJS.ReadableStream
-  ): PermissionUI;
+  createPermissionUI(output?: NodeJS.WritableStream, input?: NodeJS.ReadableStream): PermissionUI;
+
+  /**
+   * Create an interactive UI instance
+   *
+   * @param callbacks Interactive UI callbacks
+   * @param config Optional UI configuration
+   * @returns InteractiveUIInterface instance
+   */
+  createInteractiveUI(
+    callbacks: InteractiveUICallbacks,
+    config?: InteractiveUIConfig
+  ): InteractiveUIInterface;
 }

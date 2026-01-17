@@ -25,7 +25,7 @@ This document provides detailed programming API documentation for Claude Replica
   - [RewindManager](#rewindmanager)
   - [PluginManager](#pluginmanager)
 - [UI API](#ui-api)
-  - [InteractiveUI](#interactiveui)
+  - [TerminalInteractiveUI](#terminalinteractiveui)
   - [OutputFormatter](#outputformatter)
 - [Type Definitions](#type-definitions)
 
@@ -727,61 +727,58 @@ interface PluginInstallResult {
 
 ## UI API
 
-### InteractiveUI
+### TerminalInteractiveUI
 
-Interactive user interface.
+Terminal-based interactive UI implementation that conforms to InteractiveUIInterface.
 
 ```typescript
-import { InteractiveUI, InteractiveUIOptions } from 'claude-replica';
+import {
+  TerminalInteractiveUI,
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
+} from 'claude-replica';
 
-const ui = new InteractiveUI(options: InteractiveUIOptions);
+const callbacks: InteractiveUICallbacks = {
+  onMessage: async (message) => {},
+  onCommand: async (command) => {},
+  onInterrupt: () => {},
+  onRewind: async () => {},
+  onPermissionModeChange: async (mode) => {},
+  onQueueMessage: (message) => {},
+};
 
-// Start UI
-await ui.start(): Promise<void>;
+const config: InteractiveUIConfig = {
+  input: process.stdin,
+  output: process.stdout,
+  enableColors: true,
+};
 
-// Stop UI
-ui.stop(): void;
+const ui = new TerminalInteractiveUI(callbacks, config);
 
-// Display message
-ui.displayMessage(message: string, role: 'user' | 'assistant'): void;
+await ui.start();
+ui.stop();
 
-// Display tool call
-ui.displayToolUse(tool: string, args: unknown): void;
+ui.displayMessage(message, 'user');
+ui.displayToolUse('Read', { path: 'file.txt' });
+ui.displayToolResult('Read', 'ok');
+ui.displayThinking('Reasoning...');
+ui.displayComputing();
+ui.stopComputing();
+ui.clearProgress();
 
-// Display progress
-ui.displayProgress(message: string, status?: ProgressStatus): void;
+ui.displayError('error');
+ui.displayWarning('warning');
+ui.displaySuccess('success');
+ui.displayInfo('info');
 
-// Clear progress
-ui.clearProgress(): void;
-
-// Display error
-ui.displayError(message: string): void;
-
-// Display warning
-ui.displayWarning(message: string): void;
-
-// Display success
-ui.displaySuccess(message: string): void;
-
-// Request user confirmation
-const confirmed = await ui.promptConfirmation(message: string): Promise<boolean>;
-
-// Show rewind menu
-const selected = await ui.showRewindMenu(
-  snapshots: Snapshot[]
-): Promise<Snapshot | null>;
+const confirmed = await ui.promptConfirmation('Continue?');
+const selected = await ui.showRewindMenu(snapshots);
 ```
 
 #### InteractiveUIOptions Interface
 
 ```typescript
-interface InteractiveUIOptions {
-  onMessage: (message: string) => Promise<void>;
-  onInterrupt: () => void;
-  onRewind: () => Promise<void>;
-}
-
-type ProgressStatus = 'running' | 'success' | 'error' | 'warning';
+type InteractiveUIOptions = InteractiveUICallbacks & InteractiveUIConfig;
 ```
 
 ### OutputFormatter
@@ -858,6 +855,10 @@ import {
   Plugin,
 
   // UI types
+  TerminalInteractiveUI,
+  InteractiveUIInterface,
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
   InteractiveUIOptions,
   OutputFormat,
   QueryResult,

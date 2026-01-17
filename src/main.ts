@@ -141,7 +141,7 @@ export class Application {
 
   private async initialize(options: ApplicationOptions): Promise<void> {
     // session清理
-    await this.sessionManager.cleanOldSessions(SESSION_KEEP_COUNT)
+    await this.sessionManager.cleanOldSessions(SESSION_KEEP_COUNT);
 
     await this.logger.init();
     await this.logger.info('Application started', { args: process.argv.slice(2) });
@@ -186,6 +186,7 @@ export class Application {
       this.mcpService,
       this.rewindManager,
       this.configManager,
+      this.uiFactory,
       this.logger
     );
 

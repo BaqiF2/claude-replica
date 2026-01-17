@@ -3,11 +3,16 @@
  */
 
 export {
-  InteractiveUI,
+  InteractiveUIInterface,
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
   InteractiveUIOptions,
   Snapshot,
   MessageRole,
   MenuItem,
-} from './InteractiveUI';
+  PermissionMode,
+} from './InteractiveUIInterface';
+
+export { TerminalInteractiveUI } from './TerminalInteractiveUI';
 
 export { PermissionUIImpl } from './PermissionUIImpl';

@@ -15,6 +15,13 @@ import { TerminalPermissionUIFactory } from '../../src/ui/factories/TerminalPerm
 import { TerminalUIFactory } from '../../src/ui/factories/TerminalUIFactory';
 import type { OutputInterface, OutputOptions } from '../../src/ui/OutputInterface';
 import type { ParserInterface } from '../../src/ui/ParserInterface';
+import type {
+  InteractiveUICallbacks,
+  InteractiveUIConfig,
+  InteractiveUIInterface,
+} from '../../src/ui/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot } from '../../src/ui/InteractiveUIInterface';
+import type { Session, SessionStats } from '../../src/core/SessionManager';
 import { PermissionUI } from '../../src/permissions/PermissionUI';
 
 // Mock factory for testing
@@ -31,6 +38,39 @@ class MockPermissionUIFactory implements PermissionUIFactory {
 }
 
 class MockUIFactory implements UIFactory {
+  private createMockInteractiveUI(): InteractiveUIInterface {
+    return {
+      start: async () => undefined,
+      stop: () => undefined,
+      displayMessage: (_message: string, _role: MessageRole) => undefined,
+      displayToolUse: (_tool: string, _args: Record<string, unknown>) => undefined,
+      displayToolResult: (_tool: string, _result: string, _isError?: boolean) => undefined,
+      displayThinking: (_content?: string) => undefined,
+      displayComputing: () => undefined,
+      stopComputing: () => undefined,
+      clearProgress: () => undefined,
+      displayError: (_message: string) => undefined,
+      displayWarning: (_message: string) => undefined,
+      displaySuccess: (_message: string) => undefined,
+      displayInfo: (_message: string) => undefined,
+      promptConfirmation: async (_message: string) => false,
+      showRewindMenu: async (_snapshots: Snapshot[]) => null,
+      showSessionMenu: async (_sessions: Session[]) => null,
+      showConfirmationMenu: async (
+        _title: string,
+        _options: Array<{ key: string; label: string; description?: string }>,
+        _defaultKey?: string
+      ) => false,
+      setInitialPermissionMode: (_mode: PermissionMode) => undefined,
+      setPermissionMode: (_mode: PermissionMode) => undefined,
+      displayPermissionStatus: (_mode: PermissionMode) => undefined,
+      setProcessingState: (_processing: boolean) => undefined,
+      formatRelativeTime: (_date: Date) => '',
+      formatAbsoluteTime: (_date: Date) => '',
+      formatStatsSummary: (_stats?: SessionStats) => '',
+    };
+  }
+
   createParser(): ParserInterface {
     return {
       parse: (_args: string[]) => ({
@@ -59,6 +99,13 @@ class MockUIFactory implements UIFactory {
       promptToolPermission: async () => ({ approved: true }),
       promptUserQuestions: async () => ({}),
     } as PermissionUI;
+  }
+
+  createInteractiveUI(
+    _callbacks: InteractiveUICallbacks,
+    _config?: InteractiveUIConfig
+  ): InteractiveUIInterface {
+    return this.createMockInteractiveUI();
   }
 }
 
