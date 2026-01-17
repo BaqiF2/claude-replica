@@ -276,9 +276,6 @@ describe('InteractiveRunner', () => {
     const onMessage = getPropertyAssignment(callbacksObject, 'onMessage');
     expect(containsCallOnThisChain(onMessage, ['handleUserMessage'])).toBe(true);
 
-    const onCommand = getPropertyAssignment(callbacksObject, 'onCommand');
-    expect(containsCallOnThisChain(onCommand, ['handleCommand'])).toBe(true);
-
     const onInterrupt = getPropertyAssignment(callbacksObject, 'onInterrupt');
     expect(containsCallOnThisChain(onInterrupt, ['handleInterrupt'])).toBe(true);
 
@@ -297,6 +294,10 @@ describe('InteractiveRunner', () => {
     expect(
       containsCallOnThisChain(onQueueMessage, ['streamingQueryManager', 'queueMessage'])
     ).toBe(true);
+
+    // getRunner callback should exist and return 'this'
+    const getRunner = getPropertyAssignment(callbacksObject, 'getRunner');
+    expect(getRunner).toBeDefined();
   });
 
   it('passes ui to StreamingQueryManager', () => {

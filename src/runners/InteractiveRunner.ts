@@ -45,9 +45,11 @@ export class InteractiveRunner implements ApplicationRunner {
   private ui: InteractiveUIInterface | null = null;
   private streamingQueryManager: StreamingQueryManager | null = null;
   private currentAbortController: AbortController | null = null;
+  // @ts-expect-error - output is retained for backward compatibility
+  private readonly output: OutputInterface;
 
   constructor(
-    private readonly output: OutputInterface,
+    output: OutputInterface,
     private readonly sessionManager: SessionManager,
     private readonly messageRouter: MessageRouter,
     private readonly sdkExecutor: SDKQueryExecutor,
@@ -57,7 +59,9 @@ export class InteractiveRunner implements ApplicationRunner {
     private readonly configManager: ConfigManager,
     private readonly uiFactory: UIFactory,
     private readonly logger: Logger
-  ) {}
+  ) {
+    this.output = output;
+  }
 
   async run(_options: ApplicationOptions): Promise<number> {
     await this.logger.info('Starting interactive mode');
@@ -72,9 +76,6 @@ export class InteractiveRunner implements ApplicationRunner {
           this.ui!.setProcessingState(false);
         }
       },
-      onCommand: async (command: string) => {
-        await this.handleCommand(command, session);
-      },
       onInterrupt: () => this.handleInterrupt(),
       onRewind: async () => await this.handleRewind(session),
       onPermissionModeChange: (mode: PermissionMode) => this.permissionManager.setMode(mode),
@@ -83,6 +84,7 @@ export class InteractiveRunner implements ApplicationRunner {
           this.streamingQueryManager.queueMessage(message);
         }
       },
+      getRunner: () => this,
     };
 
     this.ui = this.uiFactory.createInteractiveUI(callbacks);
@@ -137,28 +139,6 @@ export class InteractiveRunner implements ApplicationRunner {
   }
 
   private async handleUserMessage(message: string, session: Session): Promise<void> {
-    // Check if it's a built-in command
-    if (message.startsWith('/')) {
-      const parts = message.slice(1).split(/\s+/);
-      const cmdName = parts[0].toLowerCase();
-      const builtInCommands = [
-        'help',
-        'sessions',
-        'config',
-        'permissions',
-        'mcp',
-        'clear',
-        'exit',
-        'quit',
-      ];
-
-      if (builtInCommands.includes(cmdName)) {
-        await this.handleCommand(message, session);
-        return;
-      }
-      // Non-built-in slash commands are passed to SDK
-    }
-
     try {
       const hasImages = this.messageRouter.hasImageReferences(message);
       if (hasImages && this.ui) {
@@ -196,314 +176,97 @@ export class InteractiveRunner implements ApplicationRunner {
     }
   }
 
-  private async handleCommand(command: string, session: Session): Promise<void> {
-    const parts = command.slice(1).split(/\s+/);
-    const cmdName = parts[0].toLowerCase();
-
-    switch (cmdName) {
-      case 'help':
-        this.showCommandHelp();
-        break;
-      case 'sessions':
-        await this.showSessions();
-        break;
-      case 'resume':
-        await this.handleResumeCommand();
-        break;
-      case 'config':
-        await this.showConfig();
-        break;
-      case 'permissions':
-        this.showPermissions();
-        break;
-      case 'mcp':
-        await this.handleMCPCommand(parts);
-        break;
-      case 'clear':
-        console.clear();
-        break;
-      case 'exit':
-      case 'quit':
-        if (this.ui) {
-          this.ui.stop();
-        }
-        break;
-      default: {
-        // Unknown commands are treated as slash commands and passed to SDK
-        await this.handleUserMessage(command, session);
-      }
-    }
+  public async listSessionsData(): Promise<Session[]> {
+    return this.sessionManager.listSessions();
   }
 
-  private showCommandHelp(): void {
-    const helpText = `
-Available commands:
-  /help        - Show this help information
-  /sessions    - List all sessions
-  /config      - Show current configuration
-  /permissions - Show permission settings
-  /mcp         - Show MCP server status
-  /mcp list    - Show MCP server status
-  /mcp edit    - Edit MCP configuration
-  /mcp validate - Validate MCP configuration
-  /clear       - Clear screen
-  /exit        - Exit program
-`.trim();
-
-    this.output.info(helpText);
+  public async getConfigData(): Promise<any> {
+    return this.configManager.loadProjectConfig(process.cwd());
   }
 
-  private async showSessions(): Promise<void> {
-    const sessions = await this.sessionManager.listSessions();
-    if (sessions.length === 0) {
-      this.output.info('No saved sessions');
-      return;
-    }
 
-    this.output.blankLine();
-    const lines = ['Session list:'];
-    for (const session of sessions) {
-      const status = session.expired ? '(expired)' : '';
-      const time = session.lastAccessedAt.toLocaleString();
-      lines.push(`  ${session.id} - ${time} ${status}`);
-    }
-    this.output.section(lines.join('\n'));
-  }
-
-  private async showConfig(): Promise<void> {
-    const projectConfig = await this.configManager.loadProjectConfig(process.cwd());
-
-    this.output.blankLine();
-    const lines = ['Current configuration:', JSON.stringify(projectConfig, null, 2)];
-    this.output.section(lines.join('\n'));
-  }
-
-  private showPermissions(): void {
+  public getPermissionsData(): { mode: string; allowDangerouslySkipPermissions: boolean } {
     const config = this.permissionManager.getConfig();
-
-    this.output.blankLine();
-    const lines = [
-      'Permission settings:',
-      `  Mode: ${config.mode}`,
-      `  Skip permission checks: ${config.allowDangerouslySkipPermissions ? 'yes' : 'no'}`,
-    ];
-    this.output.section(lines.join('\n'));
+    return {
+      mode: config.mode,
+      allowDangerouslySkipPermissions: config.allowDangerouslySkipPermissions ?? false,
+    };
   }
 
-  private async handleMCPCommand(parts: string[]): Promise<void> {
-    const subcommand = parts[1]?.toLowerCase();
-
-    if (!subcommand || subcommand === 'list') {
-      await this.showMCPConfig();
-      return;
-    }
-
-    if (subcommand === 'edit') {
-      await this.editMCPConfig();
-      return;
-    }
-
-    if (subcommand === 'validate') {
-      await this.validateMCPConfig();
-      return;
-    }
-
-    this.showMCPCommandHelp(subcommand);
+  public async listRecentSessionsData(limit: number): Promise<Session[]> {
+    return this.sessionManager.listRecentSessions(limit);
   }
 
-  /**
-   * 处理 /resume 命令，显示会话恢复菜单
-   *
-   * 仅在交互模式中可用，显示最近会话列表供用户选择恢复。
-   * 用户可以选择取消（返回 null），或选择特定会话进行恢复。
-   */
-  private async handleResumeCommand(): Promise<void> {
-    // 验证是否在交互模式中
-    if (!this.ui) {
-      this.output.info('Warning: /resume command is only available in interactive mode');
-      return;
+  public async resumeSession(session: Session, forkSession: boolean): Promise<void> {
+    const currentSession = this.streamingQueryManager?.getActiveSession();
+
+    if (currentSession?.session) {
+      await this.sessionManager.saveSession(currentSession.session);
     }
 
-    // 获取最近会话列表
-    const sessions = await this.sessionManager.listRecentSessions(10);
+    this.streamingQueryManager?.endSession();
 
-    // 如果没有可用会话，显示提示并返回
-    if (sessions.length === 0) {
-      this.output.info('No available sessions to resume');
-      return;
-    }
+    this.streamingQueryManager?.startSession(session);
 
-    // 显示会话选择菜单
-    const selectedSession = await this.ui.showSessionMenu(sessions);
+    this.streamingQueryManager?.setForkSession(forkSession);
+  }
 
-    // 用户取消选择，直接返回
-    if (!selectedSession) {
-      return;
-    }
+  public async getMCPConfigData(): Promise<{
+    servers: Array<{
+      name: string;
+      type: string;
+      config: any;
+    }>;
+    configPath: string;
+  }> {
+    return this.mcpService.listServerConfig(process.cwd());
+  }
 
-    try {
-      // 检查选中的会话是否可以恢复
-      const hasValidSdkSession = !!selectedSession.sdkSessionId;
-      const forkIndicator = selectedSession.parentSessionId ? ' 🔀' : '';
+  public async editMCPConfigData(): Promise<{ configPath: string }> {
+    return this.mcpService.editConfig(process.cwd());
+  }
 
-      // 询问用户是否要创建新分支（仅在有有效SDK会话ID时询问）
-      let forkSession = false;
-      if (hasValidSdkSession && this.ui) {
-        forkSession = await this.ui.showConfirmationMenu(
-          `选择会话恢复方式`,
-          [
-            {
-              key: 'c',
-              label: '继续原会话 (使用相同SDK会话)',
-              description: '保持SDK会话ID，继续在原会话中对话',
-            },
-            {
-              key: 'n',
-              label: '创建新分支 (生成新SDK会话)',
-              description: '创建新分支，拥有独立的SDK会话ID',
-            },
-          ],
-          'c'
-        );
-      }
+  public async validateMCPConfigData(): Promise<{
+    valid: boolean;
+    serverCount: number;
+    transportCounts: { stdio: number; sse: number; http: number };
+    errors: Array<{
+      message: string;
+      path?: string;
+      line?: number;
+      column?: number;
+    }>;
+    configPath: string;
+  }> {
+    return this.mcpService.validateConfig(process.cwd());
+  }
 
-      // 获取当前活动会话
-      const currentSession = this.streamingQueryManager?.getActiveSession();
+  public getResumeSessionInfo(session: Session, forkSession: boolean): {
+    hasValidSdkSession: boolean;
+    forkIndicator: string;
+    isFork: boolean;
+    message: string;
+  } {
+    const hasValidSdkSession = !!session.sdkSessionId;
+    const forkIndicator = session.parentSessionId ? ' 🔀' : '';
 
-      // 保存当前会话（如果存在）
-      if (currentSession?.session) {
-        await this.sessionManager.saveSession(currentSession.session);
-      }
-
-      // 结束当前会话
-      this.streamingQueryManager?.endSession();
-
-      // 切换到选中的会话
-      this.streamingQueryManager?.startSession(selectedSession);
-
-      // 设置forkSession标志
-      this.streamingQueryManager?.setForkSession(forkSession);
-
-      // 显示成功消息
-      if (hasValidSdkSession) {
-        if (forkSession) {
-          this.output.blankLine();
-          this.output.success(
-            `Created new branch from session: ${selectedSession.id}${forkIndicator}`
-          );
-        } else {
-          this.output.blankLine();
-          this.output.success(`Resumed session: ${selectedSession.id}${forkIndicator}`);
-        }
+    let message: string;
+    if (hasValidSdkSession) {
+      if (forkSession) {
+        message = `Created new branch from session: ${session.id}${forkIndicator}`;
       } else {
-        this.output.blankLine();
-        this.output.success(
-          `Continuing session: ${selectedSession.id}${forkIndicator} (new SDK session)`
-        );
+        message = `Resumed session: ${session.id}${forkIndicator}`;
       }
-    } catch (error) {
-      this.output.error(
-        `Failed to resume session: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  private showMCPCommandHelp(subcommand?: string): void {
-    if (subcommand) {
-      this.output.info(`Unknown MCP subcommand: ${subcommand}`);
+    } else {
+      message = `Continuing session: ${session.id}${forkIndicator} (new SDK session)`;
     }
 
-    const helpText = `
-MCP commands:
-  /mcp           - Show MCP server status
-  /mcp list      - Show MCP server status
-  /mcp edit      - Edit MCP configuration
-  /mcp validate  - Validate MCP configuration
-`.trim();
-
-    this.output.info(helpText);
-  }
-
-  private async showMCPConfig(): Promise<void> {
-    try {
-      const result = await this.mcpService.listServerConfig(process.cwd());
-      if (result.servers.length === 0) {
-        this.output.info(`No MCP servers configured at ${result.configPath}`);
-        this.output.info('Use /mcp edit to add MCP servers.');
-        this.output.info('Use /mcp validate to validate MCP configuration.');
-        return;
-      }
-
-      this.output.blankLine();
-      this.output.section(`MCP configuration: ${result.configPath}\nMCP servers:`);
-      result.servers.forEach((server, index) => {
-        if (index > 0) {
-          this.output.blankLine();
-        }
-        this.output.info(`- ${server.name}`);
-        this.output.info(`  Transport: ${server.type}`);
-        this.output.info('  Config:');
-        const configLines = JSON.stringify(server.config, null, 2).split('\n');
-        for (const line of configLines) {
-          this.output.info(`    ${line}`);
-        }
-      });
-
-      this.output.blankLine();
-      this.output.info('Commands:');
-      this.output.info('  /mcp edit     - Edit MCP configuration');
-      this.output.info('  /mcp validate - Validate MCP configuration');
-      this.output.blankLine();
-    } catch (error) {
-      await this.logger.error('Failed to show MCP configuration', error);
-      this.output.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  private async editMCPConfig(): Promise<void> {
-    try {
-      const result = await this.mcpService.editConfig(process.cwd());
-      this.output.success(`MCP configuration updated: ${result.configPath}`);
-      this.output.info('Reload the application to apply the updated configuration.');
-    } catch (error) {
-      await this.logger.error('MCP config edit failed', error);
-      this.output.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  private async validateMCPConfig(): Promise<void> {
-    try {
-      const result = await this.mcpService.validateConfig(process.cwd());
-
-      if (result.valid) {
-        this.output.success(`MCP configuration is valid. Servers: ${result.serverCount}`);
-        this.output.info(
-          `Transports: stdio ${result.transportCounts.stdio}, sse ${result.transportCounts.sse}, http ${result.transportCounts.http}`
-        );
-        return;
-      }
-
-      this.output.info(
-        `MCP configuration is invalid. Errors: ${result.errors.length}, Path: ${result.configPath}`
-      );
-      for (const error of result.errors) {
-        const details: string[] = [];
-        if (error.path) {
-          details.push(`path: ${error.path}`);
-        }
-        if (typeof error.line === 'number') {
-          details.push(`line: ${error.line}`);
-        }
-        if (typeof error.column === 'number') {
-          details.push(`column: ${error.column}`);
-        }
-        const suffix = details.length > 0 ? ` (${details.join(', ')})` : '';
-        this.output.info(`- ${error.message}${suffix}`);
-      }
-    } catch (error) {
-      await this.logger.error('MCP config validation failed', error);
-      this.output.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    return {
+      hasValidSdkSession,
+      forkIndicator,
+      isFork: forkSession,
+      message,
+    };
   }
 
   private handleInterrupt(): void {

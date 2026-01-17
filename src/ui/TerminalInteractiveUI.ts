@@ -129,8 +129,8 @@ const PERMISSION_MODE_EMOJIS: Record<PermissionMode, string> = {
 };
 
 export class TerminalInteractiveUI implements InteractiveUIInterface {
+  private readonly callbacks: InteractiveUICallbacks;
   private readonly onMessage: InteractiveUICallbacks['onMessage'];
-  private readonly onCommand: InteractiveUICallbacks['onCommand'];
   private readonly onInterrupt: InteractiveUICallbacks['onInterrupt'];
   private readonly onRewind: InteractiveUICallbacks['onRewind'];
   private readonly onPermissionModeChange?: InteractiveUICallbacks['onPermissionModeChange'];
@@ -150,8 +150,8 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
   private keyListener?: (data: Buffer) => void;
 
   constructor(callbacks: InteractiveUICallbacks, config: InteractiveUIConfig = {}) {
+    this.callbacks = callbacks;
     this.onMessage = callbacks.onMessage;
-    this.onCommand = callbacks.onCommand;
     this.onInterrupt = callbacks.onInterrupt;
     this.onRewind = callbacks.onRewind;
     this.onPermissionModeChange = callbacks.onPermissionModeChange;
@@ -666,6 +666,442 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
   /**
    * Input loop with non-blocking processing.
    */
+  /**
+   * Handle slash commands (Terminal-specific feature)
+   *
+   * Parses slash command syntax and routes to runner methods or SDK.
+   * This is Terminal UI specific - other UIs (Web/Desktop) use different interaction patterns
+   * (buttons, menus, etc.) to trigger the same runner functionality.
+   *
+   * @param command - Command string including leading /
+   */
+  private async handleSlashCommand(command: string): Promise<void> {
+    const parts = command.slice(1).split(/\s+/);
+    const cmdName = parts[0].toLowerCase();
+
+    switch (cmdName) {
+      case 'help':
+        this.showCommandHelp();
+        break;
+      case 'sessions':
+        await this.showSessions();
+        break;
+      case 'resume':
+        await this.handleResumeCommand();
+        break;
+      case 'config':
+        await this.showConfig();
+        break;
+      case 'permissions':
+        this.showPermissions();
+        break;
+      case 'mcp':
+        await this.handleMCPCommand(parts);
+        break;
+      case 'clear':
+        console.clear();
+        break;
+      case 'exit':
+      case 'quit':
+        this.stop();
+        break;
+      default:
+        // Skill commands: send to SDK via onMessage callback
+        await this.onMessage(command);
+    }
+  }
+
+  /**
+   * Show command help information
+   *
+   * Public API: Can be called by UI implementations to display help information.
+   * This is a terminal-specific implementation that displays formatted help text.
+   */
+  private showCommandHelp(): void {
+    const helpText = `
+Available commands:
+  /help        - Show this help information
+  /sessions    - List all sessions
+  /config      - Show current configuration
+  /permissions - Show permission settings
+  /mcp         - Show MCP server status
+  /mcp list    - Show MCP server status
+  /mcp edit    - Edit MCP configuration
+  /mcp validate - Validate MCP configuration
+  /clear       - Clear screen
+  /exit        - Exit program
+`.trim();
+
+    this.displayInfo(helpText);
+  }
+
+  /**
+   * List all saved sessions
+   *
+   * Public API: Can be called by UI implementations to display session list.
+   * This method fetches session data from the runner and formats it for terminal display.
+   */
+  private async showSessions(): Promise<void> {
+    // Get runner reference
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    // Fetch session data from runner
+    const sessions = await runner.listSessionsData();
+    if (sessions.length === 0) {
+      this.displayInfo('No saved sessions');
+      return;
+    }
+
+    this.writeLine('');
+    const lines = ['Session list:'];
+    for (const session of sessions) {
+      const status = session.expired ? '(expired)' : '';
+      const time = session.lastAccessedAt.toLocaleString();
+      lines.push(`  ${session.id} - ${time} ${status}`);
+    }
+
+    // Use displayInfo to show the formatted session list
+    const output = lines.join('\n');
+    this.displayInfo(output);
+  }
+
+  /**
+   * Show current configuration
+   *
+   * Public API: Can be called by UI implementations to display configuration.
+   * This method fetches config data from the runner and formats it for terminal display.
+   */
+  private async showConfig(): Promise<void> {
+    // Get runner reference
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    // Fetch config data from runner
+    const configData = await runner.getConfigData();
+
+    this.writeLine('');
+    const lines = ['Current configuration:', JSON.stringify(configData, null, 2)];
+    const output = lines.join('\n');
+    this.displayInfo(output);
+  }
+
+  /**
+   * Show permission settings
+   *
+   * Public API: Can be called by UI implementations to display permission configuration.
+   * This method fetches permission data from the runner and formats it for terminal display.
+   */
+  private showPermissions(): void {
+    // Get runner reference
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    // Fetch permission data from runner
+    const config = runner.getPermissionsData();
+
+    this.writeLine('');
+    const lines = [
+      'Permission settings:',
+      `  Mode: ${config.mode}`,
+      `  Skip permission checks: ${config.allowDangerouslySkipPermissions ? 'yes' : 'no'}`,
+    ];
+    const output = lines.join('\n');
+    this.displayInfo(output);
+  }
+
+  /**
+   * Execute MCP command and return structured data
+   *
+   * This is a terminal-specific implementation that calls the runner's data methods
+   * and returns structured data for the UI to format and display.
+   *
+   * @param parts - Command parts (e.g., ['mcp', 'list'] or ['mcp', 'edit'])
+   * @returns Promise resolving to operation type and data
+   */
+  private async executeMCPCommand(parts: string[]): Promise<{
+    operation: 'list' | 'edit' | 'validate' | 'help';
+    data?: any;
+  }> {
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      throw new Error('Runner not available');
+    }
+
+    const subcommand = parts[1]?.toLowerCase();
+
+    if (!subcommand || subcommand === 'list') {
+      const data = await runner.getMCPConfigData();
+      return { operation: 'list', data };
+    }
+
+    if (subcommand === 'edit') {
+      const data = await runner.editMCPConfigData();
+      return { operation: 'edit', data };
+    }
+
+    if (subcommand === 'validate') {
+      const data = await runner.validateMCPConfigData();
+      return { operation: 'validate', data };
+    }
+
+    return { operation: 'help' };
+  }
+
+  /**
+   * Handle MCP command and subcommands
+   *
+   * Public API: Can be called by UI implementations to handle MCP operations.
+   * This method delegates to the runner's MCP handling logic and formats the output.
+   *
+   * @param parts - Command parts (e.g., ['mcp', 'list'] or ['mcp', 'edit'])
+   */
+  private async handleMCPCommand(parts: string[]): Promise<void> {
+    // Get runner reference
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    // Execute MCP command
+    try {
+      const result = await this.executeMCPCommand(parts);
+
+      // Handle different operations
+      switch (result.operation) {
+        case 'list':
+          await this.showMCPConfig(result.data);
+          break;
+        case 'edit':
+          await this.editMCPConfig(result.data);
+          break;
+        case 'validate':
+          await this.validateMCPConfig(result.data);
+          break;
+        case 'help':
+          this.showMCPCommandHelp(parts[1]);
+          break;
+      }
+    } catch (error) {
+      this.displayError(
+        `MCP command failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  /**
+   * Show MCP command help information
+   */
+  private showMCPCommandHelp(subcommand?: string): void {
+    if (subcommand) {
+      this.displayInfo(`Unknown MCP subcommand: ${subcommand}`);
+    }
+
+    const helpText = `
+MCP commands:
+  /mcp           - Show MCP server status
+  /mcp list      - Show MCP server status
+  /mcp edit      - Edit MCP configuration
+  /mcp validate  - Validate MCP configuration
+`.trim();
+
+    this.displayInfo(helpText);
+  }
+
+  /**
+   * Show MCP configuration
+   */
+  private async showMCPConfig(data?: any): Promise<void> {
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    try {
+      const result = data || await runner.getMCPConfigData();
+
+      if (result.servers.length === 0) {
+        this.displayInfo(`No MCP servers configured at ${result.configPath}`);
+        this.displayInfo('Use /mcp edit to add MCP servers.');
+        this.displayInfo('Use /mcp validate to validate MCP configuration.');
+        return;
+      }
+
+      this.writeLine('');
+      const lines = [`MCP configuration: ${result.configPath}\nMCP servers:`];
+      result.servers.forEach((server: any, index: number) => {
+        if (index > 0) {
+          lines.push('');
+        }
+        lines.push(`- ${server.name}`);
+        lines.push(`  Transport: ${server.type}`);
+        lines.push('  Config:');
+        const configLines = JSON.stringify(server.config, null, 2).split('\n');
+        for (const line of configLines) {
+          lines.push(`    ${line}`);
+        }
+      });
+
+      lines.push('');
+      lines.push('Commands:');
+      lines.push('  /mcp edit     - Edit MCP configuration');
+      lines.push('  /mcp validate - Validate MCP configuration');
+      lines.push('');
+
+      this.displayInfo(lines.join('\n'));
+    } catch (error) {
+      this.displayError(
+        `Failed to show MCP configuration: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  /**
+   * Edit MCP configuration
+   */
+  private async editMCPConfig(data?: any): Promise<void> {
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    try {
+      const result = data || await runner.editMCPConfigData();
+      this.displaySuccess(`MCP configuration updated: ${result.configPath}`);
+      this.displayInfo('Reload the application to apply the updated configuration.');
+    } catch (error) {
+      this.displayError(
+        `Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  /**
+   * Validate MCP configuration
+   */
+  private async validateMCPConfig(data?: any): Promise<void> {
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    try {
+      const result = data || await runner.validateMCPConfigData();
+
+      if (result.valid) {
+        this.displaySuccess(`MCP configuration is valid. Servers: ${result.serverCount}`);
+        this.displayInfo(
+          `Transports: stdio ${result.transportCounts.stdio}, sse ${result.transportCounts.sse}, http ${result.transportCounts.http}`
+        );
+        return;
+      }
+
+      this.displayInfo(
+        `MCP configuration is invalid. Errors: ${result.errors.length}, Path: ${result.configPath}`
+      );
+      for (const error of result.errors) {
+        const details: string[] = [];
+        if (error.path) {
+          details.push(`path: ${error.path}`);
+        }
+        if (typeof error.line === 'number') {
+          details.push(`line: ${error.line}`);
+        }
+        if (typeof error.column === 'number') {
+          details.push(`column: ${error.column}`);
+        }
+        const suffix = details.length > 0 ? ` (${details.join(', ')})` : '';
+        this.displayInfo(`- ${error.message}${suffix}`);
+      }
+    } catch (error) {
+      this.displayError(
+        `Error: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  /**
+   * Handle /resume command to show session resume menu
+   *
+   * Public API: Can be called by UI implementations to resume a session.
+   * This method handles the full resume flow including UI interaction and business logic.
+   *
+   * Only available in interactive mode. Displays recent session list for user to choose.
+   * User can cancel (returns null) or select a specific session to resume.
+   */
+  private async handleResumeCommand(): Promise<void> {
+    // Get runner reference
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    // Get recent sessions
+    const sessions = await runner.listRecentSessionsData(10);
+    if (sessions.length === 0) {
+      this.displayInfo('No available sessions to resume');
+      return;
+    }
+
+    // Show session menu and get user selection
+    const selectedSession = await this.showSessionMenu(sessions);
+    if (!selectedSession) {
+      return;
+    }
+
+    // Check if session can be resumed
+    const hasValidSdkSession = !!selectedSession.sdkSessionId;
+
+    // Ask user whether to create new branch
+    let forkSession = false;
+    if (hasValidSdkSession) {
+      forkSession = await this.showConfirmationMenu(
+        `选择会话恢复方式`,
+        [
+          {
+            key: 'c',
+            label: '继续原会话 (使用相同SDK会话)',
+            description: '保持SDK会话ID，继续在原会话中对话',
+          },
+          {
+            key: 'n',
+            label: '创建新分支 (生成新SDK会话)',
+            description: '创建新分支，拥有独立的SDK会话ID',
+          },
+        ],
+        'c'
+      );
+    }
+
+    try {
+      // Execute resume operation
+      await runner.resumeSession(selectedSession, forkSession);
+
+      // Get resume result info and display success message
+      const resumeInfo = runner.getResumeSessionInfo(selectedSession, forkSession);
+      this.writeLine('');
+      this.displaySuccess(resumeInfo.message);
+    } catch (error) {
+      this.displayError(
+        `Failed to resume session: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
   private async inputLoop(): Promise<void> {
     while (this.isRunning && this.rl) {
       try {
@@ -679,8 +1115,9 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
           continue;
         }
 
+        // Terminal-specific: detect slash commands
         if (trimmedInput.startsWith('/')) {
-          await this.onCommand(trimmedInput);
+          await this.handleSlashCommand(trimmedInput);
           continue;
         }
 

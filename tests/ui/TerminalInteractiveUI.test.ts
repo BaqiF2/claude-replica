@@ -31,7 +31,6 @@ const createCallbacks = (
   overrides: Partial<InteractiveUICallbacks> = {}
 ): InteractiveUICallbacks => ({
   onMessage: async () => {},
-  onCommand: async () => {},
   onInterrupt: () => {},
   onRewind: async () => {},
   ...overrides,
@@ -143,11 +142,10 @@ describe('TerminalInteractiveUI', () => {
     expect(onMessage).toHaveBeenCalledWith('hello');
   });
 
-  it('should call onCommand when user submits command', async () => {
+  it('should display help information when user submits /help command', async () => {
     const input = createMockInput();
     const output = createMockOutput();
-    const onCommand = jest.fn().mockResolvedValue(undefined);
-    const ui = new TerminalInteractiveUI(createCallbacks({ onCommand }), {
+    const ui = new TerminalInteractiveUI(createCallbacks(), {
       input,
       output,
       enableColors: false,
@@ -162,7 +160,13 @@ describe('TerminalInteractiveUI', () => {
     ui.stop();
     await startPromise;
 
-    expect(onCommand).toHaveBeenCalledWith('/help');
+    // Verify that help information is displayed
+    expect(output.getOutput()).toContain('Available commands:');
+    expect(output.getOutput()).toContain('/help');
+    expect(output.getOutput()).toContain('/sessions');
+    expect(output.getOutput()).toContain('/config');
+    expect(output.getOutput()).toContain('/permissions');
+    expect(output.getOutput()).toContain('/mcp');
   });
 
   it('should call onInterrupt when user presses esc', async () => {

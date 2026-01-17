@@ -32,14 +32,29 @@ export interface MenuItem {
 
 /**
  * Interactive UI callbacks contract.
+ *
+ * Responsibility boundaries between UI layer and Runner layer:
+ *
+ * UI Layer Responsibilities:
+ * - Detect user input type (command vs message)
+ * - Terminal UI: Parse slash commands and call runner methods directly via getRunner()
+ * - Other UIs (Web/Desktop): Use UI-specific interactions (buttons, menus) to call runner methods
+ * - All regular messages (non-commands) should call onMessage
+ *
+ * Runner Layer Responsibilities:
+ * - Provide public methods for UI to call (showCommandHelp, showSessions, etc.)
+ * - onMessage callback handles regular messages and skill commands
+ * - Command routing logic is UI-specific, not in Runner layer
  */
 export interface InteractiveUICallbacks {
+  /** Handle regular user messages and skill commands */
   onMessage: (message: string) => Promise<void>;
-  onCommand: (command: string) => Promise<void>;
   onInterrupt: () => void;
   onRewind: () => Promise<void>;
   onPermissionModeChange?: (mode: PermissionMode) => void | Promise<void>;
   onQueueMessage?: (message: string) => void;
+  /** Get runner instance for UI to call public methods directly (e.g., showCommandHelp, showSessions) */
+  getRunner?: () => any;
 }
 
 /**

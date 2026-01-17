@@ -10,7 +10,6 @@ type IsExact<T, U> = (<G>() => G extends T ? 'yes' : 'no') extends (
 
 export type RequiredCallbacksAssertions = [
   ExpectTrue<IsExact<InteractiveUICallbacks['onMessage'], (message: string) => Promise<void>>>,
-  ExpectTrue<IsExact<InteractiveUICallbacks['onCommand'], (command: string) => Promise<void>>>,
   ExpectTrue<IsExact<InteractiveUICallbacks['onInterrupt'], () => void>>,
   ExpectTrue<IsExact<InteractiveUICallbacks['onRewind'], () => Promise<void>>>
 ];
@@ -24,7 +23,8 @@ export type OptionalCallbacksAssertions = [
   >,
   ExpectTrue<
     IsExact<InteractiveUICallbacks['onQueueMessage'], ((message: string) => void) | undefined>
-  >
+  >,
+  ExpectTrue<IsExact<InteractiveUICallbacks['getRunner'], (() => any) | undefined>>
 ];
 
 describe('InteractiveUICallbacks', () => {

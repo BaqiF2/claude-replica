@@ -55,20 +55,17 @@ function createTestUI(
   input: ReturnType<typeof createMockInput>;
   output: ReturnType<typeof createMockOutput>;
   onMessage: jest.Mock;
-  onCommand: jest.Mock;
   onInterrupt: jest.Mock;
   onRewind: jest.Mock;
 } {
   const input = createMockInput();
   const output = createMockOutput();
   const onMessage = jest.fn().mockResolvedValue(undefined);
-  const onCommand = jest.fn().mockResolvedValue(undefined);
   const onInterrupt = jest.fn();
   const onRewind = jest.fn().mockResolvedValue(undefined);
 
   const options: InteractiveUIOptions = {
     onMessage,
-    onCommand,
     onInterrupt,
     onRewind,
     input,
@@ -80,11 +77,11 @@ function createTestUI(
   const ui = new TerminalInteractiveUI(
     {
       onMessage: options.onMessage,
-      onCommand: options.onCommand,
       onInterrupt: options.onInterrupt,
       onRewind: options.onRewind,
       onPermissionModeChange: options.onPermissionModeChange,
       onQueueMessage: options.onQueueMessage,
+      getRunner: options.getRunner,
     },
     {
       input: options.input,
@@ -93,7 +90,7 @@ function createTestUI(
     }
   );
 
-  return { ui, input, output, onMessage, onCommand, onInterrupt, onRewind };
+  return { ui, input, output, onMessage, onInterrupt, onRewind };
 }
 
 describe('TerminalInteractiveUI', () => {
