@@ -5,8 +5,8 @@
 覆盖 UIFactory 单例化、环境变量校验、注入复用与旧配置字段移除等核心变更。
 
 ## Reference
-- Design: [design.md](./design.md)
-- Specification: [spec.md](./spec.md)
+- Design: [design.md](design.md)
+- Specification: [spec.md](spec.md)
 
 ## 任务
 
