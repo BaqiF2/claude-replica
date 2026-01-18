@@ -13,17 +13,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-const DEFAULT_CHECKPOINT_KEEP_COUNT = parseInt(
-  process.env.CLAUDE_CODE_CHECKPOINT_KEEP_COUNT || '10',
-  10
-);
-const DEFAULT_ENABLE_FILE_CHECKPOINTING =
-  process.env.CLAUDE_CODE_ENABLE_FILE_CHECKPOINTING_DEFAULT === '0' ? false : true;
-const CHECKPOINT_ENV_FLAG = 'CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING';
-const CHECKPOINT_ENV_WARNING =
-  'Warning: File checkpointing enabled in config but environment variable not set';
-const CHECKPOINT_ENV_SUGGESTION = `Set ${CHECKPOINT_ENV_FLAG}=1 to enable SDK checkpointing`;
-
 /**
  * 钩子事件类型
  */
@@ -198,8 +187,6 @@ export interface ProjectConfig {
   agents?: Record<string, AgentDefinition>;
   hooks?: Partial<Record<HookEvent, HookConfig[]>>;
   sandbox?: SandboxSettings;
-  enableFileCheckpointing?: boolean;
-  checkpointKeepCount?: number;
   projectName?: string;
 }
 
@@ -285,29 +272,11 @@ export class SDKConfigLoader {
       agents: json.agents,
       hooks: json.hooks,
       sandbox: json.sandbox,
-      enableFileCheckpointing:
-        typeof json.enableFileCheckpointing === 'boolean'
-          ? json.enableFileCheckpointing
-          : DEFAULT_ENABLE_FILE_CHECKPOINTING,
-      checkpointKeepCount:
-        typeof json.checkpointKeepCount === 'number'
-          ? json.checkpointKeepCount
-          : DEFAULT_CHECKPOINT_KEEP_COUNT,
     };
-  }
-
-  validateCheckpointEnvironment(config: ProjectConfig): void {
-    if (config.enableFileCheckpointing && process.env[CHECKPOINT_ENV_FLAG] !== '1') {
-      console.warn(CHECKPOINT_ENV_WARNING);
-      console.warn(CHECKPOINT_ENV_SUGGESTION);
-    }
   }
 
   private getDefaultProjectConfig(): ProjectConfig {
-    return {
-      enableFileCheckpointing: DEFAULT_ENABLE_FILE_CHECKPOINTING,
-      checkpointKeepCount: DEFAULT_CHECKPOINT_KEEP_COUNT,
-    };
+    return {};
   }
 
   /**

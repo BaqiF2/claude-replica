@@ -719,7 +719,7 @@ export class StreamingQueryManager {
     const content = userMessage.message?.content;
 
     if (typeof content === 'string') {
-      return content.replace(/\n/g, ' ').substring(0, CHECKPOINT_DESCRIPTION_MAX_LENGTH);
+      return this.formatCheckpointDescriptionText(content);
     }
 
     if (Array.isArray(content)) {
@@ -729,12 +729,16 @@ export class StreamingQueryManager {
 
       for (const block of content) {
         if (block.type === 'text' && typeof block.text === 'string') {
-          return block.text.replace(/\n/g, ' ').substring(0, CHECKPOINT_DESCRIPTION_MAX_LENGTH);
+          return this.formatCheckpointDescriptionText(block.text);
         }
       }
     }
 
     return `Checkpoint at ${new Date().toLocaleTimeString()}`;
+  }
+
+  private formatCheckpointDescriptionText(text: string): string {
+    return text.replace(/\n/g, ' ').substring(0, CHECKPOINT_DESCRIPTION_MAX_LENGTH);
   }
 
   /**

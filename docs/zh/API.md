@@ -231,7 +231,6 @@ interface ProjectConfig extends UserConfig {
   maxTurns?: number;
   maxBudgetUsd?: number;
   maxThinkingTokens?: number;
-  enableFileCheckpointing?: boolean;
   sandbox?: SandboxSettings;
   mcpServers?: Record<string, McpServerConfig>;
 }

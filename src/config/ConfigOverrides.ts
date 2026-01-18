@@ -8,7 +8,6 @@ export interface ConfigOverrides {
   maxTurns?: number;
   maxBudgetUsd?: number;
   maxThinkingTokens?: number;
-  enableFileCheckpointing?: boolean;
   sandbox?: boolean;
   allowDangerouslySkipPermissions?: boolean;
 }

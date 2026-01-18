@@ -40,6 +40,7 @@ import { CustomToolManager } from './custom-tools';
 import { RunnerFactory, ApplicationOptions } from './runners';
 
 const VERSION = process.env.VERSION || '0.1.0';
+const CHECKPOINT_ENV_FLAG = 'CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING';
 
 /**
  * 会话保留数量（默认 10）
@@ -91,6 +92,8 @@ export class Application {
       serverVersion: process.env.CUSTOM_TOOL_SERVER_VERSION,
     });
     this.logger = new Logger(this.securityManager);
+    const checkpointingEnabled = process.env[CHECKPOINT_ENV_FLAG] === '1';
+    this.checkpointManager = checkpointingEnabled ? new CheckpointManager({}) : null;
   }
 
   async run(args: string[]): Promise<number> {
@@ -150,8 +153,6 @@ export class Application {
 
     const workingDir = process.cwd();
     const permissionConfig = await this.configManager.loadPermissionConfig(options, workingDir);
-    const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    this.configManager.validateCheckpointEnvironment(projectConfig);
 
     this.permissionManager = new PermissionManager(
       permissionConfig,
@@ -171,15 +172,6 @@ export class Application {
     await this.customToolManager.registerMcpServers(this.sdkExecutor, this.logger);
     // mcp初始化
     await this.mcpManager.configureMessageRouter(workingDir, this.messageRouter, this.logger);
-    const envCheckpointEnabled = process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING === '1';
-    const configCheckpointEnabled = projectConfig.enableFileCheckpointing ?? true;
-    if (envCheckpointEnabled && configCheckpointEnabled) {
-      this.checkpointManager = new CheckpointManager({
-        checkpointKeepCount: projectConfig.checkpointKeepCount,
-      });
-    } else {
-      this.checkpointManager = null;
-    }
     // hooks初始化
     await this.hookManager.loadFromProjectRoot(workingDir);
 

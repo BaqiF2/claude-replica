@@ -184,10 +184,7 @@ describe('checkpoint end-to-end flow', () => {
   });
 
   it('captures and restores file checkpoints end-to-end', async () => {
-    const session = await sessionManager.createSession(tempDir, {
-      enableFileCheckpointing: true,
-      checkpointKeepCount: CHECKPOINT_KEEP_COUNT,
-    });
+    const session = await sessionManager.createSession(tempDir);
 
     checkpointManager.setSessionId(session.id);
     await checkpointManager.initialize();

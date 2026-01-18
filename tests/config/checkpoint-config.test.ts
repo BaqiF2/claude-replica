@@ -1,15 +1,11 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { SDKConfigLoader, ProjectConfig } from '../../src/config/SDKConfigLoader';
+import { SDKConfigLoader } from '../../src/config/SDKConfigLoader';
 
 const TEMP_DIR_PREFIX =
   process.env.CHECKPOINT_CONFIG_TEMP_DIR_PREFIX || 'checkpoint-config-';
 const JSON_INDENT = parseInt(process.env.CHECKPOINT_CONFIG_JSON_INDENT || '2', 10);
-const DEFAULT_CHECKPOINT_KEEP_COUNT = parseInt(
-  process.env.CLAUDE_CODE_CHECKPOINT_KEEP_COUNT || '10',
-  10
-);
 
 describe('checkpoint configuration', () => {
   let tempDir: string;
@@ -32,7 +28,7 @@ describe('checkpoint configuration', () => {
     }
   });
 
-  it('loads checkpoint options from project config', async () => {
+  it('ignores checkpoint options from project config', async () => {
     const config = {
       enableFileCheckpointing: false,
       checkpointKeepCount: 12,
@@ -43,38 +39,15 @@ describe('checkpoint configuration', () => {
 
     const projectConfig = await loader.loadProjectConfig(tempDir);
 
-    expect(projectConfig.enableFileCheckpointing).toBe(false);
-    expect(projectConfig.checkpointKeepCount).toBe(12);
+    const configValues = projectConfig as Record<string, unknown>;
+    expect(configValues.enableFileCheckpointing).toBeUndefined();
+    expect(configValues.checkpointKeepCount).toBeUndefined();
   });
 
-  it('applies default checkpoint options when missing', async () => {
-    await fs.mkdir(path.dirname(configPath), { recursive: true });
-    await fs.writeFile(configPath, JSON.stringify({}, null, JSON_INDENT));
-
+  it('does not add checkpoint defaults when config is missing', async () => {
     const projectConfig = await loader.loadProjectConfig(tempDir);
-
-    expect(projectConfig.enableFileCheckpointing).toBe(true);
-    expect(projectConfig.checkpointKeepCount).toBe(DEFAULT_CHECKPOINT_KEEP_COUNT);
-  });
-
-  it('warns when env var is missing but config enables checkpointing', () => {
-    delete process.env.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING;
-    const projectConfig: ProjectConfig = {
-      enableFileCheckpointing: true,
-      checkpointKeepCount: DEFAULT_CHECKPOINT_KEEP_COUNT,
-    };
-
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-
-    loader.validateCheckpointEnvironment(projectConfig);
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      'Warning: File checkpointing enabled in config but environment variable not set'
-    );
-    expect(warnSpy).toHaveBeenCalledWith(
-      'Set CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=1 to enable SDK checkpointing'
-    );
-
-    warnSpy.mockRestore();
+    const configValues = projectConfig as Record<string, unknown>;
+    expect(configValues.enableFileCheckpointing).toBeUndefined();
+    expect(configValues.checkpointKeepCount).toBeUndefined();
   });
 });

@@ -79,10 +79,6 @@ export class ConfigManager {
     return config;
   }
 
-  validateCheckpointEnvironment(config: ProjectConfig): void {
-    this.loader.validateCheckpointEnvironment(config);
-  }
-
   /**
    * 直接加载权限配置
    *
@@ -119,8 +115,6 @@ export class ConfigManager {
     if (options.maxBudgetUsd !== undefined) result.maxBudgetUsd = options.maxBudgetUsd;
     if (options.maxThinkingTokens !== undefined)
       result.maxThinkingTokens = options.maxThinkingTokens;
-    if (options.enableFileCheckpointing)
-      result.enableFileCheckpointing = options.enableFileCheckpointing;
     if (options.sandbox) result.sandbox = { enabled: true };
 
     return result;

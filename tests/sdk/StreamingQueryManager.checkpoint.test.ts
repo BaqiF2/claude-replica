@@ -156,7 +156,7 @@ describe('StreamingQueryManager checkpoint capture', () => {
     expect(description).toBe('First block');
   });
 
-  it('falls back to timestamp description when no text is found', () => {
+  it('returns null when tool result blocks are present', () => {
     const message: SDKMessage = {
       type: 'user',
       uuid: '00000000-0000-0000-0000-000000000003',
@@ -169,10 +169,10 @@ describe('StreamingQueryManager checkpoint capture', () => {
     };
 
     const description = (
-      manager as unknown as { extractCheckpointDescription: (msg: SDKMessage) => string }
+      manager as unknown as { extractCheckpointDescription: (msg: SDKMessage) => string | null }
     ).extractCheckpointDescription(message);
 
-    expect(description.startsWith('Checkpoint at ')).toBe(true);
+    expect(description).toBeNull();
   });
 
   it('exposes query instance after execution starts', async () => {

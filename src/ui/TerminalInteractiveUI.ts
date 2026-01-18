@@ -417,7 +417,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
             this.writeLine(this.colorize(`✓ 已选择: ${selected.description}`, 'green'));
             return selected;
           }
-          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+          this.displayInvalidSelection();
         }
       }
 
@@ -437,7 +437,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
             this.input.removeListener('data', handleInput);
             resolve(selected);
           } else {
-            this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+            this.displayInvalidSelection();
             this.write(prompt);
           }
         };
@@ -502,7 +502,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
           this.writeLine(this.colorize(`✓ 已选择会话: ${sessionIdShort}`, 'green'));
           return selected;
         }
-        this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+        this.displayInvalidSelection();
       }
     }
 
@@ -523,7 +523,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
           this.input.removeListener('data', handleInput);
           resolve(selected);
         } else {
-          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+          this.displayInvalidSelection();
           this.write(prompt);
         }
       };
@@ -572,7 +572,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
         if (defaultKey && trimmed === '') {
           return defaultKey === 'n' || defaultKey === 'N';
         }
-        this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+        this.displayInvalidSelection();
       }
     }
 
@@ -593,7 +593,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
           this.input.removeListener('data', handleInput);
           resolve(defaultKey === 'n' || defaultKey === 'N');
         } else {
-          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+          this.displayInvalidSelection();
           this.write(prompt);
         }
       };
@@ -1205,6 +1205,10 @@ MCP commands:
    */
   displayInfo(message: string): void {
     this.writeLine(`${this.colorize('ℹ️ 信息:', 'blue')} ${message}`);
+  }
+
+  private displayInvalidSelection(): void {
+    this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
   }
 
   /**
