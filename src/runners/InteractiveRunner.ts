@@ -22,14 +22,21 @@ import type { PermissionManager } from '../permissions/PermissionManager';
 import type { MCPService } from '../mcp/MCPService';
 import type { CheckpointManager } from '../checkpoint/CheckpointManager';
 import type { Logger } from '../logging/Logger';
-import type { ConfigManager } from '../config';
+import type { ConfigManager, ProjectConfig } from '../config';
 import type { UIFactory } from '../ui/factories/UIFactory';
 import type {
   InteractiveUICallbacks,
   InteractiveUIInterface,
+  InteractiveUIRunner,
   PermissionMode,
   Snapshot as UISnapshot,
+  TodoItem,
 } from '../ui/InteractiveUIInterface';
+import type {
+  MCPConfigEditResult,
+  MCPConfigListResult,
+  MCPConfigValidationResult,
+} from '../mcp/MCPService';
 import { StreamingQueryManager as StreamingQueryManagerImpl } from '../sdk';
 
 const EXIT_CODE_SUCCESS = parseInt(process.env.EXIT_CODE_SUCCESS || '0', 10);
@@ -41,7 +48,7 @@ import('../sdk').then((module) => {
   ERROR_MESSAGES = module.ERROR_MESSAGES;
 });
 
-export class InteractiveRunner implements ApplicationRunner {
+export class InteractiveRunner implements ApplicationRunner, InteractiveUIRunner {
   private ui: InteractiveUIInterface | null = null;
   private streamingQueryManager: StreamingQueryManager | null = null;
   private currentAbortController: AbortController | null = null;
@@ -104,7 +111,13 @@ export class InteractiveRunner implements ApplicationRunner {
       onToolUse: (info) => {
         if (this.ui) {
           this.ui.stopComputing();
-          this.ui.displayToolUse(info.name, info.input);
+
+          // Special handling for TodoWrite tool
+          if (info.name === 'TodoWrite' && Array.isArray(info.input.todos)) {
+            this.ui.displayTodoList(info.input.todos as TodoItem[]);
+          } else {
+            this.ui.displayToolUse(info.name, info.input);
+          }
         }
       },
       onToolResult: (info) => {
@@ -188,7 +201,7 @@ export class InteractiveRunner implements ApplicationRunner {
     return this.sessionManager.listSessions();
   }
 
-  public async getConfigData(): Promise<any> {
+  public async getConfigData(): Promise<ProjectConfig> {
     return this.configManager.loadProjectConfig(process.cwd());
   }
 
@@ -224,33 +237,15 @@ export class InteractiveRunner implements ApplicationRunner {
     }
   }
 
-  public async getMCPConfigData(): Promise<{
-    servers: Array<{
-      name: string;
-      type: string;
-      config: any;
-    }>;
-    configPath: string;
-  }> {
+  public async getMCPConfigData(): Promise<MCPConfigListResult> {
     return this.mcpService.listServerConfig(process.cwd());
   }
 
-  public async editMCPConfigData(): Promise<{ configPath: string }> {
+  public async editMCPConfigData(): Promise<MCPConfigEditResult> {
     return this.mcpService.editConfig(process.cwd());
   }
 
-  public async validateMCPConfigData(): Promise<{
-    valid: boolean;
-    serverCount: number;
-    transportCounts: { stdio: number; sse: number; http: number };
-    errors: Array<{
-      message: string;
-      path?: string;
-      line?: number;
-      column?: number;
-    }>;
-    configPath: string;
-  }> {
+  public async validateMCPConfigData(): Promise<MCPConfigValidationResult> {
     return this.mcpService.validateConfig(process.cwd());
   }
 

@@ -22,6 +22,7 @@ import type {
   InteractiveUICallbacks,
   InteractiveUIConfig,
   InteractiveUIInterface,
+  TodoItem,
 } from '../../src/ui/InteractiveUIInterface';
 import type { UIFactory } from '../../src/ui/factories/UIFactory';
 
@@ -87,6 +88,7 @@ export class MockPermissionUIFactory implements UIFactory {
       displayWarning: () => undefined,
       displaySuccess: () => undefined,
       displayInfo: () => undefined,
+      displayTodoList: (_todos: TodoItem[]) => undefined,
       promptConfirmation: async () => true,
       showRewindMenu: async () => null,
       showSessionMenu: async () => null,
