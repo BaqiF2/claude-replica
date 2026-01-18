@@ -23,6 +23,12 @@ import {
 import type { SDKMessage, SDKAssistantMessage, Query } from '@anthropic-ai/claude-agent-sdk';
 import type { PermissionMode } from '../config/SDKConfigLoader';
 import type { InteractiveUIInterface } from '../ui/InteractiveUIInterface';
+import type { CheckpointManager } from '../checkpoint/CheckpointManager';
+
+const CHECKPOINT_DESCRIPTION_MAX_LENGTH = parseInt(
+  process.env.CLAUDE_CODE_CHECKPOINT_DESCRIPTION_MAX_LENGTH || '80',
+  10
+);
 
 /**
  * 流式会话状态
@@ -231,6 +237,8 @@ export interface StreamingQueryManagerOptions {
   onAssistantText?: (text: string) => void;
   /** Thinking 回调 - 当检测到 thinking 内容块时触发 */
   onThinking?: (content?: string) => void;
+  /** SDK 文件检查点管理器（可选） */
+  checkpointManager?: CheckpointManager;
 }
 
 /**
@@ -260,6 +268,9 @@ export class StreamingQueryManager {
   private readonly onAssistantText?: (text: string) => void;
   /** Thinking 回调 */
   private readonly onThinking?: (content?: string) => void;
+  /** SDK 文件检查点管理器 */
+  private readonly checkpointManager?: CheckpointManager;
+  private lastCapturedUserMessageId: string | null = null;
 
   /** 当前活跃的流式会话 */
   private activeSession: StreamingSession | null = null;
@@ -284,6 +295,7 @@ export class StreamingQueryManager {
     this.onToolResult = options.onToolResult;
     this.onAssistantText = options.onAssistantText;
     this.onThinking = options.onThinking;
+    this.checkpointManager = options.checkpointManager;
   }
 
   /**
@@ -539,6 +551,13 @@ export class StreamingQueryManager {
   }
 
   /**
+   * 获取当前 query 实例
+   */
+  getQueryInstance(): Query | null {
+    return this.queryInstance;
+  }
+
+  /**
    * 启动 SDK 执行循环
    *
    * 使用 LiveMessageGenerator 创建持久的消息流，
@@ -645,7 +664,81 @@ export class StreamingQueryManager {
       this.handleAssistantMessage(message as SDKAssistantMessage);
     } else if (message.type === 'user' && 'message' in message) {
       this.handleUserMessage(message);
+
+      if (this.checkpointManager && this.activeSession) {
+        this.captureUserMessageCheckpoint(message);
+      }
     }
+  }
+
+  /**
+   * 捕获用户消息检查点
+   */
+  private captureUserMessageCheckpoint(message: SDKMessage): void {
+    if (!this.checkpointManager || !this.activeSession) {
+      return;
+    }
+
+    const userMessage = message as {
+      uuid?: string;
+      session_id?: string;
+      message?: { content?: string | Array<{ type: string; text?: string }> };
+    };
+
+    if (!userMessage.uuid) {
+      return;
+    }
+
+    if (this.lastCapturedUserMessageId === userMessage.uuid) {
+      return;
+    }
+
+    const description = this.extractCheckpointDescription(message);
+    if (!description) {
+      return;
+    }
+    const sessionId = userMessage.session_id || this.activeSession.session.sdkSessionId;
+
+    if (!sessionId) {
+      return;
+    }
+
+    this.lastCapturedUserMessageId = userMessage.uuid;
+    void this.checkpointManager.captureCheckpoint(userMessage.uuid, description, sessionId);
+  }
+
+  /**
+   * 提取检查点描述
+   */
+  private extractCheckpointDescription(message: SDKMessage): string | null {
+    const userMessage = message as {
+      message?: {
+        content?: string | Array<{ type: string; text?: string } | { type: 'tool_result' }>;
+      };
+    };
+    const content = userMessage.message?.content;
+
+    if (typeof content === 'string') {
+      return this.formatCheckpointDescriptionText(content);
+    }
+
+    if (Array.isArray(content)) {
+      if (content.some((block) => block.type === 'tool_result')) {
+        return null;
+      }
+
+      for (const block of content) {
+        if (block.type === 'text' && typeof block.text === 'string') {
+          return this.formatCheckpointDescriptionText(block.text);
+        }
+      }
+    }
+
+    return `Checkpoint at ${new Date().toLocaleTimeString()}`;
+  }
+
+  private formatCheckpointDescriptionText(text: string): string {
+    return text.replace(/\n/g, ' ').substring(0, CHECKPOINT_DESCRIPTION_MAX_LENGTH);
   }
 
   /**

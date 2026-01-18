@@ -36,7 +36,6 @@ jest-results.json
 
 # Session data
 .claude-replica/
-.codex
 
 # Claude SDK sensitive files
 .claude/auth.json

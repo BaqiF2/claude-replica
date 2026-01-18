@@ -187,7 +187,6 @@ export interface ProjectConfig {
   agents?: Record<string, AgentDefinition>;
   hooks?: Partial<Record<HookEvent, HookConfig[]>>;
   sandbox?: SandboxSettings;
-  enableFileCheckpointing?: boolean;
   projectName?: string;
 }
 
@@ -209,7 +208,7 @@ export class SDKConfigLoader {
     const configPath = path.join(workingDir, '.claude', 'settings.json');
 
     if (!(await this.fileExists(configPath))) {
-      return {};
+      return this.getDefaultProjectConfig();
     }
 
     try {
@@ -217,7 +216,7 @@ export class SDKConfigLoader {
       return this.parseConfig(content);
     } catch (error) {
       console.warn(`Warning: Unable to load project configuration ${configPath}:`, error);
-      return {};
+      return this.getDefaultProjectConfig();
     }
   }
 
@@ -261,6 +260,7 @@ export class SDKConfigLoader {
     const json = JSON.parse(content);
     const hasLegacyMcpServers = Object.prototype.hasOwnProperty.call(json, 'mcpServers');
     return {
+      ...this.getDefaultProjectConfig(),
       model: json.model,
       maxTurns: json.maxTurns,
       maxBudgetUsd: json.maxBudgetUsd,
@@ -272,8 +272,11 @@ export class SDKConfigLoader {
       agents: json.agents,
       hooks: json.hooks,
       sandbox: json.sandbox,
-      enableFileCheckpointing: json.enableFileCheckpointing,
     };
+  }
+
+  private getDefaultProjectConfig(): ProjectConfig {
+    return {};
   }
 
   /**

@@ -225,10 +225,6 @@ export class CLIParser {
           i++;
           break;
 
-        case '--enable-file-checkpointing':
-          options.enableFileCheckpointing = true;
-          break;
-
         case '--sandbox':
           options.sandbox = true;
           break;
@@ -309,7 +305,6 @@ claude-replica - Claude Code 智能代码助手命令行工具
   --max-turns <n>                  最大对话轮数
   --max-budget-usd <amount>        最大预算 (美元)
   --max-thinking-tokens <n>        最大思考 token 数
-  --enable-file-checkpointing      启用文件检查点
   --sandbox                        启用沙箱模式
   --timeout <seconds>              执行超时时间 (秒，用于 CI/CD)
 

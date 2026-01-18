@@ -18,7 +18,7 @@ import type { SDKQueryExecutor } from '../sdk';
 import type { OutputFormatter } from '../output/OutputFormatter';
 import type { PermissionManager } from '../permissions/PermissionManager';
 import type { MCPService } from '../mcp/MCPService';
-import type { RewindManager } from '../rewind/RewindManager';
+import type { CheckpointManager } from '../checkpoint/CheckpointManager';
 import type { ConfigManager } from '../config';
 import type { Logger } from '../logging/Logger';
 import type { UIFactory } from '../ui/factories/UIFactory';
@@ -32,7 +32,7 @@ export class RunnerFactory {
     private readonly outputFormatter: OutputFormatter,
     private readonly permissionManager: PermissionManager,
     private readonly mcpService: MCPService,
-    private readonly rewindManager: RewindManager | null,
+    private readonly checkpointManager: CheckpointManager | null,
     private readonly configManager: ConfigManager,
     private readonly uiFactory: UIFactory,
     private readonly logger: Logger
@@ -58,7 +58,7 @@ export class RunnerFactory {
       this.sdkExecutor,
       this.permissionManager,
       this.mcpService,
-      this.rewindManager,
+      this.checkpointManager,
       this.configManager,
       this.uiFactory,
       this.logger

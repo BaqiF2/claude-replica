@@ -5,6 +5,10 @@ import type { InteractiveUICallbacks } from '../../src/ui/InteractiveUIInterface
 
 const TEST_DELAY_MS = parseInt(process.env.TERMINAL_UI_TEST_DELAY_MS || '10', 10);
 const DOUBLE_ESC_DELAY_MS = parseInt(process.env.TERMINAL_UI_DOUBLE_ESC_DELAY_MS || '50', 10);
+const ESC_DOUBLE_PRESS_WINDOW_MS = parseInt(
+  process.env.TERMINAL_UI_ESC_DOUBLE_PRESS_WINDOW_MS || '300',
+  10
+);
 const ESC_KEY = '\x1b';
 
 const createMockInput = (): Readable & { push: (data: string | null) => boolean } => {
@@ -80,17 +84,21 @@ describe('TerminalInteractiveUI', () => {
 
   it('should toggle raw mode when stdin is tty', async () => {
     const output = createMockOutput();
-    const stdin = process.stdin as NodeJS.ReadStream & {
-      setRawMode?: (mode: boolean) => void;
-      isTTY?: boolean;
-    };
-    const originalSetRawMode = stdin.setRawMode;
-    const originalIsTTY = stdin.isTTY;
     const setRawMode = jest.fn();
+    const originalStdinDescriptor = Object.getOwnPropertyDescriptor(process, 'stdin');
+    const mockStdin = createMockInput() as NodeJS.ReadStream & {
+      setRawMode: (mode: boolean) => void;
+      isTTY: boolean;
+    };
+    mockStdin.setRawMode = setRawMode;
+    mockStdin.isTTY = true;
 
     try {
-      stdin.setRawMode = setRawMode;
-      stdin.isTTY = true;
+      Object.defineProperty(process, 'stdin', {
+        configurable: true,
+        enumerable: true,
+        get: () => mockStdin,
+      });
 
       const ui = new TerminalInteractiveUI(createCallbacks(), {
         input: process.stdin,
@@ -106,16 +114,8 @@ describe('TerminalInteractiveUI', () => {
       expect(setRawMode).toHaveBeenCalledWith(true);
       expect(setRawMode).toHaveBeenCalledWith(false);
     } finally {
-      if (originalSetRawMode) {
-        stdin.setRawMode = originalSetRawMode;
-      } else {
-        delete (stdin as { setRawMode?: (mode: boolean) => void }).setRawMode;
-      }
-
-      if (typeof originalIsTTY === 'undefined') {
-        delete (stdin as { isTTY?: boolean }).isTTY;
-      } else {
-        stdin.isTTY = originalIsTTY;
+      if (originalStdinDescriptor) {
+        Object.defineProperty(process, 'stdin', originalStdinDescriptor);
       }
     }
   });
@@ -182,7 +182,9 @@ describe('TerminalInteractiveUI', () => {
     await new Promise((resolve) => setTimeout(resolve, TEST_DELAY_MS));
 
     process.stdin.emit('data', Buffer.from(ESC_KEY));
-    await new Promise((resolve) => setTimeout(resolve, TEST_DELAY_MS));
+    await new Promise((resolve) =>
+      setTimeout(resolve, ESC_DOUBLE_PRESS_WINDOW_MS + TEST_DELAY_MS)
+    );
 
     ui.stop();
     await startPromise;

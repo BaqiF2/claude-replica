@@ -115,8 +115,6 @@ export class ConfigManager {
     if (options.maxBudgetUsd !== undefined) result.maxBudgetUsd = options.maxBudgetUsd;
     if (options.maxThinkingTokens !== undefined)
       result.maxThinkingTokens = options.maxThinkingTokens;
-    if (options.enableFileCheckpointing)
-      result.enableFileCheckpointing = options.enableFileCheckpointing;
     if (options.sandbox) result.sandbox = { enabled: true };
 
     return result;

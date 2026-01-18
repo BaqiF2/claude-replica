@@ -148,6 +148,15 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
   /** Shift+Tab detection buffer. */
   private shiftTabBuffer = '';
   private keyListener?: (data: Buffer) => void;
+  private pendingPromptResolver: ((value: string | null) => void) | null = null;
+  private pendingPromptCloseHandler: (() => void) | null = null;
+  private pendingPromptId = 0;
+  private activePromptId: number | null = null;
+  private canceledPromptIds = new Set<number>();
+  private inputSuspended = false;
+  private resumeInputPromise: Promise<void> | null = null;
+  private resumeInputResolver: (() => void) | null = null;
+  private escTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(callbacks: InteractiveUICallbacks, config: InteractiveUIConfig = {}) {
     this.callbacks = callbacks;
@@ -195,6 +204,11 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
     if (this.progressInterval) {
       clearInterval(this.progressInterval);
       this.progressInterval = null;
+    }
+
+    if (this.escTimer) {
+      clearTimeout(this.escTimer);
+      this.escTimer = null;
     }
 
     if (this.rl) {
@@ -360,72 +374,78 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
    * Display rewind menu.
    */
   async showRewindMenu(snapshots: Snapshot[]): Promise<Snapshot | null> {
+    this.suspendInputLoop();
     if (snapshots.length === 0) {
       this.writeLine(this.colorize('没有可用的回退点', 'yellow'));
+      this.resumeInputLoop();
       return null;
     }
 
-    this.writeLine('');
-    this.writeLine(this.colorize('═══ 回退菜单 ═══', 'bold'));
-    this.writeLine(this.colorize('选择要回退到的时间点 (输入 0 取消):', 'gray'));
-    this.writeLine('');
+    try {
+      this.writeLine('');
+      this.writeLine(this.colorize('═══ 回退菜单 ═══', 'bold'));
+      this.writeLine(this.colorize('选择要回退到的时间点 (输入 0 取消):', 'gray'));
+      this.writeLine('');
 
-    snapshots.forEach((snapshot, index) => {
-      const timeStr = this.formatTime(snapshot.timestamp);
-      const filesCount = snapshot.files.length;
-      const filesInfo = filesCount > 0 ? `(${filesCount} 个文件)` : '';
-      this.writeLine(
-        `  ${this.colorize(`[${index + 1}]`, 'cyan')} ${timeStr} - ${snapshot.description} ${this.colorize(filesInfo, 'gray')}`
-      );
-    });
-
-    this.writeLine('');
-
-    if (this.rl) {
-      for (;;) {
-        const answer = await this.promptRaw(
-          `${this.colorize('?', 'yellow')} 请选择 (0-${snapshots.length}): `
+      snapshots.forEach((snapshot, index) => {
+        const timeStr = this.formatTime(snapshot.timestamp);
+        const filesCount = snapshot.files.length;
+        const filesInfo = filesCount > 0 ? `(${filesCount} 个文件)` : '';
+        this.writeLine(
+          `  ${this.colorize(`[${index + 1}]`, 'cyan')} ${timeStr} - ${snapshot.description} ${this.colorize(filesInfo, 'gray')}`
         );
-        if (answer === null) {
-          return null;
-        }
-        const trimmed = answer.trim();
-        const num = parseInt(trimmed, 10);
-        if (trimmed === '0') {
-          this.writeLine(this.colorize('✗ 已取消', 'gray'));
-          return null;
-        }
-        if (!isNaN(num) && num >= 1 && num <= snapshots.length) {
-          const selected = snapshots[num - 1];
-          this.writeLine(this.colorize(`✓ 已选择: ${selected.description}`, 'green'));
-          return selected;
-        }
-        this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
-      }
-    }
+      });
 
-    return new Promise((resolve) => {
-      const prompt = `${this.colorize('?', 'yellow')} 请选择 (0-${snapshots.length}): `;
-      this.write(prompt);
-      const handleInput = (data: Buffer) => {
-        const input = data.toString().trim();
-        const num = parseInt(input, 10);
-        if (input === '0') {
-          this.writeLine(this.colorize('✗ 已取消', 'gray'));
-          this.input.removeListener('data', handleInput);
-          resolve(null);
-        } else if (!isNaN(num) && num >= 1 && num <= snapshots.length) {
-          const selected = snapshots[num - 1];
-          this.writeLine(this.colorize(`✓ 已选择: ${selected.description}`, 'green'));
-          this.input.removeListener('data', handleInput);
-          resolve(selected);
-        } else {
-          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
-          this.write(prompt);
+      this.writeLine('');
+
+      if (this.rl) {
+        for (;;) {
+          const answer = await this.promptRaw(
+            `${this.colorize('?', 'yellow')} 请选择 (0-${snapshots.length}): `
+          );
+          if (answer === null) {
+            return null;
+          }
+          const trimmed = answer.trim();
+          const num = parseInt(trimmed, 10);
+          if (trimmed === '0') {
+            this.writeLine(this.colorize('✗ 已取消', 'gray'));
+            return null;
+          }
+          if (!isNaN(num) && num >= 1 && num <= snapshots.length) {
+            const selected = snapshots[num - 1];
+            this.writeLine(this.colorize(`✓ 已选择: ${selected.description}`, 'green'));
+            return selected;
+          }
+          this.displayInvalidSelection();
         }
-      };
-      this.input.on('data', handleInput);
-    });
+      }
+
+      return new Promise((resolve) => {
+        const prompt = `${this.colorize('?', 'yellow')} 请选择 (0-${snapshots.length}): `;
+        this.write(prompt);
+        const handleInput = (data: Buffer) => {
+          const input = data.toString().trim();
+          const num = parseInt(input, 10);
+          if (input === '0') {
+            this.writeLine(this.colorize('✗ 已取消', 'gray'));
+            this.input.removeListener('data', handleInput);
+            resolve(null);
+          } else if (!isNaN(num) && num >= 1 && num <= snapshots.length) {
+            const selected = snapshots[num - 1];
+            this.writeLine(this.colorize(`✓ 已选择: ${selected.description}`, 'green'));
+            this.input.removeListener('data', handleInput);
+            resolve(selected);
+          } else {
+            this.displayInvalidSelection();
+            this.write(prompt);
+          }
+        };
+        this.input.on('data', handleInput);
+      });
+    } finally {
+      this.resumeInputLoop();
+    }
   }
 
   /**
@@ -482,7 +502,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
           this.writeLine(this.colorize(`✓ 已选择会话: ${sessionIdShort}`, 'green'));
           return selected;
         }
-        this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+        this.displayInvalidSelection();
       }
     }
 
@@ -503,7 +523,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
           this.input.removeListener('data', handleInput);
           resolve(selected);
         } else {
-          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+          this.displayInvalidSelection();
           this.write(prompt);
         }
       };
@@ -552,7 +572,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
         if (defaultKey && trimmed === '') {
           return defaultKey === 'n' || defaultKey === 'N';
         }
-        this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+        this.displayInvalidSelection();
       }
     }
 
@@ -573,7 +593,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
           this.input.removeListener('data', handleInput);
           resolve(defaultKey === 'n' || defaultKey === 'N');
         } else {
-          this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
+          this.displayInvalidSelection();
           this.write(prompt);
         }
       };
@@ -640,6 +660,10 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
         const now = Date.now();
         if (now - this.lastEscTime < ESC_DOUBLE_PRESS_WINDOW_MS) {
           this.lastEscTime = 0;
+          if (this.escTimer) {
+            clearTimeout(this.escTimer);
+            this.escTimer = null;
+          }
           this.onRewind()
             .catch((err) => {
               this.displayError(`Rewind failed: ${err.message}`);
@@ -649,7 +673,13 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
             });
         } else {
           this.lastEscTime = now;
-          this.onInterrupt();
+          if (this.escTimer) {
+            clearTimeout(this.escTimer);
+          }
+          this.escTimer = setTimeout(() => {
+            this.escTimer = null;
+            this.onInterrupt();
+          }, ESC_DOUBLE_PRESS_WINDOW_MS);
         }
       }
 
@@ -1105,6 +1135,12 @@ MCP commands:
   private async inputLoop(): Promise<void> {
     while (this.isRunning && this.rl) {
       try {
+        if (this.inputSuspended) {
+          await this.waitForInputResume();
+          if (!this.isRunning || !this.rl) {
+            break;
+          }
+        }
         const input = await this.prompt();
         if (input === null) {
           break;
@@ -1169,6 +1205,10 @@ MCP commands:
    */
   displayInfo(message: string): void {
     this.writeLine(`${this.colorize('ℹ️ 信息:', 'blue')} ${message}`);
+  }
+
+  private displayInvalidSelection(): void {
+    this.writeLine(this.colorize('✗ 无效选择，请重试', 'red'));
   }
 
   /**
@@ -1272,16 +1312,92 @@ MCP commands:
         return;
       }
 
+      if (this.pendingPromptResolver) {
+        this.cancelPendingPrompt('');
+      }
+
+      const promptId = ++this.pendingPromptId;
       const closeHandler = () => {
+        this.clearPendingPrompt();
         resolve(null);
       };
 
+      this.activePromptId = promptId;
+      this.pendingPromptResolver = resolve;
+      this.pendingPromptCloseHandler = closeHandler;
       this.rl.once('close', closeHandler);
       this.rl.question(promptStr, (answer) => {
         this.rl?.removeListener('close', closeHandler);
+        const isCanceled =
+          this.canceledPromptIds.has(promptId) || this.activePromptId !== promptId;
+        if (isCanceled) {
+          this.canceledPromptIds.delete(promptId);
+          this.clearPendingPrompt();
+          return;
+        }
+        this.clearPendingPrompt();
         resolve(answer);
       });
     });
+  }
+
+  private cancelPendingPrompt(value: string): void {
+    if (!this.pendingPromptResolver) {
+      return;
+    }
+
+    if (this.activePromptId !== null) {
+      this.canceledPromptIds.add(this.activePromptId);
+    }
+    if (this.rl && this.pendingPromptCloseHandler) {
+      this.rl.removeListener('close', this.pendingPromptCloseHandler);
+    }
+
+    const resolve = this.pendingPromptResolver;
+    this.clearPendingPrompt();
+    resolve(value);
+    this.rl?.write('\n');
+  }
+
+  private clearPendingPrompt(): void {
+    this.pendingPromptResolver = null;
+    this.pendingPromptCloseHandler = null;
+    this.activePromptId = null;
+  }
+
+  private suspendInputLoop(): void {
+    if (this.inputSuspended) {
+      return;
+    }
+
+    this.inputSuspended = true;
+    this.cancelPendingPrompt('');
+
+    if (!this.resumeInputPromise) {
+      this.resumeInputPromise = new Promise((resolve) => {
+        this.resumeInputResolver = resolve;
+      });
+    }
+  }
+
+  private resumeInputLoop(): void {
+    if (!this.inputSuspended) {
+      return;
+    }
+
+    this.inputSuspended = false;
+    if (this.resumeInputResolver) {
+      this.resumeInputResolver();
+    }
+    this.resumeInputPromise = null;
+    this.resumeInputResolver = null;
+  }
+
+  private async waitForInputResume(): Promise<void> {
+    if (!this.resumeInputPromise) {
+      return;
+    }
+    await this.resumeInputPromise;
   }
 
   /**

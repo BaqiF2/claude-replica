@@ -105,15 +105,8 @@ export {
   MCPConfigValidationResult,
 } from './mcp';
 
-// 回退组件
-export {
-  RewindManager,
-  Snapshot,
-  FileSnapshot,
-  SnapshotMetadata,
-  RewindManagerOptions,
-  RestoreResult,
-} from './rewind';
+// Checkpoint components
+export { CheckpointManager, CheckpointMetadata, CheckpointManagerOptions } from './checkpoint';
 
 // 插件组件
 export {

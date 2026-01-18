@@ -34,6 +34,8 @@ import { getPresetAgents } from '../agents/PresetAgents';
 import { ImageContentBlock, StreamContentBlock, TextContentBlock } from '../sdk/SDKQueryExecutor';
 import type { CanUseTool as SDKCanUseTool, Query } from '@anthropic-ai/claude-agent-sdk';
 
+const CHECKPOINTING_ENV_FLAG = 'CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING';
+
 /**
  * 消息接口
  */
@@ -648,6 +650,7 @@ When you're ready to implement your plan, use the ExitPlanMode tool.
 
     // 创建权限处理函数
     const canUseTool = this.createPermissionHandler(session);
+    const checkpointingEnabled = process.env[CHECKPOINTING_ENV_FLAG] === '1';
 
     // 构建选项
     const options: QueryOptions = {
@@ -663,7 +666,7 @@ When you're ready to implement your plan, use the ExitPlanMode tool.
       maxTurns: projectConfig.maxTurns,
       maxBudgetUsd: projectConfig.maxBudgetUsd,
       maxThinkingTokens: projectConfig.maxThinkingTokens,
-      enableFileCheckpointing: projectConfig.enableFileCheckpointing,
+      enableFileCheckpointing: checkpointingEnabled,
       sandbox: projectConfig.sandbox,
     };
 

@@ -142,6 +142,8 @@ export interface SDKQueryOptions {
   sandbox?: SandboxSettings;
   /** 启用文件检查点 */
   enableFileCheckpointing?: boolean;
+  /** 额外 CLI 参数 */
+  extraArgs?: Record<string, string | null>;
   /** 中断控制器 */
   abortController?: AbortController;
   /** 要恢复的会话 ID（用于会话恢复） */
@@ -751,9 +753,21 @@ export class SDKQueryExecutor {
       sdkOptions.sandbox = options.sandbox;
     }
 
+    if (options.extraArgs) {
+      sdkOptions.extraArgs = {
+        ...options.extraArgs,
+      };
+    }
+
     // 文件检查点
     if (options.enableFileCheckpointing !== undefined) {
       sdkOptions.enableFileCheckpointing = options.enableFileCheckpointing;
+      if (options.enableFileCheckpointing) {
+        sdkOptions.extraArgs = {
+          ...(sdkOptions.extraArgs ?? {}),
+          'replay-user-messages': null,
+        };
+      }
     }
 
     // 会话恢复选项 (Requirement 3.2)

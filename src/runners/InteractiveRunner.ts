@@ -20,7 +20,7 @@ import type { MessageRouter } from '../core/MessageRouter';
 import type { SDKQueryExecutor, StreamingQueryManager, SDKErrorType } from '../sdk';
 import type { PermissionManager } from '../permissions/PermissionManager';
 import type { MCPService } from '../mcp/MCPService';
-import type { RewindManager, Snapshot as RewindSnapshot } from '../rewind/RewindManager';
+import type { CheckpointManager } from '../checkpoint/CheckpointManager';
 import type { Logger } from '../logging/Logger';
 import type { ConfigManager } from '../config';
 import type { UIFactory } from '../ui/factories/UIFactory';
@@ -55,7 +55,7 @@ export class InteractiveRunner implements ApplicationRunner {
     private readonly sdkExecutor: SDKQueryExecutor,
     private readonly permissionManager: PermissionManager,
     private readonly mcpService: MCPService,
-    private readonly rewindManager: RewindManager | null,
+    private readonly checkpointManager: CheckpointManager | null,
     private readonly configManager: ConfigManager,
     private readonly uiFactory: UIFactory,
     private readonly logger: Logger
@@ -94,6 +94,7 @@ export class InteractiveRunner implements ApplicationRunner {
       sdkExecutor: this.sdkExecutor,
       sessionManager: this.sessionManager,
       ui: this.ui,
+      checkpointManager: this.checkpointManager ?? undefined,
       onThinking: (content) => {
         if (this.ui) {
           this.ui.stopComputing();
@@ -135,7 +136,14 @@ export class InteractiveRunner implements ApplicationRunner {
   private async getOrCreateSession(): Promise<Session> {
     const workingDir = process.cwd();
     const projectConfig = await this.configManager.loadProjectConfig(workingDir);
-    return this.sessionManager.createSession(workingDir, projectConfig);
+    const session = await this.sessionManager.createSession(workingDir, projectConfig);
+
+    if (this.checkpointManager) {
+      this.checkpointManager.setSessionId(session.id);
+      await this.checkpointManager.initialize();
+    }
+
+    return session;
   }
 
   private async handleUserMessage(message: string, session: Session): Promise<void> {
@@ -209,6 +217,11 @@ export class InteractiveRunner implements ApplicationRunner {
     this.streamingQueryManager?.startSession(session);
 
     this.streamingQueryManager?.setForkSession(forkSession);
+
+    if (this.checkpointManager) {
+      this.checkpointManager.setSessionId(session.id);
+      await this.checkpointManager.initialize();
+    }
   }
 
   public async getMCPConfigData(): Promise<{
@@ -312,29 +325,40 @@ export class InteractiveRunner implements ApplicationRunner {
   }
 
   private async handleRewind(_session: Session): Promise<void> {
-    await this.logger.info('Opening rewind menu');
+    await this.logger.info('Opening checkpoint menu');
 
-    if (!this.rewindManager) {
+    if (!this.checkpointManager) {
       if (this.ui) {
-        this.ui.displayWarning('Rewind manager not initialized');
+        this.ui.displayWarning('Checkpoint feature not enabled');
       }
       return;
     }
 
-    const snapshots = await this.rewindManager.listSnapshots();
+    await this.checkpointManager.initialize();
+    const activeSession = this.streamingQueryManager?.getActiveSession();
+    const sdkSessionId = activeSession?.session.sdkSessionId;
 
-    if (snapshots.length === 0) {
+    if (!sdkSessionId) {
       if (this.ui) {
-        this.ui.displayWarning('No rewind points available');
+        this.ui.displayWarning('No active SDK session for checkpoints');
       }
       return;
     }
 
-    const uiSnapshots: UISnapshot[] = snapshots.map((s: RewindSnapshot) => ({
-      id: s.id,
-      timestamp: s.timestamp,
-      description: s.description,
-      files: Array.from(s.files.keys()),
+    const checkpoints = this.checkpointManager.listCheckpoints({ sdkSessionId });
+
+    if (checkpoints.length === 0) {
+      if (this.ui) {
+        this.ui.displayWarning('No checkpoints available');
+      }
+      return;
+    }
+
+    const uiSnapshots: UISnapshot[] = checkpoints.map((checkpoint) => ({
+      id: checkpoint.id,
+      timestamp: checkpoint.timestamp,
+      description: checkpoint.description,
+      files: [],
     }));
 
     if (this.ui) {
@@ -342,14 +366,20 @@ export class InteractiveRunner implements ApplicationRunner {
 
       if (selected) {
         try {
-          await this.rewindManager.restoreSnapshot(selected.id);
-          this.ui.displaySuccess(`Reverted to: ${selected.description}`);
-          await this.logger.info('Rewind successful', { snapshotId: selected.id });
+          const queryInstance = this.streamingQueryManager?.getQueryInstance();
+          if (!queryInstance) {
+            throw new Error('No active query session. Cannot restore checkpoint.');
+          }
+
+          await this.checkpointManager.restoreCheckpoint(selected.id, queryInstance, sdkSessionId);
+          this.ui.displaySuccess(`Restored to checkpoint: ${selected.description}`);
+          await this.logger.info('Checkpoint restored successfully', {
+            checkpointId: selected.id,
+          });
         } catch (error) {
-          this.ui.displayError(
-            `Rewind failed: ${error instanceof Error ? error.message : String(error)}`
-          );
-          await this.logger.error('Rewind failed', error);
+          const message = error instanceof Error ? error.message : String(error);
+          this.ui.displayError(`Restore failed: ${message}`);
+          await this.logger.error('Checkpoint restore failed', error);
         }
       }
     }

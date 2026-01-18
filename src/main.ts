@@ -31,7 +31,7 @@ import type { ParserInterface } from './ui/ParserInterface';
 import { HookManager } from './hooks/HookManager';
 import { MCPManager } from './mcp/MCPManager';
 import { MCPService } from './mcp/MCPService';
-import { RewindManager } from './rewind/RewindManager';
+import { CheckpointManager } from './checkpoint/CheckpointManager';
 import { OutputFormatter } from './output/OutputFormatter';
 import { SecurityManager } from './security/SecurityManager';
 import { SDKQueryExecutor } from './sdk';
@@ -40,6 +40,7 @@ import { CustomToolManager } from './custom-tools';
 import { RunnerFactory, ApplicationOptions } from './runners';
 
 const VERSION = process.env.VERSION || '0.1.0';
+const CHECKPOINT_ENV_FLAG = 'CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING';
 
 /**
  * 会话保留数量（默认 10）
@@ -65,7 +66,7 @@ export class Application {
   private readonly customToolManager: CustomToolManager;
   private readonly uiFactory: UIFactory;
 
-  private rewindManager: RewindManager | null = null;
+  private checkpointManager: CheckpointManager | null = null;
   private permissionManager!: PermissionManager;
   private messageRouter!: MessageRouter;
   // @ts-expect-error 流式消息处理器，用于处理 SDK 返回的流式消息（保留引用以便未来扩展）
@@ -91,6 +92,7 @@ export class Application {
       serverVersion: process.env.CUSTOM_TOOL_SERVER_VERSION,
     });
     this.logger = new Logger(this.securityManager);
+    this.checkpointManager = null;
   }
 
   async run(args: string[]): Promise<number> {
@@ -169,11 +171,11 @@ export class Application {
     await this.customToolManager.registerMcpServers(this.sdkExecutor, this.logger);
     // mcp初始化
     await this.mcpManager.configureMessageRouter(workingDir, this.messageRouter, this.logger);
-    // 文件回退点初始化
-    this.rewindManager = new RewindManager({ workingDir });
-    await this.rewindManager.initialize();
     // hooks初始化
     await this.hookManager.loadFromProjectRoot(workingDir);
+
+    const checkpointingEnabled = process.env[CHECKPOINT_ENV_FLAG] === '1';
+    this.checkpointManager = checkpointingEnabled ? new CheckpointManager({}) : null;
 
     // 创建 RunnerFactory
     this.runnerFactory = new RunnerFactory(
@@ -184,7 +186,7 @@ export class Application {
       this.outputFormatter,
       this.permissionManager,
       this.mcpService,
-      this.rewindManager,
+      this.checkpointManager,
       this.configManager,
       this.uiFactory,
       this.logger
