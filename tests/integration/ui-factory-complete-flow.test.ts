@@ -76,7 +76,7 @@ import type {
   InteractiveUIConfig,
   InteractiveUIInterface,
 } from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot } from '../../src/ui/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/InteractiveUIInterface';
 import type { Session, SessionStats } from '../../src/core/SessionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionUI } from '../../src/permissions/PermissionUI';
@@ -103,6 +103,7 @@ class MockUIFactory implements UIFactory {
       displayWarning: (_message: string) => undefined,
       displaySuccess: (_message: string) => undefined,
       displayInfo: (_message: string) => undefined,
+      displayTodoList: (_todos: TodoItem[]) => undefined,
       promptConfirmation: async (_message: string) => false,
       showRewindMenu: async (_snapshots: Snapshot[]) => null,
       showSessionMenu: async (_sessions: Session[]) => null,

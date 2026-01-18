@@ -1,5 +1,11 @@
 import type { Session, SessionStats } from '../core/SessionManager';
 import type { PermissionMode as PermissionModeType } from '../permissions/PermissionManager';
+import type { ProjectConfig } from '../config';
+import type {
+  MCPConfigEditResult,
+  MCPConfigListResult,
+  MCPConfigValidationResult,
+} from '../mcp/MCPService';
 
 /**
  * Snapshot interface for UI menus.
@@ -9,6 +15,18 @@ export interface Snapshot {
   timestamp: Date;
   description: string;
   files: string[];
+}
+
+/**
+ * Todo item interface.
+ */
+export interface TodoItem {
+  /** Task description (imperative form) */
+  content: string;
+  /** Task status */
+  status: 'pending' | 'in_progress' | 'completed';
+  /** Description when in progress (progressive form) */
+  activeForm: string;
 }
 
 /**
@@ -54,7 +72,27 @@ export interface InteractiveUICallbacks {
   onPermissionModeChange?: (mode: PermissionMode) => void | Promise<void>;
   onQueueMessage?: (message: string) => void;
   /** Get runner instance for UI to call public methods directly (e.g., showCommandHelp, showSessions) */
-  getRunner?: () => any;
+  getRunner?: () => InteractiveUIRunner;
+}
+
+/**
+ * Runner API exposed to UI implementations.
+ */
+export interface InteractiveUIRunner {
+  listSessionsData(): Promise<Session[]>;
+  getConfigData(): Promise<ProjectConfig>;
+  getPermissionsData(): { mode: string; allowDangerouslySkipPermissions: boolean };
+  listRecentSessionsData(limit: number): Promise<Session[]>;
+  resumeSession(session: Session, forkSession: boolean): Promise<void>;
+  getResumeSessionInfo(session: Session, forkSession: boolean): {
+    hasValidSdkSession: boolean;
+    forkIndicator: string;
+    isFork: boolean;
+    message: string;
+  };
+  getMCPConfigData(): Promise<MCPConfigListResult>;
+  editMCPConfigData(): Promise<MCPConfigEditResult>;
+  validateMCPConfigData(): Promise<MCPConfigValidationResult>;
 }
 
 /**
@@ -102,6 +140,11 @@ export interface InteractiveUIOptions extends InteractiveUICallbacks, Interactiv
  * - formatRelativeTime(): Format relative time.
  * - formatAbsoluteTime(): Format absolute time.
  * - formatStatsSummary(): Format stats summary.
+ * - displayTodoList(): Display todo list with progress.
+ *
+ * Core interfaces:
+ * - Snapshot: Snapshot data structure.
+ * - TodoItem: Todo item data structure.
  */
 export interface InteractiveUIInterface {
   start(): Promise<void>;
@@ -132,4 +175,5 @@ export interface InteractiveUIInterface {
   formatRelativeTime(date: Date): string;
   formatAbsoluteTime(date: Date): string;
   formatStatsSummary(stats?: SessionStats): string;
+  displayTodoList(todos: TodoItem[]): void;
 }

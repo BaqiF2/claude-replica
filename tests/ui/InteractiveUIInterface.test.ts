@@ -1,5 +1,5 @@
 import type { InteractiveUIInterface } from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot } from '../../src/ui/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/InteractiveUIInterface';
 import type { Session, SessionStats } from '../../src/core/SessionManager';
 
 type ExpectTrue<T extends true> = T;
@@ -76,7 +76,8 @@ export type ProcessingStateAssertions = [
 export type ToolMethodAssertions = [
   ExpectTrue<IsExact<InteractiveUIInterface['formatRelativeTime'], (date: Date) => string>>,
   ExpectTrue<IsExact<InteractiveUIInterface['formatAbsoluteTime'], (date: Date) => string>>,
-  ExpectTrue<IsExact<InteractiveUIInterface['formatStatsSummary'], (stats?: SessionStats) => string>>
+  ExpectTrue<IsExact<InteractiveUIInterface['formatStatsSummary'], (stats?: SessionStats) => string>>,
+  ExpectTrue<IsExact<InteractiveUIInterface['displayTodoList'], (todos: TodoItem[]) => void>>
 ];
 
 describe('InteractiveUIInterface', () => {

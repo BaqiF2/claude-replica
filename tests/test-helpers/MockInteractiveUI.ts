@@ -5,8 +5,11 @@
 import type { Session, SessionStats } from '../../src/core/SessionManager';
 import type {
   InteractiveUIInterface,
+  MessageRole,
+  PermissionMode,
+  Snapshot,
+  TodoItem,
 } from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot } from '../../src/ui/InteractiveUIInterface';
 import { EventEmitter } from 'events';
 
 export interface MockInteractiveUIOptions {
@@ -93,6 +96,10 @@ export class MockInteractiveUI implements InteractiveUIInterface {
   }
 
   displayInfo(_message: string): void {
+    // Mock implementation
+  }
+
+  displayTodoList(_todos: TodoItem[]): void {
     // Mock implementation
   }
 

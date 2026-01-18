@@ -8,7 +8,7 @@ import type {
   InteractiveUIConfig,
   InteractiveUIInterface,
 } from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot } from '../../src/ui/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/InteractiveUIInterface';
 import type { Session, SessionStats } from '../../src/core/SessionManager';
 import type { UIFactory } from '../../src/ui/factories/UIFactory';
 
@@ -145,6 +145,10 @@ export class TestInteractiveUI implements InteractiveUIInterface {
   }
 
   displayInfo(_message: string): void {
+    return;
+  }
+
+  displayTodoList(_todos: TodoItem[]): void {
     return;
   }
 

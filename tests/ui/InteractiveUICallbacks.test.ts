@@ -1,4 +1,4 @@
-import type { InteractiveUICallbacks } from '../../src/ui/InteractiveUIInterface';
+import type { InteractiveUICallbacks, InteractiveUIRunner } from '../../src/ui/InteractiveUIInterface';
 import type { PermissionMode } from '../../src/ui/InteractiveUIInterface';
 
 type ExpectTrue<T extends true> = T;
@@ -24,7 +24,7 @@ export type OptionalCallbacksAssertions = [
   ExpectTrue<
     IsExact<InteractiveUICallbacks['onQueueMessage'], ((message: string) => void) | undefined>
   >,
-  ExpectTrue<IsExact<InteractiveUICallbacks['getRunner'], (() => any) | undefined>>
+  ExpectTrue<IsExact<InteractiveUICallbacks['getRunner'], (() => InteractiveUIRunner) | undefined>>
 ];
 
 describe('InteractiveUICallbacks', () => {
