@@ -20,7 +20,7 @@ import type { CheckpointManager, CheckpointMetadata } from '../../src/checkpoint
 import type { Query } from '@anthropic-ai/claude-agent-sdk';
 import { InteractiveRunner } from '../../src/runners/InteractiveRunner';
 
-const createSession = (workingDirectory: string): Session => ({
+const createSession = (workingDirectory: string, sdkSessionId?: string): Session => ({
   id: 'session-1',
   createdAt: new Date(),
   lastAccessedAt: new Date(),
@@ -32,12 +32,16 @@ const createSession = (workingDirectory: string): Session => ({
   },
   expired: false,
   workingDirectory,
+  sdkSessionId,
 });
 
 const createRunner = (
   checkpointManager: CheckpointManager | null,
   ui: InteractiveUIInterface,
-  streamingQueryManager?: { getQueryInstance: () => Query | null }
+  streamingQueryManager?: {
+    getQueryInstance: () => Query | null;
+    getActiveSession?: () => { session: Session } | null;
+  }
 ): InteractiveRunner => {
   const output: OutputInterface = {
     info: jest.fn(),
@@ -111,12 +115,18 @@ describe('InteractiveRunner checkpoint restore', () => {
     const ui = {
       displayWarning: jest.fn(),
     } as unknown as InteractiveUIInterface;
-    const runner = createRunner(checkpointManager, ui);
+    const runner = createRunner(checkpointManager, ui, {
+      getQueryInstance: () => null,
+      getActiveSession: () => ({ session: createSession(tempDir, 'sdk-session-1') }),
+    });
 
     await (runner as unknown as { handleRewind: (session: Session) => Promise<void> }).handleRewind(
       createSession(tempDir)
     );
 
+    expect(checkpointManager.listCheckpoints).toHaveBeenCalledWith({
+      sdkSessionId: 'sdk-session-1',
+    });
     expect(ui.displayWarning).toHaveBeenCalledWith('No checkpoints available');
   });
 
@@ -149,6 +159,7 @@ describe('InteractiveRunner checkpoint restore', () => {
     const queryInstance = { rewindFiles: jest.fn() } as unknown as Query;
     const runner = createRunner(checkpointManager, ui, {
       getQueryInstance: () => queryInstance,
+      getActiveSession: () => ({ session: createSession(tempDir, 'sdk-session-1') }),
     });
 
     await (runner as unknown as { handleRewind: (session: Session) => Promise<void> }).handleRewind(
@@ -165,7 +176,8 @@ describe('InteractiveRunner checkpoint restore', () => {
     ]);
     expect(checkpointManager.restoreCheckpoint).toHaveBeenCalledWith(
       'checkpoint-1',
-      queryInstance
+      queryInstance,
+      'sdk-session-1'
     );
     expect(ui.displaySuccess).toHaveBeenCalledWith('Restored to checkpoint: First checkpoint');
   });

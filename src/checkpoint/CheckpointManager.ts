@@ -95,20 +95,32 @@ export class CheckpointManager {
     return checkpoint;
   }
 
-  listCheckpoints(): CheckpointMetadata[] {
+  listCheckpoints(options?: { sdkSessionId?: string }): CheckpointMetadata[] {
     if (!this.initialized) {
       throw new Error('CheckpointManager not initialized');
+    }
+
+    if (options?.sdkSessionId) {
+      return this.checkpoints.filter((checkpoint) => checkpoint.sessionId === options.sdkSessionId);
     }
 
     return [...this.checkpoints];
   }
 
-  async restoreCheckpoint(checkpointId: string, queryInstance: Query): Promise<void> {
+  async restoreCheckpoint(
+    checkpointId: string,
+    queryInstance: Query,
+    sdkSessionId?: string
+  ): Promise<void> {
     await this.initialize();
 
     const checkpoint = this.checkpoints.find((entry) => entry.id === checkpointId);
     if (!checkpoint) {
       throw new Error(`Checkpoint not found: ${checkpointId}`);
+    }
+
+    if (sdkSessionId && checkpoint.sessionId !== sdkSessionId) {
+      throw new Error('Checkpoint does not match the active SDK session');
     }
 
     try {

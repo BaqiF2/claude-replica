@@ -335,7 +335,17 @@ export class InteractiveRunner implements ApplicationRunner {
     }
 
     await this.checkpointManager.initialize();
-    const checkpoints = this.checkpointManager.listCheckpoints();
+    const activeSession = this.streamingQueryManager?.getActiveSession();
+    const sdkSessionId = activeSession?.session.sdkSessionId;
+
+    if (!sdkSessionId) {
+      if (this.ui) {
+        this.ui.displayWarning('No active SDK session for checkpoints');
+      }
+      return;
+    }
+
+    const checkpoints = this.checkpointManager.listCheckpoints({ sdkSessionId });
 
     if (checkpoints.length === 0) {
       if (this.ui) {
@@ -361,7 +371,7 @@ export class InteractiveRunner implements ApplicationRunner {
             throw new Error('No active query session. Cannot restore checkpoint.');
           }
 
-          await this.checkpointManager.restoreCheckpoint(selected.id, queryInstance);
+          await this.checkpointManager.restoreCheckpoint(selected.id, queryInstance, sdkSessionId);
           this.ui.displaySuccess(`Restored to checkpoint: ${selected.description}`);
           await this.logger.info('Checkpoint restored successfully', {
             checkpointId: selected.id,

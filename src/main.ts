@@ -92,8 +92,7 @@ export class Application {
       serverVersion: process.env.CUSTOM_TOOL_SERVER_VERSION,
     });
     this.logger = new Logger(this.securityManager);
-    const checkpointingEnabled = process.env[CHECKPOINT_ENV_FLAG] === '1';
-    this.checkpointManager = checkpointingEnabled ? new CheckpointManager({}) : null;
+    this.checkpointManager = null;
   }
 
   async run(args: string[]): Promise<number> {
@@ -174,6 +173,9 @@ export class Application {
     await this.mcpManager.configureMessageRouter(workingDir, this.messageRouter, this.logger);
     // hooks初始化
     await this.hookManager.loadFromProjectRoot(workingDir);
+
+    const checkpointingEnabled = process.env[CHECKPOINT_ENV_FLAG] === '1';
+    this.checkpointManager = checkpointingEnabled ? new CheckpointManager({}) : null;
 
     // 创建 RunnerFactory
     this.runnerFactory = new RunnerFactory(
