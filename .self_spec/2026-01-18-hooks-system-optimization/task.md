@@ -209,7 +209,7 @@
 
 #### 任务列表
 
-- [ ] 21. [测试] 编写 Hook 事件类型支持测试
+- [x] 21. [测试] 编写 Hook 事件类型支持测试
     - 测试文件: `tests/hooks/HookEvents.test.ts`
     - 覆盖 12 种 hook 事件的类型定义和验证
     - 覆盖 TypeScript 独有事件的标注
@@ -218,13 +218,13 @@
     - _Scenarios: 支持所有标准事件, 支持 TypeScript 独有事件_
     - _TaskGroup: 5_
 
-- [ ] 22. [验证] Red 阶段 - Hook 事件类型
+- [x] 22. [验证] Red 阶段 - Hook 事件类型
     - 运行: `npm test -- tests/hooks/HookEvents.test.ts`
     - 预期失败
     - _Validates: 21_
     - _TaskGroup: 5_
 
-- [ ] 23. [实现] 完整的 Hook 事件类型支持
+- [x] 23. [实现] 完整的 Hook 事件类型支持
     - 实现文件: `src/hooks/HookManager.ts` 和相关类型定义
     - 定义 HookEvent 类型包含所有 12 种事件
     - 标注 TYPESCRIPT_ONLY_EVENTS 数组
@@ -234,13 +234,13 @@
     - _Scenarios: 支持所有标准事件, 支持 TypeScript 独有事件_
     - _TaskGroup: 5_
 
-- [ ] 24. [验证] Green 阶段 - Hook 事件类型
+- [x] 24. [验证] Green 阶段 - Hook 事件类型
     - 运行: `npm test -- tests/hooks/HookEvents.test.ts`
     - 预期通过
     - _Validates: 23_
     - _TaskGroup: 5_
 
-- [ ] 25. [重构] 完善事件类型文档
+- [x] 25. [重构] 完善事件类型文档
     - 补充 TypeScript 独有事件的说明
     - 优化类型定义的可读性
     - _Requirements: 完整 Hook 事件支持_
@@ -254,7 +254,7 @@
 
 #### 任务列表
 
-- [ ] 26. [测试] 编写脚本路径白名单验证测试
+- [x] 26. [测试] 编写脚本路径白名单验证测试
     - 测试文件: `tests/hooks/ScriptPathWhitelist.test.ts`
     - 覆盖脚本路径白名单验证逻辑
     - 覆盖默认白名单的使用
@@ -264,13 +264,13 @@
     - _Scenarios: 验证脚本路径在白名单内, 使用默认白名单_
     - _TaskGroup: 6_
 
-- [ ] 27. [验证] Red 阶段 - 脚本路径白名单
+- [x] 27. [验证] Red 阶段 - 脚本路径白名单
     - 运行: `npm test -- tests/hooks/ScriptPathWhitelist.test.ts`
     - 预期失败
     - _Validates: 26_
     - _TaskGroup: 6_
 
-- [ ] 28. [实现] 脚本路径白名单验证
+- [x] 28. [实现] 脚本路径白名单验证
     - 实现文件: `src/hooks/HookManager.ts`
     - 实现 validateScriptPath(scriptPath, allowedPaths, cwd) 方法
     - 支持相对路径和绝对路径的转换
@@ -281,13 +281,13 @@
     - _Scenarios: 验证脚本路径在白名单内, 使用默认白名单_
     - _TaskGroup: 6_
 
-- [ ] 29. [验证] Green 阶段 - 脚本路径白名单
+- [x] 29. [验证] Green 阶段 - 脚本路径白名单
     - 运行: `npm test -- tests/hooks/ScriptPathWhitelist.test.ts`
     - 预期通过
     - _Validates: 28_
     - _TaskGroup: 6_
 
-- [ ] 30. [重构] 优化路径白名单验证代码
+- [x] 30. [重构] 优化路径白名单验证代码
     - 提高可读性和错误提示
     - 完善日志记录
     - _Requirements: Hook 脚本路径白名单_

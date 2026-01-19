@@ -15,6 +15,12 @@
  * - expandVariablesFromSDKInput(): 变量替换（SDK HookInput）
  * - getHooksForSDK(): 转换为 SDK 格式
  * - validateConfig(): 验证钩子配置
+ * - validateScriptPath(): 验证脚本路径是否在白名单内
+ * - getDefaultScriptAllowedPaths(): 获取默认的脚本允许路径
+ *
+ * 核心常量：
+ * - ALL_HOOK_EVENTS: 所有 12 种钩子事件列表
+ * - DEFAULT_SCRIPT_ALLOWED_PATHS: 默认脚本允许路径白名单
  *
  * 核心接口：
  * - HookEvent: SDK 支持的 12 种钩子事件类型
@@ -23,12 +29,14 @@
  * - HookJSONOutput: 钩子返回给 SDK 的输出数据
  * - Hook: 钩子定义（command/prompt/script）
  * - HookConfig: 钩子配置
+ * - ScriptPathValidationResult: 脚本路径验证结果
  */
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { Logger } from '../logging/Logger';
 
 const execAsync = promisify(exec);
 
@@ -40,24 +48,55 @@ const GIT_DIRECTORY_NAME = '.git';
 const DEFAULT_COMMAND_TIMEOUT_MS = parseInt(process.env.HOOK_COMMAND_TIMEOUT_MS || '30000', 10);
 
 /**
- * SDK 支持的 12 种钩子事件类型
+ * Default script allowed paths for hook scripts
+ * These are relative to the project working directory
  */
-export type HookEvent =
-  | 'PreToolUse' // 工具使用前
-  | 'PostToolUse' // 工具使用后
-  | 'PostToolUseFailure' // 工具使用失败后
-  | 'Notification' // 通知事件
-  | 'UserPromptSubmit' // 用户提交提示词
-  | 'SessionStart' // 会话开始
-  | 'SessionEnd' // 会话结束
-  | 'Stop' // 停止事件
-  | 'SubagentStart' // 子代理开始
-  | 'SubagentStop' // 子代理停止
-  | 'PreCompact' // 压缩前
-  | 'PermissionRequest'; // 权限请求
+export const DEFAULT_SCRIPT_ALLOWED_PATHS = ['./.claude/hooks', './hooks'];
 
 /**
- * 所有支持的钩子事件列表
+ * Script path validation result
+ */
+export interface ScriptPathValidationResult {
+  /** Whether the path is valid and within allowed directories */
+  valid: boolean;
+  /** The resolved absolute path (if valid) */
+  resolvedPath?: string;
+  /** Error message (if invalid) */
+  error?: string;
+}
+
+/**
+ * SDK 支持的 12 种钩子事件类型
+ *
+ * - PreToolUse: 工具使用前触发
+ * - PostToolUse: 工具使用成功后触发
+ * - PostToolUseFailure: 工具使用失败后触发
+ * - UserPromptSubmit: 用户提交提示词时触发
+ * - SessionStart: 会话开始时触发
+ * - SessionEnd: 会话结束时触发
+ * - Stop: 会话停止时触发
+ * - SubagentStart: 子代理启动时触发
+ * - SubagentStop: 子代理停止时触发
+ * - PreCompact: 上下文压缩前触发
+ * - PermissionRequest: 权限请求时触发
+ * - Notification: 通知事件触发
+ */
+export type HookEvent =
+  | 'PreToolUse'
+  | 'PostToolUse'
+  | 'PostToolUseFailure'
+  | 'Notification'
+  | 'UserPromptSubmit'
+  | 'SessionStart'
+  | 'SessionEnd'
+  | 'Stop'
+  | 'SubagentStart'
+  | 'SubagentStop'
+  | 'PreCompact'
+  | 'PermissionRequest';
+
+/**
+ * 所有支持的钩子事件列表（12 种）
  */
 export const ALL_HOOK_EVENTS: HookEvent[] = [
   'PreToolUse',
@@ -214,6 +253,8 @@ export interface HookManagerOptions {
   commandTimeout?: number;
   /** 是否启用调试日志 */
   debug?: boolean;
+  /** 日志记录器 */
+  logger?: Logger;
 }
 
 /**
@@ -227,12 +268,14 @@ export class HookManager {
   private promptHandler?: PromptHookHandler;
   private commandTimeout: number;
   private debug: boolean;
+  private logger?: Logger;
 
   constructor(options: HookManagerOptions = {}) {
     this.workingDir = options.workingDir || process.cwd();
     this.promptHandler = options.promptHandler;
     this.commandTimeout = options.commandTimeout || DEFAULT_COMMAND_TIMEOUT_MS;
     this.debug = options.debug || false;
+    this.logger = options.logger;
   }
 
   /**
@@ -313,7 +356,7 @@ export class HookManager {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (this.debug) {
-          console.error(`Hook execution failed:`, error);
+          void this.logger?.error('Hook execution failed', { error: errorMessage });
         }
         results.push({
           success: false,
@@ -437,7 +480,7 @@ export class HookManager {
 
     // 如果没有提示词处理器，只记录日志
     if (this.debug) {
-      console.log('Executing prompt hook:', expandedPrompt);
+      void this.logger?.debug('Executing prompt hook', { prompt: expandedPrompt });
     }
 
     return {
@@ -700,7 +743,10 @@ export class HookManager {
     } catch (error) {
       // 如果读取失败，记录错误但不抛出，保持应用启动
       if (this.debug) {
-        console.error(`Failed to load hooks from ${configPath}:`, error);
+        void this.logger?.error('Failed to load hooks from config file', {
+          configPath,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
       // 清空配置以防加载了部分配置
       this.config = {};
@@ -770,6 +816,87 @@ export class HookManager {
   }
 
   /**
+   * 验证脚本路径是否在允许的白名单目录内
+   *
+   * @param scriptPath 脚本路径（相对或绝对）
+   * @param allowedPaths 允许的路径列表（相对于 cwd）
+   * @param cwd 当前工作目录
+   * @returns 验证结果
+   */
+  validateScriptPath(
+    scriptPath: string,
+    allowedPaths: string[],
+    cwd: string
+  ): ScriptPathValidationResult {
+    // Reject empty script path
+    if (!scriptPath || scriptPath.trim() === '') {
+      return {
+        valid: false,
+        error: 'Script path is empty',
+      };
+    }
+
+    // Resolve the script path to absolute and normalize
+    const resolvedPath = this.resolveAndNormalizePath(scriptPath, cwd);
+
+    // Check if the resolved path is within any of the allowed directories
+    for (const allowedPath of allowedPaths) {
+      if (this.isPathWithinDirectory(resolvedPath, allowedPath, cwd)) {
+        return {
+          valid: true,
+          resolvedPath,
+        };
+      }
+    }
+
+    return {
+      valid: false,
+      error: `Script path "${scriptPath}" is not in allowed paths: ${allowedPaths.join(', ')}`,
+    };
+  }
+
+  /**
+   * Resolve and normalize a path
+   *
+   * @param inputPath Path to resolve (relative or absolute)
+   * @param cwd Current working directory for relative paths
+   * @returns Normalized absolute path
+   */
+  private resolveAndNormalizePath(inputPath: string, cwd: string): string {
+    return path.isAbsolute(inputPath)
+      ? path.normalize(inputPath)
+      : path.normalize(path.join(cwd, inputPath));
+  }
+
+  /**
+   * Check if a path is within a directory
+   *
+   * @param targetPath Path to check
+   * @param directory Directory to check against (relative or absolute)
+   * @param cwd Current working directory for relative paths
+   * @returns Whether targetPath is within directory
+   */
+  private isPathWithinDirectory(targetPath: string, directory: string, cwd: string): boolean {
+    // Resolve the directory to absolute
+    const absoluteDir = this.resolveAndNormalizePath(directory, cwd);
+
+    // Check if target path is exactly the directory or starts with directory + separator
+    // Adding path.sep ensures we match directory boundaries, not partial names
+    const dirWithSep = absoluteDir.endsWith(path.sep) ? absoluteDir : absoluteDir + path.sep;
+
+    return targetPath === absoluteDir || targetPath.startsWith(dirWithSep);
+  }
+
+  /**
+   * 获取默认的脚本允许路径
+   *
+   * @returns 默认允许路径列表
+   */
+  getDefaultScriptAllowedPaths(): string[] {
+    return DEFAULT_SCRIPT_ALLOWED_PATHS;
+  }
+
+  /**
    * 执行脚本类型钩子
    *
    * 动态加载 JS/TS 模块，调用导出函数，返回完整的 SDK HookJSONOutput 对象。
@@ -779,23 +906,41 @@ export class HookManager {
    * @param context SDK HookInput 上下文
    * @param toolUseID 工具使用 ID
    * @param signal 中止信号
+   * @param allowedPaths 可选的允许路径列表，用于白名单验证
    * @returns HookJSONOutput 对象
    */
   async executeScript(
     scriptPath: string,
     context: HookInput,
     toolUseID: string | undefined,
-    signal: AbortSignal
+    signal: AbortSignal,
+    allowedPaths?: string[]
   ): Promise<HookJSONOutput> {
+    const cwd = context.cwd || this.workingDir;
+
+    // Validate script path against whitelist if provided
+    if (allowedPaths) {
+      const validation = this.validateScriptPath(scriptPath, allowedPaths, cwd);
+      if (!validation.valid) {
+        if (this.debug) {
+          void this.logger?.error('Hook script path validation failed', {
+            scriptPath,
+            error: validation.error,
+          });
+        }
+        return { continue: true, reason: validation.error };
+      }
+    }
+
     // Resolve path (relative paths based on cwd)
     const absolutePath = path.isAbsolute(scriptPath)
       ? scriptPath
-      : path.join(context.cwd || this.workingDir, scriptPath);
+      : path.join(cwd, scriptPath);
 
     // Check if file exists
     if (!(await this.pathExists(absolutePath))) {
       if (this.debug) {
-        console.error(`Hook script not found: ${absolutePath}`);
+        void this.logger?.error('Hook script not found', { absolutePath });
       }
       return { continue: true };
     }
@@ -807,7 +952,7 @@ export class HookManager {
 
       if (typeof hookFunction !== 'function') {
         if (this.debug) {
-          console.error(`Hook script must export a default function: ${absolutePath}`);
+          void this.logger?.error('Hook script must export a default function', { absolutePath });
         }
         return { continue: true };
       }
@@ -817,7 +962,10 @@ export class HookManager {
       return result || { continue: true };
     } catch (error) {
       if (this.debug) {
-        console.error(`Hook script execution failed: ${absolutePath}`, error);
+        void this.logger?.error('Hook script execution failed', {
+          absolutePath,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
       // Return continue: true on error to not block the flow
       return { continue: true };
