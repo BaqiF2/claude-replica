@@ -596,15 +596,6 @@ describe('高级选项', () => {
     consoleSpy.mockRestore();
   });
 
-  it('应该接受 --sandbox 选项', async () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    
-    const exitCode = await main(['-p', '测试', '--sandbox']);
-    
-    expect(exitCode).toBe(0);
-    
-    consoleSpy.mockRestore();
-  });
 });
 
 describe('退出码处理', () => {

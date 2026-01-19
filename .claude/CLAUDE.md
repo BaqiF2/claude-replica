@@ -25,7 +25,7 @@ Three-level configuration (priority: Local > Project > User):
 - `.claude-replica/settings.json` (Project)
 - `.claude-replica/settings.local.json` (Local)
 
-Configs deep-merge via `ConfigManager.mergeConfigs()`. All SDK options configurable: model, tools, permissions, MCP servers, hooks, agents, sandbox settings.
+Configs deep-merge via `ConfigManager.mergeConfigs()`. All SDK options configurable: model, tools, permissions, MCP servers, hooks, agents.
 
 ### Session Persistence
 Sessions stored in `~/.claude-replica/sessions/session-{timestamp}-{id}/`:

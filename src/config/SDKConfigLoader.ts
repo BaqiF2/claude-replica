@@ -146,35 +146,6 @@ export interface AgentDefinition {
 }
 
 /**
- * 网络沙箱设置
- */
-export interface NetworkSandboxSettings {
-  allowedDomains?: string[];
-  blockedDomains?: string[];
-}
-
-/**
- * 沙箱违规忽略设置
- */
-export interface SandboxIgnoreViolations {
-  network?: boolean;
-  filesystem?: boolean;
-}
-
-/**
- * 沙箱设置
- */
-export interface SandboxSettings {
-  enabled?: boolean;
-  autoAllowBashIfSandboxed?: boolean;
-  excludedCommands?: string[];
-  allowUnsandboxedCommands?: boolean;
-  network?: NetworkSandboxSettings;
-  ignoreViolations?: SandboxIgnoreViolations;
-  enableWeakerNestedSandbox?: boolean;
-}
-
-/**
  * SDK Options 接口（部分）
  */
 export interface SDKOptions {
@@ -193,7 +164,6 @@ export interface SDKOptions {
   maxBudgetUsd?: number;
   maxThinkingTokens?: number;
   enableFileCheckpointing?: boolean;
-  sandbox?: SandboxSettings;
 }
 
 /**
@@ -211,7 +181,6 @@ export interface ProjectConfig {
   legacyMcpServers?: boolean;
   agents?: Record<string, AgentDefinition>;
   hooks?: Partial<Record<HookEvent, HookConfig[]>>;
-  sandbox?: SandboxSettings;
   projectName?: string;
 }
 
@@ -302,7 +271,6 @@ export class SDKConfigLoader {
       legacyMcpServers: hasLegacyMcpServers,
       agents: json.agents,
       hooks: validatedHooks,
-      sandbox: json.sandbox,
     };
   }
 

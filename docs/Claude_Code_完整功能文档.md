@@ -1500,19 +1500,7 @@ claude -p "test" --output-format json
 | 频繁使用 | Pro/Max 订阅 | Token 刷新窗口 |
 | 团队部署 | 企业 API | 统一管理 |
 
-### 2. Docker Sandbox
-
-#### 配置自定义 API
-```json
-{
-  "dockerSandbox": {
-    "apiEndpoint": "https://custom-api.company.com",
-    "apiKey": "${CUSTOM_API_KEY}"
-  }
-}
-```
-
-### 3. 团队协作
+### 2. 团队协作
 
 #### 共享配置
 ```bash

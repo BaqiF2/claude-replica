@@ -601,7 +601,6 @@ export class StreamingQueryManager {
         maxBudgetUsd: queryOptions.maxBudgetUsd,
         maxThinkingTokens: queryOptions.maxThinkingTokens,
         enableFileCheckpointing: queryOptions.enableFileCheckpointing,
-        sandbox: queryOptions.sandbox,
         abortController: this.activeSession.abortController,
         resume: sessionId,
         forkSession: this.forkSession,

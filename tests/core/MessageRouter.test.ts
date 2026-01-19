@@ -854,34 +854,6 @@ describe('MessageRouter - Options 接口构建', () => {
     expect(options.allowedTools).toBeUndefined();
   });
 
-  it('应该正确处理沙箱配置', async () => {
-    const router = new MessageRouter({
-      toolRegistry,
-      permissionManager,
-    });
-
-    const session = createMockSession({
-      context: {
-        workingDirectory: '/test/project',
-        projectConfig: {
-          sandbox: {
-            enabled: true,
-            autoAllowBashIfSandboxed: true,
-            excludedCommands: ['rm -rf /'],
-          },
-        },
-        
-        activeAgents: [],
-      },
-    });
-
-    const options = await router.buildQueryOptions(session);
-
-    expect(options.sandbox).toBeDefined();
-    expect(options.sandbox?.enabled).toBe(true);
-    expect(options.sandbox?.autoAllowBashIfSandboxed).toBe(true);
-  });
-
   it('应该正确处理 maxTurns 和 maxBudgetUsd', async () => {
     const router = new MessageRouter({
       toolRegistry,

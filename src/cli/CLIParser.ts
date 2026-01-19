@@ -225,9 +225,6 @@ export class CLIParser {
           i++;
           break;
 
-        case '--sandbox':
-          options.sandbox = true;
-          break;
 
         case '--timeout':
           options.timeout = this.parseNumber(this.requireValue(args, i, '--timeout'), '--timeout');
@@ -305,7 +302,6 @@ claude-replica - Claude Code 智能代码助手命令行工具
   --max-turns <n>                  最大对话轮数
   --max-budget-usd <amount>        最大预算 (美元)
   --max-thinking-tokens <n>        最大思考 token 数
-  --sandbox                        启用沙箱模式
   --timeout <seconds>              执行超时时间 (秒，用于 CI/CD)
 
 交互模式命令 (仅在交互模式下可用):

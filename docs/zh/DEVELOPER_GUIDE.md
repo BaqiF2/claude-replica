@@ -131,9 +131,6 @@ claude-replica/
 │   ├── rewind/            # 回退系统
 │   │   ├── RewindManager.ts
 │   │   └── index.ts
-│   ├── sandbox/           # 沙箱管理
-│   │   ├── SandboxManager.ts
-│   │   └── index.ts
 │   ├── tools/             # 工具注册表
 │   │   ├── ToolRegistry.ts
 │   │   └── index.ts
@@ -159,7 +156,6 @@ claude-replica/
 │   ├── permissions/
 │   ├── plugins/
 │   ├── rewind/
-│   ├── sandbox/
 │   ├── tools/
 │   ├── ui/
 │   └── utils/

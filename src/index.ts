@@ -61,7 +61,6 @@ export {
   SDKOptions,
   ProjectConfig,
   AgentDefinition,
-  SandboxSettings,
 } from './config';
 
 // 命令组件
@@ -173,17 +172,6 @@ export {
   ContextManagerConfig,
 } from './context';
 
-// 沙箱组件
-export {
-  SandboxManager,
-  NetworkSandboxSettings,
-  SandboxIgnoreViolations,
-  ViolationType,
-  SandboxViolation,
-  CommandCheckResult,
-  NetworkCheckResult,
-  SandboxManagerConfig,
-} from './sandbox';
 
 // 性能优化组件
 export {
