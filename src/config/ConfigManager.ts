@@ -1,6 +1,20 @@
 /**
  * 文件功能：配置管理模块，负责加载和管理项目配置
  *
+ * 作用说明：合并 CLI/配置文件选项，提供权限配置与 SDK 配置加载的统一入口。
+ *
+ * 核心导出：
+ * - ConfigManager
+ * - SDKConfigLoader
+ * - SDKOptions
+ * - ProjectConfig
+ * - PermissionMode
+ * - HookEvent
+ * - HookConfig
+ * - McpServerConfig
+ * - AgentDefinition
+ * - SandboxSettings
+ *
  * 核心类：
  * - ConfigManager: 配置管理器核心类
  *

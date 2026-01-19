@@ -1,7 +1,6 @@
 ---
-name: 完成前验证
-description: 在提交代码或创建 Pull Request 之前，当即将声称工作已完成、已修复或通过时，必须运行验证命令并确认输出结果后才能做出任何成功声明；证据必须在任何断言之前出现
----
+name: Verification Before Completion
+description: Before submitting code or creating a Pull Request, when about to claim that work is complete, fixed, or passed, you must run verification commands and confirm the output results before making any success claims; evidence must appear before any assertions---
 
 # 完成前验证
 

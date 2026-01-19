@@ -1,6 +1,16 @@
 /**
  * 文件功能：消息路由模块，负责将用户消息路由到 Claude Agent SDK 并构建查询参数
  *
+ * 作用说明：组装系统提示词、工具权限、子代理与钩子配置，统一构建 SDK 查询参数。
+ *
+ * 核心导出：
+ * - MessageRouter
+ * - Message
+ * - QueryOptions
+ * - QueryResult
+ * - MessageRouterOptions
+ * - StreamMessageBuildResult
+ *
  * 核心类：
  * - MessageRouter: 消息路由器核心类
  *

@@ -1,6 +1,16 @@
 /**
  * 文件功能：钩子管理模块，管理和执行钩子操作，支持 12 种 SDK 钩子事件类型
  *
+ * 作用说明：集中加载钩子配置、转换为 SDK 回调，并按事件执行命令/脚本/提示词钩子。
+ *
+ * 核心导出：
+ * - HookManager
+ * - HookEvent
+ * - HookConfig
+ * - HookContext
+ * - ALL_HOOK_EVENTS
+ * - DEFAULT_SCRIPT_ALLOWED_PATHS
+ *
  * 核心类：
  * - HookManager: 钩子管理器核心类
  *

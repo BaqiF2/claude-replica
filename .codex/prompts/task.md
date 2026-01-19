@@ -6,8 +6,8 @@ argument-hint: [FILES=<file-path>] [GROUP=<group>]
 
 ## 参数说明
 
-- `file-path`: task.md 文件路径（可选，默认当前目录）
-- `group`: 执行任务组（如：`1`）
+- `file-path`: $FILES
+- `group`: $GROUP
 - 无参数：自动执行下一个未完成任务
 
 ## 当前任务
