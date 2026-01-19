@@ -46,9 +46,16 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { createRequire } from 'module';
+import { pathToFileURL } from 'url';
 import { Logger } from '../logging/Logger';
 
 const execAsync = promisify(exec);
+const requireModule = createRequire(__filename);
+const dynamicImport = new Function(
+  'specifier',
+  'return import(specifier)'
+) as (specifier: string) => Promise<unknown>;
 
 // Configuration constants
 const HOOKS_CONFIG_FILENAME = 'hooks.json';
@@ -965,8 +972,20 @@ export class HookManager {
 
     try {
       // Dynamically load module
-      const module = await import(absolutePath);
-      const hookFunction = module.default || module.hook;
+      let loadedModule: unknown;
+      try {
+        loadedModule = requireModule(absolutePath);
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err && err.code === 'ERR_REQUIRE_ESM') {
+          loadedModule = await dynamicImport(pathToFileURL(absolutePath).href);
+        } else {
+          throw error;
+        }
+      }
+
+      const module = loadedModule as { default?: unknown; hook?: unknown };
+      const hookFunction = module.default || module.hook || loadedModule;
 
       if (typeof hookFunction !== 'function') {
         if (this.debug) {

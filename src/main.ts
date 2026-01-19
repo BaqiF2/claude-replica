@@ -191,6 +191,18 @@ export class Application {
         await this.logger.warn('Failed to load hooks configuration', { error });
         // Continue initialization even if hooks loading fails
       }
+    } else {
+      try {
+        await this.hookManager.loadFromProjectRoot(workingDir);
+        const legacyHookConfig = this.hookManager.getConfig();
+        if (Object.keys(legacyHookConfig).length > 0) {
+          await this.logger.info('Hooks configuration loaded from hooks.json', {
+            eventCount: Object.keys(legacyHookConfig).length,
+          });
+        }
+      } catch (error) {
+        await this.logger.warn('Failed to load hooks.json configuration', { error });
+      }
     }
 
     // Step 4: Initialize MessageRouter with HookManager

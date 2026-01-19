@@ -446,7 +446,8 @@ export class SDKConfigLoader {
     };
 
     const requiredField = requiredFieldMap[type];
-    if (!def[requiredField]) {
+    const requiredValue = def[requiredField];
+    if (typeof requiredValue !== 'string' || requiredValue.trim() === '') {
       this.warn(`Invalid hook definition: ${type} type requires ${requiredField} field`, {
         type,
         requiredField,
@@ -456,9 +457,12 @@ export class SDKConfigLoader {
 
     return {
       type,
-      command: typeof def.command === 'string' ? def.command : undefined,
-      prompt: typeof def.prompt === 'string' ? def.prompt : undefined,
-      script: typeof def.script === 'string' ? def.script : undefined,
+      command:
+        type === 'command' ? requiredValue : typeof def.command === 'string' ? def.command : undefined,
+      prompt:
+        type === 'prompt' ? requiredValue : typeof def.prompt === 'string' ? def.prompt : undefined,
+      script:
+        type === 'script' ? requiredValue : typeof def.script === 'string' ? def.script : undefined,
     };
   }
 
