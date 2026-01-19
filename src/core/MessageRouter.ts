@@ -35,7 +35,6 @@ import {
   HookEvent,
   McpServerConfig,
   PermissionMode,
-  SandboxSettings,
 } from '../config/SDKConfigLoader';
 import { HookManager } from '../hooks';
 import { ToolRegistry } from '../tools/ToolRegistry';
@@ -92,8 +91,6 @@ export interface QueryOptions {
   maxThinkingTokens?: number;
   /** 启用文件检查点 */
   enableFileCheckpointing?: boolean;
-  /** 沙箱配置 */
-  sandbox?: SandboxSettings;
 }
 
 /**
@@ -711,7 +708,6 @@ When you're ready to implement your plan, use the ExitPlanMode tool.
       maxBudgetUsd: projectConfig.maxBudgetUsd,
       maxThinkingTokens: projectConfig.maxThinkingTokens,
       enableFileCheckpointing: checkpointingEnabled,
-      sandbox: projectConfig.sandbox,
     };
 
     // 添加 MCP 服务器配置

@@ -162,7 +162,6 @@ claude-replica -p "生成测试用例" --output-format json
 高级选项:
   --max-turns <n>          最大对话轮数
   --max-budget-usd <n>     最大预算（美元）
-  --sandbox                启用沙箱模式
   --timeout <seconds>      执行超时时间
 ```
 
@@ -433,7 +432,6 @@ claude-replica/
 │   ├── permissions/  # 权限管理
 │   ├── plugins/      # 插件系统
 │   ├── rewind/       # 回退系统
-│   ├── sandbox/      # 沙箱管理
 │   ├── skills/       # 技能管理器
 │   ├── tools/        # 工具注册表
 │   ├── ui/           # 交互式 UI

@@ -13,7 +13,6 @@
  * - HookConfig
  * - McpServerConfig
  * - AgentDefinition
- * - SandboxSettings
  *
  * 核心类：
  * - ConfigManager: 配置管理器核心类
@@ -41,7 +40,6 @@ import {
   HookConfig,
   McpServerConfig,
   AgentDefinition,
-  SandboxSettings,
 } from './SDKConfigLoader';
 import type { PermissionConfig } from '../permissions/PermissionManager';
 
@@ -55,7 +53,6 @@ export {
   HookConfig,
   McpServerConfig,
   AgentDefinition,
-  SandboxSettings,
 };
 
 /**
@@ -130,7 +127,6 @@ export class ConfigManager {
     if (options.maxBudgetUsd !== undefined) result.maxBudgetUsd = options.maxBudgetUsd;
     if (options.maxThinkingTokens !== undefined)
       result.maxThinkingTokens = options.maxThinkingTokens;
-    if (options.sandbox) result.sandbox = { enabled: true };
 
     return result;
   }

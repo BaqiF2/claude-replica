@@ -162,11 +162,6 @@ describe('CLIParser', () => {
       expect(options.maxBudgetUsd).toBe(5.50);
     });
 
-    it('应解析 --sandbox 选项', () => {
-      const options = parser.parse(['--sandbox']);
-
-      expect(options.sandbox).toBe(true);
-    });
 
     it('--max-turns 非数字应抛出错误', () => {
       expect(() => parser.parse(['--max-turns', 'abc'])).toThrow(CLIParseError);

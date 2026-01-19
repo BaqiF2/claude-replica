@@ -521,11 +521,11 @@ describe('SDKQueryExecutor - 属性测试', () => {
    *
    * *For any* valid QueryOptions object, when mapped to SDK options,
    * all specified fields (model, systemPrompt, allowedTools, cwd, permissionMode,
-   * maxTurns, maxBudgetUsd, maxThinkingTokens, sandbox, mcpServers) SHALL be present
+   * maxTurns, maxBudgetUsd, maxThinkingTokens, mcpServers) SHALL be present
    * in the resulting SDK options object with their original values.
    *
    * **Feature: sdk-integration, Property 1: SDK Options Completeness**
-   * **Validates: Requirements 1.2, 6.1, 6.2, 6.3, 6.4, 6.5**
+   * **Validates: Requirements 1.2, 6.1, 6.2, 6.3, 6.5**
    */
   describe('Property 1: SDK Options Completeness', () => {
     // 生成有效的权限模式
@@ -545,12 +545,6 @@ describe('SDKQueryExecutor - 属性测试', () => {
       'claude-3-opus-latest',
       'claude-3-haiku-latest'
     );
-
-    // 生成有效的沙箱配置
-    const sandboxArb = fc.record({
-      type: fc.constantFrom('docker' as const),
-      image: fc.string({ minLength: 1, maxLength: 50 }),
-    });
 
     // 生成有效的 MCP 服务器配置
     const mcpServerConfigArb = fc.record({
@@ -621,25 +615,6 @@ describe('SDKQueryExecutor - 属性测试', () => {
             // 验证工具列表被正确映射
             expect(sdkOptions.allowedTools).toEqual(options.allowedTools);
             expect(sdkOptions.disallowedTools).toEqual(options.disallowedTools);
-          }
-        ),
-        { numRuns: 100 }
-      );
-    });
-
-    it('应该保留沙箱配置的原始值 (Requirement 6.4)', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.record({
-            prompt: fc.string({ minLength: 1, maxLength: 100 }),
-            sandbox: sandboxArb,
-          }),
-          async (options) => {
-            const executor = new SDKQueryExecutor();
-            const sdkOptions = executor.mapToSDKOptions(options as SDKQueryOptions);
-
-            // 验证沙箱配置被正确映射 (Requirement 6.4)
-            expect(sdkOptions.sandbox).toEqual(options.sandbox);
           }
         ),
         { numRuns: 100 }
@@ -727,7 +702,6 @@ describe('SDKQueryExecutor - 属性测试', () => {
             expect(sdkOptions.maxBudgetUsd).toBeUndefined();
             expect(sdkOptions.maxThinkingTokens).toBeUndefined();
             expect(sdkOptions.mcpServers).toBeUndefined();
-            expect(sdkOptions.sandbox).toBeUndefined();
           }
         ),
         { numRuns: 100 }

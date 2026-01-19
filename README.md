@@ -181,7 +181,6 @@ Output Options:
 Advanced Options:
   --max-turns <n>          Maximum conversation turns
   --max-budget-usd <n>     Maximum budget (USD)
-  --sandbox                Enable sandbox mode
   --timeout <seconds>      Execution timeout
 
 Note: Session management commands (--continue, --resume, --fork) have been
@@ -531,7 +530,6 @@ claude-replica/
 │   ├── permissions/  # Permission management
 │   ├── plugins/      # Plugin system
 │   ├── rewind/       # Rewind system
-│   ├── sandbox/      # Sandbox management
 │   ├── skills/       # Skill manager
 │   ├── tools/        # Tool registry
 │   ├── ui/           # Interactive UI

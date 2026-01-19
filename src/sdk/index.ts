@@ -42,7 +42,6 @@ export type {
   PermissionMode,
   AgentDefinition,
   McpServerConfig,
-  SandboxSettings,
   HookEvent,
   HookCallbackMatcher,
   CanUseTool,

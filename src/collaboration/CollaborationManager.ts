@@ -246,7 +246,6 @@ export class CollaborationManager {
       // 深度合并对象类型字段
       agents: { ...base.agents, ...override.agents },
       hooks: this.mergeHooks(base.hooks, override.hooks),
-      sandbox: { ...base.sandbox, ...override.sandbox },
     };
   }
 

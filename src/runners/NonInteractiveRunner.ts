@@ -120,7 +120,6 @@ export class NonInteractiveRunner implements ApplicationRunner {
         maxThinkingTokens: queryParams.options.maxThinkingTokens,
         mcpServers: queryParams.options.mcpServers,
         agents: queryParams.options.agents,
-        sandbox: queryParams.options.sandbox,
         abortController,
         resume: session.sdkSessionId,
       });

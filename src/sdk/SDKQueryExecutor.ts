@@ -23,7 +23,6 @@ import {
   type PermissionMode,
   type AgentDefinition,
   type McpServerConfig,
-  type SandboxSettings,
   type HookEvent,
   type HookCallbackMatcher,
   type CanUseTool,
@@ -138,8 +137,6 @@ export interface SDKQueryOptions {
   agents?: Record<string, AgentDefinition>;
   /** 钩子配置 */
   hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>>;
-  /** 沙箱配置 */
-  sandbox?: SandboxSettings;
   /** 启用文件检查点 */
   enableFileCheckpointing?: boolean;
   /** 额外 CLI 参数 */
@@ -746,11 +743,6 @@ export class SDKQueryExecutor {
     // 钩子配置
     if (options.hooks) {
       sdkOptions.hooks = options.hooks;
-    }
-
-    // 沙箱配置 (Requirement 6.4)
-    if (options.sandbox) {
-      sdkOptions.sandbox = options.sandbox;
     }
 
     if (options.extraArgs) {
