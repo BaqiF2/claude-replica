@@ -167,6 +167,87 @@ describe('TerminalInteractiveUI', () => {
     expect(output.getOutput()).toContain('/config');
     expect(output.getOutput()).toContain('/permissions');
     expect(output.getOutput()).toContain('/mcp');
+    expect(output.getOutput()).toContain('/stats - Show session token statistics (including cache breakdown)');
+  });
+
+  it('should display session stats when user submits /stats command', async () => {
+    const input = createMockInput();
+    const output = createMockOutput();
+    const runner = {
+      getSessionStatsData: jest.fn().mockResolvedValue({
+        messageCount: 3,
+        totalInputTokens: 200,
+        totalOutputTokens: 100,
+        totalCacheCreationInputTokens: 50,
+        totalCacheReadInputTokens: 40,
+        totalCostUsd: 0.12,
+        lastMessagePreview: 'Preview',
+      }),
+    };
+    const ui = new TerminalInteractiveUI(
+      createCallbacks({ getRunner: () => runner as any }),
+      {
+        input,
+        output,
+        enableColors: false,
+      }
+    );
+
+    const startPromise = ui.start();
+    await new Promise((resolve) => setTimeout(resolve, TEST_DELAY_MS));
+
+    input.emit('data', Buffer.from('/stats\n'));
+    await new Promise((resolve) => setTimeout(resolve, TEST_DELAY_MS));
+
+    ui.stop();
+    await startPromise;
+
+    expect(runner.getSessionStatsData).toHaveBeenCalled();
+    expect(output.getOutput()).toContain('Session token statistics');
+    expect(output.getOutput()).toContain('input_tokens: 200');
+    expect(output.getOutput()).toContain('output_tokens: 100');
+    expect(output.getOutput()).toContain('cache_creation_input_tokens: 50');
+    expect(output.getOutput()).toContain('cache_read_input_tokens: 40');
+    expect(output.getOutput()).toContain(
+      'cache_read/(input+cache_read+cache_creation) = 13.8%'
+    );
+  });
+
+  it('should display 100.0% cache hit rate when input tokens are 0 but cache read tokens are non-zero', async () => {
+    const input = createMockInput();
+    const output = createMockOutput();
+    const runner = {
+      getSessionStatsData: jest.fn().mockResolvedValue({
+        messageCount: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalCacheCreationInputTokens: 0,
+        totalCacheReadInputTokens: 10,
+        totalCostUsd: 0,
+        lastMessagePreview: '',
+      }),
+    };
+    const ui = new TerminalInteractiveUI(
+      createCallbacks({ getRunner: () => runner as any }),
+      {
+        input,
+        output,
+        enableColors: false,
+      }
+    );
+
+    const startPromise = ui.start();
+    await new Promise((resolve) => setTimeout(resolve, TEST_DELAY_MS));
+
+    input.emit('data', Buffer.from('/stats\n'));
+    await new Promise((resolve) => setTimeout(resolve, TEST_DELAY_MS));
+
+    ui.stop();
+    await startPromise;
+
+    expect(output.getOutput()).toContain(
+      'cache_read/(input+cache_read+cache_creation) = 100.0%'
+    );
   });
 
   it('should call onInterrupt when user presses esc', async () => {

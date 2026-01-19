@@ -133,6 +133,8 @@ function createMockSDKResult(response: string, isError: boolean = false): SDKQue
     usage: {
       inputTokens: 100,
       outputTokens: 50,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
     },
   };
 }
@@ -261,6 +263,68 @@ describe('StreamingQueryManager', () => {
       // 结果通过回调传递，不在 result 中返回
       expect(result.success).toBe(true);
       expect(mockSDKExecutor.executeStreaming).toHaveBeenCalled();
+    });
+
+    it('应该在执行完成后保存助手消息和 usage', async () => {
+      const session = createMockSession(tempDir);
+      manager.startSession(session);
+
+      const assistantMessage = {
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'AI response' }],
+        },
+      };
+      const resultMessage = {
+        type: 'result',
+        subtype: 'success',
+        result: 'AI response',
+        total_cost_usd: 0.02,
+        duration_ms: 1500,
+        usage: {
+          input_tokens: 120,
+          output_tokens: 60,
+          cache_creation_input_tokens: 10,
+          cache_read_input_tokens: 5,
+        },
+      };
+
+      mockSDKExecutor.executeStreaming.mockImplementation(async (_generator, options) => {
+        options.onMessage?.(assistantMessage as any);
+        options.onMessage?.(resultMessage as any);
+
+        return {
+          response: 'AI response',
+          isError: false,
+          sessionId: 'sdk-session-id',
+          totalCostUsd: 0.02,
+          durationMs: 1500,
+          usage: {
+            inputTokens: 120,
+            outputTokens: 60,
+            cacheCreationInputTokens: 10,
+            cacheReadInputTokens: 5,
+          },
+        };
+      });
+
+      const result = await manager.sendMessage('Hello, Claude!');
+      expect(result.success).toBe(true);
+
+      await manager.waitForResult();
+
+      expect(session.messages.length).toBe(1);
+      expect(session.messages[0].role).toBe('assistant');
+      expect(session.messages[0].content).toBe('AI response');
+      expect(session.messages[0].usage).toEqual({
+        inputTokens: 120,
+        outputTokens: 60,
+        cacheCreationInputTokens: 10,
+        cacheReadInputTokens: 5,
+        totalCostUsd: 0.02,
+        durationMs: 1500,
+      });
     });
 
     it('应该在处理中时将消息实时注入', async () => {

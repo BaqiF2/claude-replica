@@ -15,7 +15,7 @@
 
 import type { ApplicationRunner, ApplicationOptions } from './ApplicationRunner';
 import type { OutputInterface } from '../ui/OutputInterface';
-import type { SessionManager, Session } from '../core/SessionManager';
+import type { SessionManager, Session, SessionStats } from '../core/SessionManager';
 import type { MessageRouter } from '../core/MessageRouter';
 import type { SDKQueryExecutor, StreamingQueryManager, SDKErrorType } from '../sdk';
 import type { PermissionManager } from '../permissions/PermissionManager';
@@ -216,6 +216,26 @@ export class InteractiveRunner implements ApplicationRunner, InteractiveUIRunner
 
   public async listRecentSessionsData(limit: number): Promise<Session[]> {
     return this.sessionManager.listRecentSessions(limit);
+  }
+
+  public async getSessionStatsData(): Promise<SessionStats> {
+    const activeSession = this.streamingQueryManager
+      ? this.streamingQueryManager.getActiveSession()
+      : null;
+
+    if (!activeSession || !activeSession.session) {
+      return {
+        messageCount: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalCacheCreationInputTokens: 0,
+        totalCacheReadInputTokens: 0,
+        totalCostUsd: 0,
+        lastMessagePreview: '',
+      };
+    }
+
+    return this.sessionManager.calculateSessionStats(activeSession.session);
   }
 
   public async resumeSession(session: Session, forkSession: boolean): Promise<void> {

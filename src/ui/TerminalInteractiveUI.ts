@@ -105,6 +105,14 @@ const TOKENS_IN_K = parseInt(process.env.TERMINAL_UI_TOKENS_IN_K || '1000', 10);
 const TOKENS_K_DECIMALS = parseInt(process.env.TERMINAL_UI_TOKENS_K_DECIMALS || '1', 10);
 const COST_DECIMALS = parseInt(process.env.TERMINAL_UI_COST_DECIMALS || '3', 10);
 const COST_DISPLAY_THRESHOLD = parseFloat(process.env.TERMINAL_UI_COST_DISPLAY_THRESHOLD || '0.01');
+const CACHE_HIT_RATE_DECIMALS = parseInt(
+  process.env.TERMINAL_UI_CACHE_HIT_RATE_DECIMALS || '1',
+  10
+);
+const CACHE_HIT_RATE_MULTIPLIER = parseInt(
+  process.env.TERMINAL_UI_CACHE_HIT_RATE_MULTIPLIER || '100',
+  10
+);
 const CLEAR_LINE_DIRECTION = parseInt(
   process.env.TERMINAL_UI_CLEAR_LINE_DIRECTION || '0',
   10
@@ -806,6 +814,9 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
       case 'permissions':
         this.showPermissions();
         break;
+      case 'stats':
+        await this.showSessionStats();
+        break;
       case 'mcp':
         await this.handleMCPCommand(parts);
         break;
@@ -833,6 +844,7 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
 Available commands:
   /help        - Show this help information
   /sessions    - List all sessions
+  /stats - Show session token statistics (including cache breakdown)
   /config      - Show current configuration
   /permissions - Show permission settings
   /mcp         - Show MCP server status
@@ -878,6 +890,45 @@ Available commands:
     // Use displayInfo to show the formatted session list
     const output = lines.join('\n');
     this.displayInfo(output);
+  }
+
+  /**
+   * Show session token statistics.
+   */
+  private async showSessionStats(): Promise<void> {
+    const runner = this.callbacks.getRunner?.();
+    if (!runner) {
+      this.displayError('Runner not available');
+      return;
+    }
+
+    const stats = await runner.getSessionStatsData();
+    this.displaySessionStats(stats);
+  }
+
+  /**
+   * Display session token statistics.
+   */
+  private displaySessionStats(stats: SessionStats): void {
+    const hitRateDenominator =
+      stats.totalInputTokens +
+      stats.totalCacheReadInputTokens +
+      stats.totalCacheCreationInputTokens;
+    const hitRateRatio =
+      hitRateDenominator > 0 ? stats.totalCacheReadInputTokens / hitRateDenominator : 0;
+    const hitRateDisplay = (hitRateRatio * CACHE_HIT_RATE_MULTIPLIER).toFixed(
+      CACHE_HIT_RATE_DECIMALS
+    );
+    const lines = [
+      'Session token statistics:',
+      `  input_tokens: ${stats.totalInputTokens}`,
+      `  output_tokens: ${stats.totalOutputTokens}`,
+      `  cache_creation_input_tokens: ${stats.totalCacheCreationInputTokens}`,
+      `  cache_read_input_tokens: ${stats.totalCacheReadInputTokens}`,
+      `  cache_hit_rate: cache_read/(input+cache_read+cache_creation) = ${hitRateDisplay}%`,
+    ];
+
+    this.displayInfo(lines.join('\n'));
   }
 
   /**

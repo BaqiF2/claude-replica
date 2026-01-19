@@ -13,6 +13,7 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: jest.fn(),
 }));
 
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import {
   SDKQueryExecutor,
   SDKQueryOptions,
@@ -48,6 +49,8 @@ interface MockSDKResultMessage {
   usage: {
     input_tokens: number;
     output_tokens: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
   };
   errors?: string[];
 }
@@ -93,6 +96,36 @@ function createMockSuccessResult(
     usage: {
       input_tokens: 100,
       output_tokens: 50,
+    },
+  };
+}
+
+/**
+ * 创建带 usage 的成功结果消息
+ */
+function createMockSuccessResultWithUsage(
+  result: string,
+  usage: MockSDKResultMessage['usage'],
+  sessionId: string = 'test-session'
+): MockSDKResultMessage {
+  const baseMessage = createMockSuccessResult(result, sessionId);
+  return {
+    ...baseMessage,
+    usage,
+  };
+}
+
+/**
+ * 创建单条用户消息生成器
+ */
+async function* createUserMessageStream(
+  content: string
+): AsyncGenerator<{ type: 'user'; message: { role: 'user'; content: string } }, void, unknown> {
+  yield {
+    type: 'user',
+    message: {
+      role: 'user',
+      content,
     },
   };
 }
@@ -334,6 +367,59 @@ describe('SDKQueryExecutor', () => {
       const result = executor.processMessage(message as any, 'Existing text');
 
       expect(result.accumulatedResponse).toBe('Existing text');
+    });
+  });
+
+  describe('executeStreaming', () => {
+    it('应该从结果消息中提取缓存字段', async () => {
+      const mockQuery = query as jest.MockedFunction<typeof query>;
+      const cacheCreationInputTokens = 12;
+      const cacheReadInputTokens = 34;
+      const inputTokens = 56;
+      const outputTokens = 78;
+      const usage = {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cache_creation_input_tokens: cacheCreationInputTokens,
+        cache_read_input_tokens: cacheReadInputTokens,
+      };
+      const messages: MockSDKMessage[] = [
+        createMockSuccessResultWithUsage('Final result', usage),
+      ];
+
+      mockQuery.mockImplementation(() => createMockMessageStream(messages) as any);
+
+      const result = await executor.executeStreaming(createUserMessageStream('Hi'), {});
+
+      expect(result.usage).toEqual({
+        inputTokens,
+        outputTokens,
+        cacheCreationInputTokens,
+        cacheReadInputTokens,
+      });
+    });
+
+    it('缺少缓存字段时应该默认 0', async () => {
+      const mockQuery = query as jest.MockedFunction<typeof query>;
+      const inputTokens = 10;
+      const outputTokens = 5;
+      const messages: MockSDKMessage[] = [
+        createMockSuccessResultWithUsage('Final result', {
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+        }),
+      ];
+
+      mockQuery.mockImplementation(() => createMockMessageStream(messages) as any);
+
+      const result = await executor.executeStreaming(createUserMessageStream('Hi'), {});
+
+      expect(result.usage).toEqual({
+        inputTokens,
+        outputTokens,
+        cacheCreationInputTokens: 0,
+        cacheReadInputTokens: 0,
+      });
     });
   });
 

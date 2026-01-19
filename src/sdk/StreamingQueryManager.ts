@@ -19,8 +19,14 @@ import {
   SDKQueryResult,
   StreamMessage,
   StreamContentBlock,
+  mapSDKUsage,
 } from './SDKQueryExecutor';
-import type { SDKMessage, SDKAssistantMessage, Query } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  SDKMessage,
+  SDKAssistantMessage,
+  SDKResultMessage,
+  Query,
+} from '@anthropic-ai/claude-agent-sdk';
 import type { PermissionMode } from '../config/SDKConfigLoader';
 import type { InteractiveUIInterface } from '../ui/InteractiveUIInterface';
 import type { CheckpointManager } from '../checkpoint/CheckpointManager';
@@ -271,6 +277,7 @@ export class StreamingQueryManager {
   /** SDK 文件检查点管理器 */
   private readonly checkpointManager?: CheckpointManager;
   private lastCapturedUserMessageId: string | null = null;
+  private pendingAssistantText = '';
 
   /** 当前活跃的流式会话 */
   private activeSession: StreamingSession | null = null;
@@ -327,6 +334,7 @@ export class StreamingQueryManager {
     this.lastResult = null;
     this.queryInstance = null;
     this.messageRouter.setQueryInstance(null);
+    this.pendingAssistantText = '';
 
     return streamingSession;
   }
@@ -476,6 +484,7 @@ export class StreamingQueryManager {
       this.activeSession.abortController = new AbortController();
       // 重置执行状态，允许重新启动
       this.executionPromise = null;
+      this.pendingAssistantText = '';
 
       return { success: true, clearedMessages };
     }
@@ -509,6 +518,7 @@ export class StreamingQueryManager {
     this.queryInstance = null;
     this.messageRouter.setQueryInstance(null);
     this.toolUseMap.clear();
+    this.pendingAssistantText = '';
   }
 
   /**
@@ -661,6 +671,8 @@ export class StreamingQueryManager {
   private handleSDKMessage(message: SDKMessage): void {
     if (message.type === 'assistant') {
       this.handleAssistantMessage(message as SDKAssistantMessage);
+    } else if (message.type === 'result') {
+      this.handleResultMessage(message as SDKResultMessage);
     } else if (message.type === 'user' && 'message' in message) {
       this.handleUserMessage(message);
 
@@ -773,10 +785,42 @@ export class StreamingQueryManager {
       }
     }
 
-    // 如果有文本内容，触发文本响应回调
-    if (textParts.length > 0 && this.onAssistantText) {
-      this.onAssistantText(textParts.join(''));
+    const textChunk = textParts.join('');
+    if (textChunk.length === 0) {
+      return;
     }
+
+    this.pendingAssistantText += textChunk;
+
+    // 如果有文本内容，触发文本响应回调
+    if (this.onAssistantText) {
+      this.onAssistantText(textChunk);
+    }
+  }
+
+  private handleResultMessage(message: SDKResultMessage): void {
+    const pendingText = this.pendingAssistantText;
+    this.pendingAssistantText = '';
+
+    if (!this.activeSession || message.subtype !== 'success') {
+      return;
+    }
+
+    const responseText = pendingText || message.result || '';
+    const usage = message.usage ? mapSDKUsage(message.usage) : undefined;
+    const usageWithTotals = usage
+      ? {
+          ...usage,
+          totalCostUsd: message.total_cost_usd,
+          durationMs: message.duration_ms,
+        }
+      : undefined;
+
+    void this.sessionManager.addMessage(this.activeSession.session, {
+      role: 'assistant',
+      content: responseText,
+      usage: usageWithTotals,
+    });
   }
 
   /**

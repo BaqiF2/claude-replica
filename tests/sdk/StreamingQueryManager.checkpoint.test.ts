@@ -2,6 +2,12 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import type { SDKMessage, Query } from '@anthropic-ai/claude-agent-sdk';
+
+// 模拟 SDK 模块，避免 Jest 直接加载 ESM 实现
+jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
+  query: jest.fn(),
+}));
+
 import { StreamingQueryManager } from '../../src/sdk/StreamingQueryManager';
 import { MessageRouter } from '../../src/core/MessageRouter';
 import { Session, SessionManager } from '../../src/core/SessionManager';

@@ -42,6 +42,10 @@ export interface UsageStats {
   inputTokens: number;
   /** 输出 token 数量 */
   outputTokens: number;
+  /** 缓存创建输入 token 数量 */
+  cacheCreationInputTokens: number;
+  /** 缓存读取输入 token 数量 */
+  cacheReadInputTokens: number;
   /** 总花费（美元） */
   totalCostUsd?: number;
   /** 执行时长（毫秒） */
@@ -60,6 +64,10 @@ export interface SessionStats {
   totalInputTokens: number;
   /** 累计输出 token 数量 */
   totalOutputTokens: number;
+  /** 累计缓存创建输入 token 数量 */
+  totalCacheCreationInputTokens: number;
+  /** 累计缓存读取输入 token 数量 */
+  totalCacheReadInputTokens: number;
   /** 累计总花费（美元） */
   totalCostUsd: number;
   /** 最后一条消息预览（前 80 字符） */
@@ -202,28 +210,43 @@ export class SessionManager {
   private calculateStats(session: Session): SessionStats {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheCreationInputTokens = 0;
+    let totalCacheReadInputTokens = 0;
     let totalCostUsd = 0;
     let lastMessagePreview = '';
+    let messageCount = 0;
+    let lastUniqueMessage: Message | null = null;
+
+    const processedMessageIds = new Set<string>();
 
     // 遍历所有消息累加统计信息
     for (const message of session.messages) {
+      if (processedMessageIds.has(message.id)) {
+        continue;
+      }
+
+      processedMessageIds.add(message.id);
+      messageCount += 1;
+      lastUniqueMessage = message;
+
       if (message.usage) {
-        totalInputTokens += message.usage.inputTokens || 0;
-        totalOutputTokens += message.usage.outputTokens || 0;
-        totalCostUsd += message.usage.totalCostUsd || 0;
+        totalInputTokens += message.usage.inputTokens ?? 0;
+        totalOutputTokens += message.usage.outputTokens ?? 0;
+        totalCacheCreationInputTokens += message.usage.cacheCreationInputTokens ?? 0;
+        totalCacheReadInputTokens += message.usage.cacheReadInputTokens ?? 0;
+        totalCostUsd += message.usage.totalCostUsd ?? 0;
       }
     }
 
     // 提取最后一条消息的前 80 字符作为预览
-    if (session.messages.length > 0) {
-      const lastMessage = session.messages[session.messages.length - 1];
+    if (lastUniqueMessage) {
       let contentText = '';
 
-      if (typeof lastMessage.content === 'string') {
-        contentText = lastMessage.content;
-      } else if (Array.isArray(lastMessage.content)) {
+      if (typeof lastUniqueMessage.content === 'string') {
+        contentText = lastUniqueMessage.content;
+      } else if (Array.isArray(lastUniqueMessage.content)) {
         // 从内容块中提取文本
-        const textBlocks = lastMessage.content.filter((block) => block.type === 'text');
+        const textBlocks = lastUniqueMessage.content.filter((block) => block.type === 'text');
         if (textBlocks.length > 0) {
           contentText = String(textBlocks[0].text || '');
         }
@@ -234,12 +257,24 @@ export class SessionManager {
     }
 
     return {
-      messageCount: session.messages.length,
+      messageCount,
       totalInputTokens,
       totalOutputTokens,
+      totalCacheCreationInputTokens,
+      totalCacheReadInputTokens,
       totalCostUsd,
       lastMessagePreview,
     };
+  }
+
+  /**
+   * 计算会话统计信息（公共接口）
+   *
+   * @param session - 会话对象
+   * @returns 会话统计信息
+   */
+  public calculateSessionStats(session: Session): SessionStats {
+    return this.calculateStats(session);
   }
 
   /**
