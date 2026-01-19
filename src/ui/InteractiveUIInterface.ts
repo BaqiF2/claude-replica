@@ -83,6 +83,7 @@ export interface InteractiveUIRunner {
   getConfigData(): Promise<ProjectConfig>;
   getPermissionsData(): { mode: string; allowDangerouslySkipPermissions: boolean };
   listRecentSessionsData(limit: number): Promise<Session[]>;
+  getSessionStatsData(): Promise<SessionStats>;
   resumeSession(session: Session, forkSession: boolean): Promise<void>;
   getResumeSessionInfo(session: Session, forkSession: boolean): {
     hasValidSdkSession: boolean;

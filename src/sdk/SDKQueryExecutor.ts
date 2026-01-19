@@ -29,6 +29,20 @@ import {
   type CanUseTool,
 } from '@anthropic-ai/claude-agent-sdk';
 
+export const mapSDKUsage = (sdkUsage: SDKResultMessage['usage']) => {
+  const cacheCreationInputTokens =
+    (sdkUsage as { cache_creation_input_tokens?: number }).cache_creation_input_tokens ?? 0;
+  const cacheReadInputTokens =
+    (sdkUsage as { cache_read_input_tokens?: number }).cache_read_input_tokens ?? 0;
+
+  return {
+    inputTokens: sdkUsage.input_tokens,
+    outputTokens: sdkUsage.output_tokens,
+    cacheCreationInputTokens,
+    cacheReadInputTokens,
+  };
+};
+
 /**
  * 文本内容块
  *
@@ -176,6 +190,8 @@ export interface SDKQueryResult {
   usage?: {
     inputTokens: number;
     outputTokens: number;
+    cacheCreationInputTokens: number;
+    cacheReadInputTokens: number;
   };
   /** 是否为错误结果 */
   isError: boolean;
@@ -480,7 +496,12 @@ export class SDKQueryExecutor {
     let sessionId: string | undefined;
     let totalCostUsd: number | undefined;
     let durationMs: number | undefined;
-    let usage: { inputTokens: number; outputTokens: number } | undefined;
+    let usage: {
+      inputTokens: number;
+      outputTokens: number;
+      cacheCreationInputTokens: number;
+      cacheReadInputTokens: number;
+    } | undefined;
     // 保存最后一个成功的结果（用于流式输入模式的多轮对话）
     let lastSuccessResult: SDKQueryResult | null = null;
     // 保存最后一个错误结果
@@ -553,10 +574,7 @@ export class SDKQueryExecutor {
           if (resultMessage.subtype === 'success') {
             totalCostUsd = resultMessage.total_cost_usd;
             durationMs = resultMessage.duration_ms;
-            usage = {
-              inputTokens: resultMessage.usage.input_tokens,
-              outputTokens: resultMessage.usage.output_tokens,
-            };
+            usage = mapSDKUsage(resultMessage.usage);
 
             // 如果 messageGenerator 还有更多消息，SDK 会继续处理
             lastSuccessResult = {
@@ -576,10 +594,7 @@ export class SDKQueryExecutor {
               response: accumulatedResponse,
               totalCostUsd: resultMessage.total_cost_usd,
               durationMs: resultMessage.duration_ms,
-              usage: {
-                inputTokens: resultMessage.usage.input_tokens,
-                outputTokens: resultMessage.usage.output_tokens,
-              },
+              usage: mapSDKUsage(resultMessage.usage),
               isError: true,
               errorMessage: errorMessages.join('; ') || `Error: ${resultMessage.subtype}`,
               sessionId,

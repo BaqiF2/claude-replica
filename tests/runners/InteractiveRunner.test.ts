@@ -197,6 +197,47 @@ const containsCallOnThisChain = (node: ts.Node, chain: string[]): boolean => {
   return found;
 };
 
+const getPropertyName = (property: ts.ObjectLiteralElementLike): string | null => {
+  if (!ts.isPropertyAssignment(property)) {
+    return null;
+  }
+  if (ts.isIdentifier(property.name)) {
+    return property.name.text;
+  }
+  if (ts.isStringLiteral(property.name)) {
+    return property.name.text;
+  }
+  return null;
+};
+
+const objectLiteralHasProperties = (
+  objectLiteral: ts.ObjectLiteralExpression,
+  properties: string[]
+): boolean =>
+  properties.every((name) =>
+    objectLiteral.properties.some((property) => getPropertyName(property) === name)
+  );
+
+const containsReturnObjectWithProperties = (node: ts.Node, properties: string[]): boolean => {
+  let found = false;
+
+  const visit = (child: ts.Node): void => {
+    if (ts.isReturnStatement(child) && child.expression) {
+      if (
+        ts.isObjectLiteralExpression(child.expression) &&
+        objectLiteralHasProperties(child.expression, properties)
+      ) {
+        found = true;
+        return;
+      }
+    }
+    child.forEachChild(visit);
+  };
+
+  visit(node);
+  return found;
+};
+
 const getParameterByName = (
   constructorDecl: ts.ConstructorDeclaration,
   name: string
@@ -306,5 +347,32 @@ describe('InteractiveRunner', () => {
     const uiProperty = getPropertyAssignment(optionsObject, 'ui');
 
     assertInitializerIsThisProperty(uiProperty, 'ui');
+  });
+
+  it('defines getSessionStatsData method', () => {
+    const methodDecl = getMethodDeclaration(runnerClass, 'getSessionStatsData');
+    expect(methodDecl).toBeDefined();
+  });
+
+  it('getSessionStatsData uses sessionManager.calculateSessionStats', () => {
+    const methodDecl = getMethodDeclaration(runnerClass, 'getSessionStatsData');
+    expect(containsCallOnThisChain(methodDecl, ['sessionManager', 'calculateSessionStats'])).toBe(
+      true
+    );
+  });
+
+  it('getSessionStatsData returns empty stats when no active session', () => {
+    const methodDecl = getMethodDeclaration(runnerClass, 'getSessionStatsData');
+    const requiredProperties = [
+      'messageCount',
+      'totalInputTokens',
+      'totalOutputTokens',
+      'totalCacheCreationInputTokens',
+      'totalCacheReadInputTokens',
+      'totalCostUsd',
+      'lastMessagePreview',
+    ];
+
+    expect(containsReturnObjectWithProperties(methodDecl, requiredProperties)).toBe(true);
   });
 });

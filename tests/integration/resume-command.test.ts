@@ -392,6 +392,8 @@ describe('/resume 命令集成测试', () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
           totalCostUsd: 0.005,
         },
       });
@@ -405,6 +407,8 @@ describe('/resume 命令集成测试', () => {
       expect(loadedSession.stats).toBeDefined();
       expect(loadedSession.stats?.totalInputTokens).toBe(100);
       expect(loadedSession.stats?.totalOutputTokens).toBe(50);
+      expect(loadedSession.stats?.totalCacheCreationInputTokens).toBe(0);
+      expect(loadedSession.stats?.totalCacheReadInputTokens).toBe(0);
       expect(loadedSession.stats?.totalCostUsd).toBe(0.005);
     });
   });

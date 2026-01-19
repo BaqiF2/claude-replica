@@ -8,7 +8,7 @@ import * as fc from 'fast-check';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { SessionManager, UsageStats } from '../../src/core/SessionManager';
+import { SessionManager, SessionStats, UsageStats } from '../../src/core/SessionManager';
 
 // 会话过期时间（从环境变量读取，与 SessionManager 保持一致）
 const SESSION_EXPIRY_MS = (parseInt(process.env.SESSION_EXPIRY_HOURS || '5', 10) * 60 * 60 * 1000);
@@ -446,6 +446,8 @@ describe('SessionManager', () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
           totalCostUsd: 0.01,
         },
       });
@@ -509,6 +511,8 @@ describe('SessionManager', () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
           totalCostUsd: 0.01,
         },
       });
@@ -935,6 +939,8 @@ describe('属性测试: 会话消息持久化 (Property 6)', () => {
   const arbUsageStats: fc.Arbitrary<UsageStats> = fc.record({
     inputTokens: fc.integer({ min: 1, max: 10000 }),
     outputTokens: fc.integer({ min: 1, max: 10000 }),
+    cacheCreationInputTokens: fc.integer({ min: 0, max: 10000 }),
+    cacheReadInputTokens: fc.integer({ min: 0, max: 10000 }),
     totalCostUsd: fc.option(fc.float({ min: Math.fround(0.001), max: Math.fround(10), noNaN: true }), { nil: undefined }),
     durationMs: fc.option(fc.integer({ min: 100, max: 60000 }), { nil: undefined }),
   });
@@ -1125,6 +1131,40 @@ describe('属性测试: 会话消息持久化 (Property 6)', () => {
 /**
  * 接口扩展测试
  *
+ * 验证任务 1: UsageStats 和 SessionStats 接口字段
+ */
+describe('接口扩展: UsageStats 和 SessionStats', () => {
+  it('UsageStats 应该包含缓存字段', () => {
+    const usage: UsageStats = {
+      inputTokens: 1,
+      outputTokens: 2,
+      cacheCreationInputTokens: 3,
+      cacheReadInputTokens: 4,
+    };
+
+    expect(usage.cacheCreationInputTokens).toBe(3);
+    expect(usage.cacheReadInputTokens).toBe(4);
+  });
+
+  it('SessionStats 应该包含累计缓存字段', () => {
+    const stats: SessionStats = {
+      messageCount: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalCacheCreationInputTokens: 1,
+      totalCacheReadInputTokens: 2,
+      totalCostUsd: 0,
+      lastMessagePreview: '',
+    };
+
+    expect(stats.totalCacheCreationInputTokens).toBe(1);
+    expect(stats.totalCacheReadInputTokens).toBe(2);
+  });
+});
+
+/**
+ * 接口扩展测试
+ *
  * 验证任务 3: 扩展 Session 接口和数据结构
  */
 describe('接口扩展: Session 和 SessionMetadata', () => {
@@ -1140,6 +1180,8 @@ describe('接口扩展: Session 和 SessionMetadata', () => {
           usage: {
             inputTokens: 100,
             outputTokens: 200,
+            cacheCreationInputTokens: 0,
+            cacheReadInputTokens: 0,
             totalCostUsd: 0.005,
           },
         });
@@ -1190,6 +1232,8 @@ describe('接口扩展: Session 和 SessionMetadata', () => {
           usage: {
             inputTokens: 100,
             outputTokens: 160,
+            cacheCreationInputTokens: 0,
+            cacheReadInputTokens: 0,
             totalCostUsd: 0.004,
           },
         });
@@ -1255,6 +1299,8 @@ describe('接口扩展: Session 和 SessionMetadata', () => {
     const arbUsageStatsLocal: fc.Arbitrary<UsageStats> = fc.record({
       inputTokens: fc.integer({ min: 0, max: 10000 }),
       outputTokens: fc.integer({ min: 0, max: 10000 }),
+      cacheCreationInputTokens: fc.integer({ min: 0, max: 10000 }),
+      cacheReadInputTokens: fc.integer({ min: 0, max: 10000 }),
       totalCostUsd: fc.option(fc.float({ min: Math.fround(0), max: Math.fround(10), noNaN: true }), { nil: undefined }),
       durationMs: fc.option(fc.integer({ min: 0, max: 60000 }), { nil: undefined }),
     });
@@ -1344,6 +1390,8 @@ describe('统计计算: calculateStats() 方法', () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
           totalCostUsd: 0.01,
         },
       });
@@ -1360,6 +1408,8 @@ describe('统计计算: calculateStats() 方法', () => {
         usage: {
           inputTokens: 200,
           outputTokens: 100,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
           totalCostUsd: 0.02,
         },
       });
@@ -1441,6 +1491,8 @@ describe('统计计算: calculateStats() 方法', () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
           totalCostUsd: 0.01,
         },
       });
@@ -1458,6 +1510,8 @@ describe('统计计算: calculateStats() 方法', () => {
         usage: {
           inputTokens: 200,
           outputTokens: 100,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
           totalCostUsd: 0.02,
         },
       });
@@ -1576,6 +1630,8 @@ describe('统计计算: calculateStats() 方法', () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
+          cacheCreationInputTokens: 10,
+          cacheReadInputTokens: 5,
           totalCostUsd: 0.01,
           durationMs: 1000,
         },
@@ -1587,6 +1643,8 @@ describe('统计计算: calculateStats() 方法', () => {
         usage: {
           inputTokens: 200,
           outputTokens: 100,
+          cacheCreationInputTokens: 20,
+          cacheReadInputTokens: 10,
           totalCostUsd: 0.02,
           durationMs: 2000,
         },
@@ -1598,6 +1656,8 @@ describe('统计计算: calculateStats() 方法', () => {
         usage: {
           inputTokens: 300,
           outputTokens: 150,
+          cacheCreationInputTokens: 30,
+          cacheReadInputTokens: 15,
           totalCostUsd: 0.03,
           durationMs: 3000,
         },
@@ -1611,6 +1671,8 @@ describe('统计计算: calculateStats() 方法', () => {
       expect(loadedSession!.stats).toBeDefined();
       expect(loadedSession!.stats!.totalInputTokens).toBe(600); // 100 + 200 + 300
       expect(loadedSession!.stats!.totalOutputTokens).toBe(300); // 50 + 100 + 150
+      expect(loadedSession!.stats!.totalCacheCreationInputTokens).toBe(60); // 10 + 20 + 30
+      expect(loadedSession!.stats!.totalCacheReadInputTokens).toBe(30); // 5 + 10 + 15
       expect(loadedSession!.stats!.totalCostUsd).toBeCloseTo(0.06, 5); // 0.01 + 0.02 + 0.03
 
       await sessionManager.deleteSession(session.id);
@@ -1625,6 +1687,8 @@ describe('统计计算: calculateStats() 方法', () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
           // totalCostUsd 和 durationMs 未定义
         },
       });
@@ -1637,7 +1701,90 @@ describe('统计计算: calculateStats() 方法', () => {
       expect(loadedSession!.stats).toBeDefined();
       expect(loadedSession!.stats!.totalInputTokens).toBe(100);
       expect(loadedSession!.stats!.totalOutputTokens).toBe(50);
+      expect(loadedSession!.stats!.totalCacheCreationInputTokens).toBe(0);
+      expect(loadedSession!.stats!.totalCacheReadInputTokens).toBe(0);
       expect(loadedSession!.stats!.totalCostUsd).toBe(0); // undefined 视为 0
+
+      await sessionManager.deleteSession(session.id);
+    });
+  });
+
+  describe('消息 ID 去重统计', () => {
+    it('相同消息 ID 只统计一次', async () => {
+      const session = await sessionManager.createSession('/test/project');
+
+      const firstMessage = await sessionManager.addMessage(session, {
+        role: 'assistant',
+        content: 'Duplicate message 1',
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
+          cacheCreationInputTokens: 10,
+          cacheReadInputTokens: 5,
+          totalCostUsd: 0.01,
+        },
+      });
+
+      const secondMessage = await sessionManager.addMessage(session, {
+        role: 'assistant',
+        content: 'Duplicate message 2',
+        usage: {
+          inputTokens: 200,
+          outputTokens: 100,
+          cacheCreationInputTokens: 20,
+          cacheReadInputTokens: 10,
+          totalCostUsd: 0.02,
+        },
+      });
+
+      secondMessage.id = firstMessage.id;
+
+      await sessionManager.saveSession(session);
+
+      const loadedSession = await sessionManager.loadSession(session.id);
+
+      expect(loadedSession).not.toBeNull();
+      expect(loadedSession!.stats).toBeDefined();
+      expect(loadedSession!.stats!.totalInputTokens).toBe(100);
+      expect(loadedSession!.stats!.totalOutputTokens).toBe(50);
+      expect(loadedSession!.stats!.totalCacheCreationInputTokens).toBe(10);
+      expect(loadedSession!.stats!.totalCacheReadInputTokens).toBe(5);
+      expect(loadedSession!.stats!.totalCostUsd).toBeCloseTo(0.01, 5);
+
+      await sessionManager.deleteSession(session.id);
+    });
+  });
+
+  describe('向后兼容性: 缓存字段缺失', () => {
+    it('缺少缓存字段时默认 0', async () => {
+      const session = await sessionManager.createSession('/test/project');
+
+      const message = await sessionManager.addMessage(session, {
+        role: 'assistant',
+        content: 'Legacy message',
+        usage: {
+          inputTokens: 120,
+          outputTokens: 60,
+          cacheCreationInputTokens: 8,
+          cacheReadInputTokens: 4,
+          totalCostUsd: 0.02,
+        },
+      });
+
+      const legacyUsage = message.usage as Partial<UsageStats>;
+      delete legacyUsage.cacheCreationInputTokens;
+      delete legacyUsage.cacheReadInputTokens;
+
+      await sessionManager.saveSession(session);
+
+      const loadedSession = await sessionManager.loadSession(session.id);
+
+      expect(loadedSession).not.toBeNull();
+      expect(loadedSession!.stats).toBeDefined();
+      expect(loadedSession!.stats!.totalInputTokens).toBe(120);
+      expect(loadedSession!.stats!.totalOutputTokens).toBe(60);
+      expect(loadedSession!.stats!.totalCacheCreationInputTokens).toBe(0);
+      expect(loadedSession!.stats!.totalCacheReadInputTokens).toBe(0);
 
       await sessionManager.deleteSession(session.id);
     });
@@ -1647,6 +1794,8 @@ describe('统计计算: calculateStats() 方法', () => {
     const arbUsageStats: fc.Arbitrary<UsageStats> = fc.record({
       inputTokens: fc.integer({ min: 0, max: 10000 }),
       outputTokens: fc.integer({ min: 0, max: 10000 }),
+      cacheCreationInputTokens: fc.integer({ min: 0, max: 10000 }),
+      cacheReadInputTokens: fc.integer({ min: 0, max: 10000 }),
       totalCostUsd: fc.option(fc.float({ min: Math.fround(0), max: Math.fround(10), noNaN: true }), { nil: undefined }),
       durationMs: fc.option(fc.integer({ min: 0, max: 60000 }), { nil: undefined }),
     });
@@ -1666,6 +1815,8 @@ describe('统计计算: calculateStats() 方法', () => {
 
             let expectedInputTokens = 0;
             let expectedOutputTokens = 0;
+            let expectedCacheCreationInputTokens = 0;
+            let expectedCacheReadInputTokens = 0;
             let expectedCost = 0;
 
             for (const [content, usage] of messages) {
@@ -1678,6 +1829,8 @@ describe('统计计算: calculateStats() 方法', () => {
               if (usage) {
                 expectedInputTokens += usage.inputTokens || 0;
                 expectedOutputTokens += usage.outputTokens || 0;
+                expectedCacheCreationInputTokens += usage.cacheCreationInputTokens || 0;
+                expectedCacheReadInputTokens += usage.cacheReadInputTokens || 0;
                 expectedCost += usage.totalCostUsd || 0;
               }
             }
@@ -1691,6 +1844,8 @@ describe('统计计算: calculateStats() 方法', () => {
             expect(loadedSession!.stats!.messageCount).toBe(messages.length);
             expect(loadedSession!.stats!.totalInputTokens).toBe(expectedInputTokens);
             expect(loadedSession!.stats!.totalOutputTokens).toBe(expectedOutputTokens);
+            expect(loadedSession!.stats!.totalCacheCreationInputTokens).toBe(expectedCacheCreationInputTokens);
+            expect(loadedSession!.stats!.totalCacheReadInputTokens).toBe(expectedCacheReadInputTokens);
             expect(loadedSession!.stats!.totalCostUsd).toBeCloseTo(expectedCost, 5);
 
             // 验证最后一条消息预览
