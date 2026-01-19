@@ -6,11 +6,15 @@
  *
  * Core Types:
  * - OutputOptions: Output formatting options
+ * - TodoItem: Todo item interface (re-exported from InteractiveUIInterface)
  *
  * Responsibilities:
  * - Provide standard output methods
  * - Support formatting options like color, timestamp, and indentation
  */
+
+// Re-export TodoItem for convenience
+export type { TodoItem } from './InteractiveUIInterface';
 
 /**
  * Output formatting options

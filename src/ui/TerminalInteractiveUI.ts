@@ -12,8 +12,20 @@ import type {
   MessageRole,
   PermissionMode,
   Snapshot,
+  TodoItem,
 } from './InteractiveUIInterface';
 import type { Session, SessionStats } from '../core/SessionManager';
+import type {
+  MCPConfigEditResult,
+  MCPConfigListResult,
+  MCPConfigValidationResult,
+} from '../mcp/MCPService';
+
+type MCPCommandResult =
+  | { operation: 'list'; data: MCPConfigListResult }
+  | { operation: 'edit'; data: MCPConfigEditResult }
+  | { operation: 'validate'; data: MCPConfigValidationResult }
+  | { operation: 'help' };
 
 /**
  * ANSI color codes.
@@ -97,6 +109,10 @@ const CLEAR_LINE_DIRECTION = parseInt(
   process.env.TERMINAL_UI_CLEAR_LINE_DIRECTION || '0',
   10
 ) as readline.Direction;
+
+// Todo display configuration
+const TERMINAL_UI_TODO_MAX_ITEMS = 50;
+const TERMINAL_UI_TODO_MAX_LINE_LENGTH = 100;
 
 /**
  * Permission mode color mapping.
@@ -269,6 +285,71 @@ export class TerminalInteractiveUI implements InteractiveUIInterface {
       this.writeLine(`  ${resultIcon}  ${this.colorize(displayResult.trim(), color)}`);
     }
     void tool;
+  }
+
+  /**
+   * Display todo list with progress statistics
+   *
+   * Shows a formatted list of todos with progress information:
+   * - Progress statistics (completed count, in-progress count)
+   * - Full task list with status icons
+   * - Respects max items and max line length limits
+   *
+   * @param todos - Todo items from TodoWrite tool
+   */
+  displayTodoList(todos: TodoItem[]): void {
+    if (!todos || todos.length === 0) {
+      return;
+    }
+
+    // Header: tool name
+    const icon = this.colorize('⏺', 'cyan');
+    const toolName = this.colorize('TodoWrite', 'bold');
+    this.writeLine(`${icon} ${toolName}`);
+
+    // Statistics: progress summary (single pass through todos)
+    let completed = 0;
+    let inProgress = 0;
+    for (const todo of todos) {
+      if (todo.status === 'completed') completed++;
+      else if (todo.status === 'in_progress') inProgress++;
+    }
+    const total = todos.length;
+
+    const stats = `  Progress: ${completed}/${total} completed, In progress: ${inProgress} task(s)`;
+    this.writeLine(this.colorize(stats, 'gray'));
+    this.writeLine('');
+
+    // Status configuration mapping
+    const statusConfig = {
+      completed: { icon: '✅', useActiveForm: false, color: 'green' as const },
+      in_progress: { icon: '🔧', useActiveForm: true, color: 'cyan' as const },
+      pending: { icon: '⭕', useActiveForm: false, color: 'gray' as const },
+    };
+
+    // Todo items (limit display count)
+    const itemsToShow = todos.slice(0, TERMINAL_UI_TODO_MAX_ITEMS);
+
+    itemsToShow.forEach((todo, index) => {
+      const config = statusConfig[todo.status];
+      const text = config.useActiveForm ? (todo.activeForm || todo.content) : todo.content;
+      let displayText = text;
+
+      // Truncate long text
+      if (displayText.length > TERMINAL_UI_TODO_MAX_LINE_LENGTH) {
+        displayText = displayText.substring(0, TERMINAL_UI_TODO_MAX_LINE_LENGTH - 3) + '...';
+      }
+
+      // Format and output line
+      const line = `  ${config.icon} ${index + 1}. ${displayText}`;
+      this.writeLine(this.colorize(line, config.color));
+    });
+
+    // Show omission hint if exceeds max items
+    if (todos.length > TERMINAL_UI_TODO_MAX_ITEMS) {
+      const omitted = todos.length - TERMINAL_UI_TODO_MAX_ITEMS;
+      this.writeLine(this.colorize(`  ... and ${omitted} more task(s)`, 'dim'));
+    }
   }
 
   /**
@@ -858,10 +939,7 @@ Available commands:
    * @param parts - Command parts (e.g., ['mcp', 'list'] or ['mcp', 'edit'])
    * @returns Promise resolving to operation type and data
    */
-  private async executeMCPCommand(parts: string[]): Promise<{
-    operation: 'list' | 'edit' | 'validate' | 'help';
-    data?: any;
-  }> {
+  private async executeMCPCommand(parts: string[]): Promise<MCPCommandResult> {
     const runner = this.callbacks.getRunner?.();
     if (!runner) {
       throw new Error('Runner not available');
@@ -951,7 +1029,7 @@ MCP commands:
   /**
    * Show MCP configuration
    */
-  private async showMCPConfig(data?: any): Promise<void> {
+  private async showMCPConfig(data?: MCPConfigListResult): Promise<void> {
     const runner = this.callbacks.getRunner?.();
     if (!runner) {
       this.displayError('Runner not available');
@@ -970,7 +1048,7 @@ MCP commands:
 
       this.writeLine('');
       const lines = [`MCP configuration: ${result.configPath}\nMCP servers:`];
-      result.servers.forEach((server: any, index: number) => {
+      result.servers.forEach((server, index) => {
         if (index > 0) {
           lines.push('');
         }
@@ -1000,7 +1078,7 @@ MCP commands:
   /**
    * Edit MCP configuration
    */
-  private async editMCPConfig(data?: any): Promise<void> {
+  private async editMCPConfig(data?: MCPConfigEditResult): Promise<void> {
     const runner = this.callbacks.getRunner?.();
     if (!runner) {
       this.displayError('Runner not available');
@@ -1021,7 +1099,7 @@ MCP commands:
   /**
    * Validate MCP configuration
    */
-  private async validateMCPConfig(data?: any): Promise<void> {
+  private async validateMCPConfig(data?: MCPConfigValidationResult): Promise<void> {
     const runner = this.callbacks.getRunner?.();
     if (!runner) {
       this.displayError('Runner not available');
