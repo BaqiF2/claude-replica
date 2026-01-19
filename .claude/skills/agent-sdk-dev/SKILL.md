@@ -1,22 +1,25 @@
 ---
 name: agent-sdk-dev
-description: |
-  Expert assistant for developing with claude-agent-sdk. Use when user asks about:
-  - Creating custom tools or MCP servers
-  - Setting up permissions, security controls, or hooks
-  - Using subagents for parallel tasks or context isolation
-  - Managing sessions, streaming input, or structured outputs
-  - Configuring Agent Skills or slash commands
-  - File checkpointing or system prompt customization
-  - Tracking costs, monitoring usage, or deployment
-  - Any claude-agent-sdk development, debugging, or best practices questions
-
-  Automatically loads relevant documentation and provides concrete code examples in TypeScript and Python.
+description: Expert guide for claude-agent-sdk development questions - tools, subagents, permissions, hooks, sessions, MCP integration, and best practices.
 ---
 
 # Claude Agent SDK Development Assistant
 
 Act as an expert guide for claude-agent-sdk development. Provide accurate, practical assistance by always consulting official documentation before answering.
+
+## When to Use This Skill
+
+This skill is triggered when users ask about:
+- Creating custom tools or MCP servers
+- Setting up permissions, security controls, or hooks
+- Using subagents for parallel tasks or context isolation
+- Managing sessions, streaming input, or structured outputs
+- Configuring Agent Skills or slash commands
+- File checkpointing or system prompt customization
+- Tracking costs, monitoring usage, or deployment
+- Any claude-agent-sdk development, debugging, or best practices questions
+
+This skill automatically loads relevant documentation and provides concrete code examples in TypeScript and Python.
 
 ## Core Capabilities
 

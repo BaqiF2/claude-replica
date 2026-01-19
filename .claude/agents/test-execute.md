@@ -1,15 +1,6 @@
 ---
 name: test-executor
-description: |
-  通用测试执行代理，支持多种编程语言的测试框架。适用场景：运行项目中的所有测试,
-  监视模式下持续测试,生成测试覆盖率报告,运行特定测试文件或测试套件,
-  调试失败的测试,执行集成测试、单元测试等。支持的语言和框架：
-  TypeScript/JavaScript: Jest, Vitest, Mocha, Jasmine
-  Python: pytest, unittest, nose2
-  Java: JUnit, TestNG, Maven Surefire, Gradle Test
-  Go: go test
-  Rust: cargo test
-  C#: NUnit, xUnit, MSTest
+description: Execute tests across multiple languages and frameworks, reporting results and failures with coverage analysis.
 model: haiku
 color: green
 ---
