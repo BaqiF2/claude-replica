@@ -1,138 +1,137 @@
 ---
 name: Verification Before Completion
 description: Before submitting code or creating a Pull Request, when about to claim that work is complete, fixed, or passed, you must run verification commands and confirm the output results before making any success claims; evidence must appear before any assertions---
+---
 
-# 完成前验证
+## Overview
 
-## 概述
+Claiming work is complete without verification is dishonest, not efficient.
 
-在没有验证的情况下声称工作已完成，是不诚实，而非高效。
+**Core principle: evidence first, always.**
 
-**核心原则：证据先行，始终如一。**
+**Violating the literal wording of this rule is equivalent to violating its spirit.**
 
-**违反此规则的字面含义，即等同于违背其精神。**
-
-## 铁律
-
-```
-未进行最新验证的证据，不得做出完成声明
-```
-
-如果你没有在本消息中运行验证命令，你就不能声称其已通过。
-
-## 门禁机制
+## Iron rule
 
 ```
-在做出任何状态声明或表达满意之前：
-
-1. 明确识别：哪条命令能证明该声明？
-2. 执行：完整运行该命令（全新、完整）
-3. 阅读：查看完整输出，检查退出码，统计失败项
-4. 验证：输出是否证实了该声明？
-   - 若否：明确实际状态，并提供证据
-   - 若是：确认该声明并附上证据
-5. 仅在此之后：做出该声明
-
-跳过任何一步 = 说谎，而非验证
+No completion claims without fresh verification evidence.
 ```
 
-## 常见错误
+If you did not run verification commands in this message, you cannot claim it passed.
 
-| 声明 | 需要 | 不足 |
+## Gatekeeping mechanism
+
+```
+Before making any status claim or expressing satisfaction:
+
+1. Identify: which command proves the claim?
+2. Execute: run the full command (fresh, complete)
+3. Read: review full output, check exit code, count failures
+4. Verify: does the output confirm the claim?
+   - If no: state the actual status and provide evidence
+   - If yes: confirm the claim and attach evidence
+5. Only then: make the claim
+
+Skipping any step = lying, not verifying
+```
+
+## Common mistakes
+
+| Claim | Needs | Not enough |
 |------|------|------|
-| 测试通过 | 测试命令输出：0 个失败 | 上一次运行结果，或“应通过” |
-| 代码检查无误 | 代码检查命令输出：0 个错误 | 部分检查，或推断 |
-| 构建成功 | 构建命令：退出码为 0 | 代码检查通过，日志看起来良好 |
-| 问题已修复 | 原始症状测试：通过 | 代码已变更，但假设已修复 |
-| 回归测试有效 | 已验证红绿循环 | 测试仅通过一次 |
-| 代理任务完成 | 版本控制系统（VCS）差异显示变更 | 代理报告“成功” |
-| 需求已满足 | 逐条检查清单 | 测试通过 |
+| Tests pass | Test output: 0 failures | Last run result, or "should pass" |
+| Lint is clean | Lint output: 0 errors | Partial checks, or inference |
+| Build succeeds | Build exit code: 0 | Lint passes, or logs look fine |
+| Issue fixed | Original symptom test: passes | Code changed, but assumed fixed |
+| Regression test valid | Red-green cycle verified | Test only passes once |
+| Agent task done | VCS diff shows changes | Agent reports "success" |
+| Requirements met | Checklist verified item by item | Tests pass |
 
-## 红色警报 - 停止！
+## Red alert - stop!
 
-- 使用“应该”、“可能”、“看起来”
-- 在验证前表达满意（“太棒了！”、“完美！”、“完成！”等）
-- 未进行验证就准备提交/推送/创建 PR
-- 信任代理的成功报告
-- 依赖部分验证
-- 思考“这次就例外”
-- 疲惫并想放弃工作
-- **任何暗示成功却未运行验证的表述**
+- Using "should", "maybe", "looks like"
+- Expressing satisfaction before verification ("Great!", "Perfect!", "Done!", etc.)
+- Preparing to commit/push/create PR without verification
+- Trusting an agent's success report
+- Relying on partial verification
+- Thinking "just this once"
+- Tired and wanting to quit
+- **Any wording that implies success without running verification**
 
-## 防止合理化借口
+## Prevent rationalization
 
-| 借口 | 现实 |
+| Excuse | Reality |
 |------|------|
-| “现在应该能工作” | 必须运行验证 |
-| “我很有信心” | 自信 ≠ 证据 |
-| “这次就例外” | 无例外 |
-| “代码检查通过” | 代码检查 ≠ 编译器 |
-| “代理说成功了” | 必须独立验证 |
-| “我累了” | 疲惫 ≠ 免责理由 |
-| “部分检查就够了” | 部分检查毫无证明力 |
-| “用的是不同说法，所以规则不适用” | 必须遵循精神而非字面 |
+| "It should work now" | Must run verification |
+| "I am confident" | Confidence != evidence |
+| "Just this once" | No exceptions |
+| "Lint passed" | Lint != compiler |
+| "Agent said it worked" | Must verify independently |
+| "I am tired" | Tired != exemption |
+| "Partial checks are enough" | Partial checks prove nothing |
+| "Different wording, so rule does not apply" | Follow spirit, not letter |
 
-## 关键模式
+## Key patterns
 
-**测试：**
+**Tests:**
 ```
-✅ [运行测试命令] [看到：34/34 通过] “所有测试通过”
-❌ “现在应该通过” / “看起来正确”
-```
-
-**回归测试（TDD 红绿循环）：**
-```
-✅ 编写 → 运行（通过）→ 撤销修复 → 运行（必须失败）→ 恢复 → 运行（通过）
-❌ “我已经写了回归测试”（未进行红绿循环验证）
+OK [run test command] [see: 34/34 passed] "All tests pass"
+NO "It should pass now" / "Looks correct"
 ```
 
-**构建：**
+**Regression testing (TDD red-green cycle):**
 ```
-✅ [运行构建] [看到：退出码为 0] “构建通过”
-❌ “代码检查通过”（代码检查不检查编译）
-```
-
-**需求满足：**
-```
-✅ 重新阅读计划 → 创建检查清单 → 验证每一项 → 报告缺口或完成情况
-❌ “测试通过，阶段完成”
+OK Write -> run (pass) -> undo fix -> run (must fail) -> restore -> run (pass)
+NO "I wrote a regression test" (without red-green verification)
 ```
 
-**代理委托：**
+**Build:**
 ```
-✅ 代理报告成功 → 检查 VCS 差异 → 验证变更 → 报告实际状态
-❌ 信任代理报告
+OK [run build] [see: exit code 0] "Build passed"
+NO "Lint passed" (lint does not compile)
 ```
 
-## 为什么这很重要
+**Requirement satisfaction:**
+```
+OK Re-read plan -> make checklist -> verify each -> report gaps or completion
+NO "Tests pass, phase done"
+```
 
-基于 24 次失败经历：
-- 你的同事说：“我不相信你”——信任被破坏
-- 发布了未定义函数——会导致崩溃
-- 发布了缺失需求——功能不完整
-- 花费时间在虚假完成上 → 转向 → 重做
-- 违反了：“诚实是核心价值观。如果你说谎，你将被替换。”
+**Agent delegation:**
+```
+OK Agent reports success -> check VCS diff -> verify changes -> report actual status
+NO Trust agent report
+```
 
-## 何时适用
+## Why this matters
 
-**始终在以下情况之前：**
-- 任何成功/完成声明的变体
-- 任何满意表达
-- 任何对工作状态的积极陈述
-- 提交代码、创建 PR、任务完成
-- 转向下一个任务
-- 委托给代理
+Based on 24 failure experiences:
+- Teammate said: "I do not believe you" - trust is broken
+- Shipped undefined functions -> crashes
+- Shipped missing requirements -> incomplete feature
+- Wasted time on false completion -> context switch -> rework
+- Violated: "Honesty is a core value. If you lie, you will be replaced."
 
-**该规则适用于：**
-- 精确短语
-- 同义表达或改写
-- 成功的隐含含义
-- 任何暗示完成或正确的沟通内容
+## When it applies
 
-## 总结
+**Always before:**
+- Any success/completion claim variants
+- Any expression of satisfaction
+- Any positive statement about work status
+- Committing code, creating PR, task completion
+- Switching to the next task
+- Delegating to an agent
 
-**验证过程没有捷径。**
+**This rule applies to:**
+- Exact phrases
+- Synonyms or paraphrases
+- Implied success meaning
+- Any communication that hints completion or correctness
 
-运行命令，阅读输出，然后才能做出结果声明。
+## Summary
 
-这是不可协商的。
+**There are no shortcuts in verification.**
+
+Run the command, read the output, then make the claim.
+
+This is non-negotiable.
