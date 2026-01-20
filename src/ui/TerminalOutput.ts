@@ -9,7 +9,7 @@
  * - Provide section and blank line helpers
  */
 
-import type { OutputInterface, OutputOptions } from './OutputInterface';
+import type { OutputInterface, OutputOptions } from './contracts/core/OutputInterface';
 
 const DEFAULT_BLANK_LINE_COUNT = parseInt(process.env.CLAUDE_DEFAULT_BLANK_LINE_COUNT || '1', 10);
 

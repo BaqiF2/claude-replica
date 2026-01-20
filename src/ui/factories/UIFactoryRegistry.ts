@@ -16,7 +16,7 @@
 import { PermissionUIFactory } from './PermissionUIFactory';
 import { TerminalPermissionUIFactory } from './TerminalPermissionUIFactory';
 import { TerminalUIFactory } from './TerminalUIFactory';
-import type { UIFactory } from './UIFactory';
+import type { UIFactory } from '../contracts/core/UIFactory';
 
 const DEFAULT_UI_FACTORY_TYPE = process.env.CLAUDE_UI_TYPE || 'terminal';
 

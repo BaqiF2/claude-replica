@@ -12,7 +12,7 @@
  */
 
 import { ToolRegistry } from '../tools/ToolRegistry';
-import type { UIFactory } from '../ui/factories/UIFactory';
+import type { UIFactory } from '../ui/contracts/core/UIFactory';
 import { PermissionUI, QuestionInput } from './PermissionUI';
 import { PermissionResult, SDKCanUseTool } from './types';
 

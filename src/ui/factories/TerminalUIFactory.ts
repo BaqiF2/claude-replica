@@ -14,7 +14,7 @@ import { TerminalParser } from '../TerminalParser';
 import { PermissionUIImpl } from '../PermissionUIImpl';
 import { TerminalInteractiveUI } from '../TerminalInteractiveUI';
 import type { PermissionUI } from '../../permissions/PermissionUI';
-import { UIFactory } from './UIFactory';
+import { UIFactory } from '../contracts/core/UIFactory';
 
 /**
  * Terminal UI Factory

@@ -4,7 +4,7 @@ import ts from 'typescript';
 
 const UI_FACTORY_INTERFACE_PATH = path.join(
   __dirname,
-  '../../src/ui/factories/UIFactory.ts'
+  '../../src/ui/contracts/core/UIFactory.ts'
 );
 const UI_FACTORY_INTERFACE_ENCODING = 'utf-8';
 const EXPECTED_METHOD_COUNT = parseInt(
@@ -121,10 +121,10 @@ describe('UIFactory', () => {
 
     expect(importedModules).toEqual(
       [
-        '../OutputInterface',
-        '../ParserInterface',
-        '../InteractiveUIInterface',
-        '../../permissions/PermissionUI',
+        './OutputInterface',
+        './ParserInterface',
+        '../interactive/InteractiveUIInterface',
+        '../../../permissions/PermissionUI',
       ].sort()
     );
   });

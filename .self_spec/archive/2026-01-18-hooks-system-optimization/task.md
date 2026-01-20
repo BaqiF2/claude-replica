@@ -4,8 +4,8 @@
 重构 Claude Replica 的 hooks 系统，将配置纳入 settings.json 统一管理，实现完整 SDK 集成，支持三种回调类型（command、script、prompt）和 12 种 hook 事件。
 
 ## Reference
-- Design: [design.md](./design.md)
-- Specification: [spec.md](./spec.md)
+- Design: [design.md](design.md)
+- Specification: [spec.md](spec.md)
 
 ## 任务
 

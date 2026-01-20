@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import ts from 'typescript';
 
-const PARSER_INTERFACE_PATH = path.join(__dirname, '../../src/ui/ParserInterface.ts');
+const PARSER_INTERFACE_PATH = path.join(__dirname, '../../src/ui/contracts/core/ParserInterface.ts');
 const PARSER_INTERFACE_ENCODING = 'utf-8';
 const EXPECTED_PARSE_PARAM_COUNT = parseInt(
   process.env.PARSER_INTERFACE_PARSE_PARAM_COUNT || '1',

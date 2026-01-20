@@ -28,7 +28,7 @@ import type {
   Query,
 } from '@anthropic-ai/claude-agent-sdk';
 import type { PermissionMode } from '../config/SDKConfigLoader';
-import type { InteractiveUIInterface } from '../ui/InteractiveUIInterface';
+import type { InteractiveUIInterface } from '../ui/contracts/interactive/InteractiveUIInterface';
 import type { CheckpointManager } from '../checkpoint/CheckpointManager';
 
 const CHECKPOINT_DESCRIPTION_MAX_LENGTH = parseInt(

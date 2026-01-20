@@ -16,15 +16,15 @@ import {
   QuestionAnswers,
 } from '../../src/permissions/PermissionUI';
 import { PermissionUIResult } from '../../src/permissions/types';
-import type { OutputInterface } from '../../src/ui/OutputInterface';
-import type { ParserInterface } from '../../src/ui/ParserInterface';
+import type { OutputInterface } from '../../src/ui/contracts/core/OutputInterface';
+import type { ParserInterface } from '../../src/ui/contracts/core/ParserInterface';
 import type {
   InteractiveUICallbacks,
   InteractiveUIConfig,
   InteractiveUIInterface,
   TodoItem,
-} from '../../src/ui/InteractiveUIInterface';
-import type { UIFactory } from '../../src/ui/factories/UIFactory';
+} from '../../src/ui/contracts/interactive/InteractiveUIInterface';
+import type { UIFactory } from '../../src/ui/contracts/core/UIFactory';
 
 export class MockPermissionUI implements PermissionUI {
   async promptToolPermission(): Promise<PermissionUIResult> {

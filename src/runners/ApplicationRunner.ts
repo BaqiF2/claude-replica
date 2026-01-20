@@ -6,7 +6,7 @@
  */
 
 import type { ConfigOverrides } from '../config/ConfigOverrides';
-import type { OptionsInterface } from '../ui/OptionsInterface';
+import type { OptionsInterface } from '../ui/contracts/core/OptionsInterface';
 
 /**
  * Application options type

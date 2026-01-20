@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
 import { TerminalInteractiveUI } from '../../src/ui/TerminalInteractiveUI';
-import type { InteractiveUICallbacks } from '../../src/ui/InteractiveUIInterface';
+import type { InteractiveUICallbacks } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 
 const TEST_DELAY_MS = parseInt(process.env.TERMINAL_UI_TEST_DELAY_MS || '10', 10);
 const DOUBLE_ESC_DELAY_MS = parseInt(process.env.TERMINAL_UI_DOUBLE_ESC_DELAY_MS || '50', 10);

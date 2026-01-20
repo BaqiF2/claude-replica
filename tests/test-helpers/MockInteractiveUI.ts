@@ -9,7 +9,7 @@ import type {
   PermissionMode,
   Snapshot,
   TodoItem,
-} from '../../src/ui/InteractiveUIInterface';
+} from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 import { EventEmitter } from 'events';
 
 export interface MockInteractiveUIOptions {

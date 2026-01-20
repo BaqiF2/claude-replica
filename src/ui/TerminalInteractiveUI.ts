@@ -13,7 +13,7 @@ import type {
   PermissionMode,
   Snapshot,
   TodoItem,
-} from './InteractiveUIInterface';
+} from './contracts/interactive/InteractiveUIInterface';
 import type { Session, SessionStats } from '../core/SessionManager';
 import type {
   MCPConfigEditResult,

@@ -17,6 +17,8 @@
   - [自定义命令](#自定义命令)
   - [子代理](#子代理)
   - [钩子系统](#钩子系统)
+  - [自定义工具](#自定义工具)
+  - [自定义UI](#自定义ui)
 - [MCP 集成](#mcp-集成)
 - [权限管理](#权限管理)
 - [回退系统](#回退系统)
@@ -292,51 +294,24 @@ description: Git 提交摘要
 
 ### 子代理
 
-子代理是专门化的 AI 实例，用于处理特定类型的任务。
+子代理是专门化的 AI 实例，用于处理特定类型的任务。Claude Replica 提供了多个预设子代理，如代码审查、测试执行、文档生成等。
 
-#### 创建子代理
+#### 快速使用
 
-在 `.claude/agents/` 目录创建 `.agent.md` 文件：
+```bash
+# 使用 code-reviewer 审查代码
+请使用 code-reviewer 审查 src/main.ts
 
-```markdown
----
-description: 测试专家，专注于编写高质量测试
-model: sonnet
-tools:
-  - Read
-  - Write
-  - Bash
-  - Grep
----
+# 使用 test-runner 运行测试
+请使用 test-runner 运行 npm test 并总结失败
 
-你是测试专家，负责：
-
-## 职责
-- 编写单元测试
-- 编写集成测试
-- 分析测试覆盖率
-- 提供测试策略建议
-
-## 测试原则
-- 测试应该独立且可重复
-- 使用描述性的测试名称
-- 遵循 AAA 模式（Arrange, Act, Assert）
-- 优先测试边界条件和错误情况
-
-## 支持的框架
-- Jest (JavaScript/TypeScript)
-- Pytest (Python)
-- JUnit (Java)
-- Go Test (Go)
+# 使用 doc-generator 更新文档
+请使用 doc-generator 更新 README.md 的使用说明
 ```
 
-#### 使用子代理
+#### 详细文档
 
-子代理会根据任务描述自动匹配，或者可以显式调用：
-
-```
-@test-expert 请为 src/utils.ts 编写单元测试
-```
+关于子代理的详细使用方法、预设列表、最佳实践和故障排查，请参考 [SubAgents 使用指南](reference/SUBAGENTS_GUIDE.md)。
 
 ### 钩子系统
 
@@ -397,6 +372,86 @@ tools:
 | `$TOOL` | 工具名称 |
 | `$FILE` | 操作的文件路径 |
 | `$COMMAND` | 执行的命令 |
+
+### 自定义工具
+
+Claude Replica 允许你创建和配置自定义工具，通过 MCP 服务器注册到系统中。自定义工具使用 Zod schema 进行参数验证，支持模块化组织和权限控制。
+
+#### 快速示例
+
+```typescript
+import { z } from 'zod';
+import type { ToolDefinition, ToolResult } from 'claude-replica/custom-tools/types';
+
+const echoSchema = z.object({ message: z.string().min(1) });
+
+export const echoTool: ToolDefinition = {
+  name: 'echo',
+  description: 'Echo back the provided message.',
+  module: 'demo/echo',
+  schema: echoSchema,
+  handler: async ({ message }) => ({
+    content: [{ type: 'text', text: message }],
+  }),
+};
+```
+
+#### 权限配置
+
+```json
+{
+  "permissionMode": "default",
+  "allowedTools": [
+    "mcp__custom-tools-demo-echo__echo"
+  ]
+}
+```
+
+#### 详细文档
+
+关于工具定义、模块注册、MCP 服务器配置、环境变量设置等详细内容，请参考 [自定义工具配置指南](reference/CUSTOM_TOOLS_CONFIG_GUIDE.md)。
+
+### 自定义UI
+
+Claude Replica 采用分层 UI 架构，UI 层与核心逻辑完全解耦。你可以实现自己的 UI 来替换默认的终端 UI，支持 Web UI、桌面 GUI、移动端等多种界面形式。
+
+#### 最小实现示例
+
+```typescript
+import { BaseInteractiveUI } from 'claude-replica/ui/implementations/base';
+
+export class MySimpleUI extends BaseInteractiveUI {
+  async start(): Promise<void> {
+    console.log('My UI started');
+    // TODO: 实现UI启动逻辑
+  }
+
+  stop(): void {
+    console.log('My UI stopped');
+    // TODO: 实现UI停止逻辑
+  }
+}
+```
+
+#### 注册使用
+
+通过环境变量、配置文件或编程方式注册自定义 UI：
+
+```bash
+# 环境变量
+export CLAUDE_UI_TYPE=my-simple-ui
+
+# 或配置文件
+{
+  "ui": {
+    "type": "my-simple-ui"
+  }
+}
+```
+
+#### 详细文档
+
+关于 UI 接口详解、实现级别指南、WebSocket UI 示例、最佳实践等内容，请参考 [自定义UI实现指南](reference/CUSTOM_UI_GUIDE.md)。
 
 ## MCP 集成
 
@@ -738,7 +793,6 @@ claude-replica -p "你的查询" --verbose
 
 ## 获取帮助
 
-- 📖 [API 文档](API.md)
 - 🛠️ [开发者指南](DEVELOPER_GUIDE.md)
 - 🐛 [GitHub Issues](https://github.com/your-username/claude-replica/issues)
 - 💬 [GitHub Discussions](https://github.com/your-username/claude-replica/discussions)

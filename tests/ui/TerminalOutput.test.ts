@@ -123,6 +123,6 @@ describe('TerminalOutput', () => {
   it('depends only on OutputInterface', () => {
     const importSpecifiers = getImportSpecifiers();
     expect(importSpecifiers).toHaveLength(EXPECTED_IMPORT_COUNT);
-    expect(importSpecifiers).toEqual(['./OutputInterface'].sort());
+    expect(importSpecifiers).toEqual(['./contracts/core/OutputInterface'].sort());
   });
 });

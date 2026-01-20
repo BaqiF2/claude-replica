@@ -2,7 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import ts from 'typescript';
 
-const OPTIONS_INTERFACE_PATH = path.join(__dirname, '../../src/ui/OptionsInterface.ts');
+const OPTIONS_INTERFACE_PATH = path.join(
+  __dirname,
+  '../../src/ui/contracts/core/OptionsInterface.ts'
+);
 const OPTIONS_INTERFACE_ENCODING = 'utf-8';
 const EXPECTED_REQUIRED_PROPERTY_COUNT = parseInt(
   process.env.OPTIONS_INTERFACE_REQUIRED_PROPERTY_COUNT || '3',

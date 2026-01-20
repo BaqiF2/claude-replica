@@ -11,16 +11,16 @@ jest.mock('@anthropic-ai/claude-agent-sdk', () => ({
   })),
 }));
 
-import type { OutputInterface } from '../../src/ui/OutputInterface';
-import type { ParserInterface } from '../../src/ui/ParserInterface';
-import type { UIFactory } from '../../src/ui/factories/UIFactory';
+import type { OutputInterface } from '../../src/ui/contracts/core/OutputInterface';
+import type { ParserInterface } from '../../src/ui/contracts/core/ParserInterface';
+import type { UIFactory } from '../../src/ui/contracts/core/UIFactory';
 import type { PermissionUI } from '../../src/permissions/PermissionUI';
 import type {
   InteractiveUICallbacks,
   InteractiveUIConfig,
   InteractiveUIInterface,
-} from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/InteractiveUIInterface';
+} from '../../src/ui/contracts/interactive/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 import type { Session, SessionStats } from '../../src/core/SessionManager';
 import { CLIParseError } from '../../src/cli/CLIParser';
 import { Application } from '../../src/main';
