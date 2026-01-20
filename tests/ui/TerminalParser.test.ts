@@ -63,6 +63,8 @@ describe('TerminalParser', () => {
   it('depends only on ParserInterface and CLIParser', () => {
     const importSpecifiers = getImportSpecifiers();
     expect(importSpecifiers).toHaveLength(EXPECTED_IMPORT_COUNT);
-    expect(importSpecifiers).toEqual(['../cli/CLIParser', './ParserInterface'].sort());
+    expect(importSpecifiers).toEqual(
+      ['../cli/CLIParser', './contracts/core/ParserInterface'].sort()
+    );
   });
 });

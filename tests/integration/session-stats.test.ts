@@ -18,7 +18,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { SDKQueryExecutor } from '../../src/sdk/SDKQueryExecutor';
 import { SessionManager } from '../../src/core/SessionManager';
 import { TerminalInteractiveUI } from '../../src/ui/TerminalInteractiveUI';
-import type { InteractiveUICallbacks } from '../../src/ui/InteractiveUIInterface';
+import type { InteractiveUICallbacks } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 
 const TEST_DELAY_MS = parseInt(process.env.TERMINAL_UI_TEST_DELAY_MS || '10', 10);
 

@@ -9,18 +9,18 @@
  */
 
 import { UIFactoryRegistry, UIConfig } from '../../src/ui/factories/UIFactoryRegistry';
-import type { UIFactory } from '../../src/ui/factories/UIFactory';
+import type { UIFactory } from '../../src/ui/contracts/core/UIFactory';
 import { PermissionUIFactory } from '../../src/ui/factories/PermissionUIFactory';
 import { TerminalPermissionUIFactory } from '../../src/ui/factories/TerminalPermissionUIFactory';
 import { TerminalUIFactory } from '../../src/ui/factories/TerminalUIFactory';
-import type { OutputInterface, OutputOptions } from '../../src/ui/OutputInterface';
-import type { ParserInterface } from '../../src/ui/ParserInterface';
+import type { OutputInterface, OutputOptions } from '../../src/ui/contracts/core/OutputInterface';
+import type { ParserInterface } from '../../src/ui/contracts/core/ParserInterface';
 import type {
   InteractiveUICallbacks,
   InteractiveUIConfig,
   InteractiveUIInterface,
-} from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/InteractiveUIInterface';
+} from '../../src/ui/contracts/interactive/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 import type { Session, SessionStats } from '../../src/core/SessionManager';
 import { PermissionUI } from '../../src/permissions/PermissionUI';
 

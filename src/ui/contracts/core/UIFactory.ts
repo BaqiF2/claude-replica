@@ -9,14 +9,14 @@
  * - Support dependency inversion for CLI parsing and output
  */
 
-import type { OutputInterface } from '../OutputInterface';
-import type { ParserInterface } from '../ParserInterface';
-import type { PermissionUI } from '../../permissions/PermissionUI';
+import type { OutputInterface } from './OutputInterface';
+import type { ParserInterface } from './ParserInterface';
+import type { PermissionUI } from '../../../permissions/PermissionUI';
 import type {
   InteractiveUICallbacks,
   InteractiveUIConfig,
   InteractiveUIInterface,
-} from '../InteractiveUIInterface';
+} from '../interactive/InteractiveUIInterface';
 
 /**
  * UI Factory Interface

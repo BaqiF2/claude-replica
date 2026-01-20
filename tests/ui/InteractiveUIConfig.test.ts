@@ -5,7 +5,7 @@ type IsExact<T, U> = (<G>() => G extends T ? 'yes' : 'no') extends (
   ? true
   : false;
 
-import type { InteractiveUIConfig } from '../../src/ui/InteractiveUIInterface';
+import type { InteractiveUIConfig } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 
 export type ConfigAssertions = [
   ExpectTrue<IsExact<InteractiveUIConfig['input'], NodeJS.ReadableStream | undefined>>,

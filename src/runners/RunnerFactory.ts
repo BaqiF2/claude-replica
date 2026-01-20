@@ -11,7 +11,7 @@
 import type { ApplicationRunner, ApplicationOptions } from './ApplicationRunner';
 import { NonInteractiveRunner } from './NonInteractiveRunner';
 import { InteractiveRunner } from './InteractiveRunner';
-import type { OutputInterface } from '../ui/OutputInterface';
+import type { OutputInterface } from '../ui/contracts/core/OutputInterface';
 import type { SessionManager } from '../core/SessionManager';
 import type { MessageRouter } from '../core/MessageRouter';
 import type { SDKQueryExecutor } from '../sdk';
@@ -21,7 +21,7 @@ import type { MCPService } from '../mcp/MCPService';
 import type { CheckpointManager } from '../checkpoint/CheckpointManager';
 import type { ConfigManager } from '../config';
 import type { Logger } from '../logging/Logger';
-import type { UIFactory } from '../ui/factories/UIFactory';
+import type { UIFactory } from '../ui/contracts/core/UIFactory';
 
 export class RunnerFactory {
   constructor(

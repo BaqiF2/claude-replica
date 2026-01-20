@@ -14,7 +14,7 @@
  */
 
 // Re-export TodoItem for convenience
-export type { TodoItem } from './InteractiveUIInterface';
+export type { TodoItem } from '../interactive/InteractiveUIInterface';
 
 /**
  * Output formatting options

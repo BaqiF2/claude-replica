@@ -1,5 +1,5 @@
-import type { InteractiveUIInterface } from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/InteractiveUIInterface';
+import type { InteractiveUIInterface } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 import type { Session, SessionStats } from '../../src/core/SessionManager';
 
 type ExpectTrue<T extends true> = T;

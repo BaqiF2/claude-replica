@@ -12,7 +12,7 @@ import type {
   Snapshot,
   MessageRole,
   PermissionMode,
-} from '../../src/ui/InteractiveUIInterface';
+} from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 import { Session } from '../../src/core/SessionManager';
 
 /**

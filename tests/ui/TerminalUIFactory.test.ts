@@ -83,7 +83,7 @@ describe('TerminalUIFactory', () => {
         '../TerminalInteractiveUI',
         '../TerminalOutput',
         '../TerminalParser',
-        './UIFactory',
+        '../contracts/core/UIFactory',
         '../../permissions/PermissionUI',
       ].sort()
     );

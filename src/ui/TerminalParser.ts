@@ -10,7 +10,7 @@
  */
 
 import { CLIParser } from '../cli/CLIParser';
-import type { ParserInterface } from './ParserInterface';
+import type { ParserInterface } from './contracts/core/ParserInterface';
 
 /**
  * Terminal Parser

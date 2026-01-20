@@ -70,13 +70,13 @@ import { PermissionManager } from '../../src/permissions/PermissionManager';
 import { PermissionConfig } from '../../src/permissions/PermissionManager';
 import { TerminalUIFactory } from '../../src/ui/factories/TerminalUIFactory';
 import { UIFactoryRegistry, UIConfig } from '../../src/ui/factories/UIFactoryRegistry';
-import type { UIFactory } from '../../src/ui/factories/UIFactory';
+import type { UIFactory } from '../../src/ui/contracts/core/UIFactory';
 import type {
   InteractiveUICallbacks,
   InteractiveUIConfig,
   InteractiveUIInterface,
-} from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/InteractiveUIInterface';
+} from '../../src/ui/contracts/interactive/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 import type { Session, SessionStats } from '../../src/core/SessionManager';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { PermissionUI } from '../../src/permissions/PermissionUI';

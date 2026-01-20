@@ -12,7 +12,7 @@
  */
 
 import type { ApplicationRunner, ApplicationOptions } from './ApplicationRunner';
-import type { OutputInterface } from '../ui/OutputInterface';
+import type { OutputInterface } from '../ui/contracts/core/OutputInterface';
 import type { MessageRouter } from '../core/MessageRouter';
 import type { SDKQueryExecutor } from '../sdk';
 import type { SessionManager, Session } from '../core/SessionManager';

@@ -4,7 +4,7 @@
  * 验证 cli.ts 初始化 UIFactory 并注入 Application。
  */
 
-import type { UIFactory } from '../../src/ui/factories/UIFactory';
+import type { UIFactory } from '../../src/ui/contracts/core/UIFactory';
 
 describe('cli.ts 入口点', () => {
   const originalClaudeUiType = process.env.CLAUDE_UI_TYPE;

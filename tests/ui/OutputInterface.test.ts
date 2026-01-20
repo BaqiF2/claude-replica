@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import ts from 'typescript';
 
-const OUTPUT_INTERFACE_PATH = path.join(__dirname, '../../src/ui/OutputInterface.ts');
+const OUTPUT_INTERFACE_PATH = path.join(__dirname, '../../src/ui/contracts/core/OutputInterface.ts');
 const OUTPUT_INTERFACE_ENCODING = 'utf-8';
 const EXPECTED_METHOD_COUNT = parseInt(
   process.env.OUTPUT_INTERFACE_METHOD_COUNT || '6',

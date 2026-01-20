@@ -1,5 +1,5 @@
-import type { InteractiveUICallbacks, InteractiveUIRunner } from '../../src/ui/InteractiveUIInterface';
-import type { PermissionMode } from '../../src/ui/InteractiveUIInterface';
+import type { InteractiveUICallbacks, InteractiveUIRunner } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
+import type { PermissionMode } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 
 type ExpectTrue<T extends true> = T;
 type IsExact<T, U> = (<G>() => G extends T ? 'yes' : 'no') extends (

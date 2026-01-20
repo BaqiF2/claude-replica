@@ -1,16 +1,16 @@
 import type { PermissionUI, QuestionAnswers, QuestionInput } from '../../src/permissions/PermissionUI';
 import type { PermissionUIResult, ToolPermissionRequest } from '../../src/permissions/types';
-import type { OutputInterface, OutputOptions } from '../../src/ui/OutputInterface';
-import type { OptionsInterface } from '../../src/ui/OptionsInterface';
-import type { ParserInterface } from '../../src/ui/ParserInterface';
+import type { OutputInterface, OutputOptions } from '../../src/ui/contracts/core/OutputInterface';
+import type { OptionsInterface } from '../../src/ui/contracts/core/OptionsInterface';
+import type { ParserInterface } from '../../src/ui/contracts/core/ParserInterface';
 import type {
   InteractiveUICallbacks,
   InteractiveUIConfig,
   InteractiveUIInterface,
-} from '../../src/ui/InteractiveUIInterface';
-import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/InteractiveUIInterface';
+} from '../../src/ui/contracts/interactive/InteractiveUIInterface';
+import type { MessageRole, PermissionMode, Snapshot, TodoItem } from '../../src/ui/contracts/interactive/InteractiveUIInterface';
 import type { Session, SessionStats } from '../../src/core/SessionManager';
-import type { UIFactory } from '../../src/ui/factories/UIFactory';
+import type { UIFactory } from '../../src/ui/contracts/core/UIFactory';
 
 export class TestParser implements ParserInterface {
   readonly parseCalls: string[][] = [];

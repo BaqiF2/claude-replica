@@ -14,7 +14,7 @@
  */
 
 import type { ApplicationRunner, ApplicationOptions } from './ApplicationRunner';
-import type { OutputInterface } from '../ui/OutputInterface';
+import type { OutputInterface } from '../ui/contracts/core/OutputInterface';
 import type { SessionManager, Session, SessionStats } from '../core/SessionManager';
 import type { MessageRouter } from '../core/MessageRouter';
 import type { SDKQueryExecutor, StreamingQueryManager, SDKErrorType } from '../sdk';
@@ -23,7 +23,7 @@ import type { MCPService } from '../mcp/MCPService';
 import type { CheckpointManager } from '../checkpoint/CheckpointManager';
 import type { Logger } from '../logging/Logger';
 import type { ConfigManager, ProjectConfig } from '../config';
-import type { UIFactory } from '../ui/factories/UIFactory';
+import type { UIFactory } from '../ui/contracts/core/UIFactory';
 import type {
   InteractiveUICallbacks,
   InteractiveUIInterface,
@@ -31,7 +31,7 @@ import type {
   PermissionMode,
   Snapshot as UISnapshot,
   TodoItem,
-} from '../ui/InteractiveUIInterface';
+} from '../ui/contracts/interactive/InteractiveUIInterface';
 import type {
   MCPConfigEditResult,
   MCPConfigListResult,
