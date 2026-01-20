@@ -205,11 +205,6 @@ Claude Replica 提供细粒度的权限控制，支持四种权限模式：
 
 [MIT License](LICENSE)
 
-## 🙏 致谢
-
-- [Anthropic](https://www.anthropic.com/) - Claude AI 和 Agent SDK
-- [Claude Code](https://claude.ai/code) - 原始灵感来源
-
 ## 📞 支持
 
 - 📧 Email: wuwenjun19930614@gmail.com

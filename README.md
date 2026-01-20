@@ -209,11 +209,6 @@ We welcome contributions! Please read [CONTRIBUTING_ZH.md](CONTRIBUTING.md) for 
 
 [MIT License](LICENSE)
 
-## 🙏 Acknowledgments
-
-- [Anthropic](https://www.anthropic.com/) - Claude AI and Agent SDK
-- [Claude Code](https://claude.ai/code) - Original inspiration source
-
 ## 📞 Support
 
 - 📧 Email: wuwenjun19930614@gmail.com
