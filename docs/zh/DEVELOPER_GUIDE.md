@@ -8,6 +8,12 @@
 - [项目架构](#项目架构)
 - [核心模块](#核心模块)
 - [扩展开发](#扩展开发)
+  - [创建新的管理器](#创建新的管理器)
+  - [添加新工具](#添加新工具)
+  - [SDK Skills](#sdk-skills)
+  - [创建插件](#创建插件)
+  - [子代理扩展](#子代理扩展)
+  - [自定义UI开发](#自定义ui开发)
 - [测试](#测试)
 - [代码规范](#代码规范)
 - [发布流程](#发布流程)
@@ -90,12 +96,16 @@ claude-replica/
 ├── src/                    # 源代码
 │   ├── agents/            # 子代理注册表
 │   │   ├── AgentRegistry.ts
+│   │   ├── PresetAgents.ts
 │   │   └── index.ts
-│   ├── ci/                # CI/CD 支持
-│   │   ├── CISupport.ts
+│   ├── checkpoint/        # 检查点系统（会话快照与回退）
+│   │   ├── CheckpointManager.ts
 │   │   └── index.ts
 │   ├── cli/               # CLI 解析器
 │   │   └── CLIParser.ts
+│   ├── collaboration/     # 协作管理
+│   │   ├── CollaborationManager.ts
+│   │   └── index.ts
 │   ├── commands/          # 命令管理器
 │   │   ├── CommandManager.ts
 │   │   └── index.ts
@@ -110,11 +120,25 @@ claude-replica/
 │   │   ├── MessageRouter.ts
 │   │   ├── SessionManager.ts
 │   │   └── StreamingMessageProcessor.ts
+│   ├── custom-tools/      # 自定义工具（MCP 工具注册与管理）
+│   │   ├── CustomToolManager.ts
+│   │   ├── CustomToolRegistry.ts
+│   │   └── index.ts
+│   ├── docs/              # 文档生成器
+│   │   └── index.ts
+│   ├── extensibility/     # 扩展性架构（插件 API 和工具扩展）
+│   │   ├── ExtensibilityManager.ts
+│   │   └── index.ts
 │   ├── hooks/             # 钩子管理器
 │   │   ├── HookManager.ts
 │   │   └── index.ts
 │   ├── image/             # 图像处理
 │   │   ├── ImageHandler.ts
+│   │   └── index.ts
+│   ├── language/          # 语言支持
+│   │   └── index.ts
+│   ├── logging/           # 日志系统
+│   │   ├── Logger.ts
 │   │   └── index.ts
 │   ├── mcp/               # MCP 集成
 │   │   ├── MCPManager.ts
@@ -122,40 +146,64 @@ claude-replica/
 │   ├── output/            # 输出格式化
 │   │   ├── OutputFormatter.ts
 │   │   └── index.ts
+│   ├── performance/       # 性能管理（缓存与优化）
+│   │   ├── PerformanceManager.ts
+│   │   └── index.ts
 │   ├── permissions/       # 权限管理
 │   │   ├── PermissionManager.ts
 │   │   └── index.ts
 │   ├── plugins/           # 插件系统
 │   │   ├── PluginManager.ts
 │   │   └── index.ts
-│   ├── rewind/            # 回退系统
-│   │   ├── RewindManager.ts
+│   ├── runners/           # 运行器（应用程序执行流程）
+│   │   ├── ApplicationRunner.ts
+│   │   ├── InteractiveRunner.ts
+│   │   ├── NonInteractiveRunner.ts
+│   │   ├── RunnerFactory.ts
+│   │   └── index.ts
+│   ├── sdk/               # SDK 封装层
+│   │   ├── SDKQueryExecutor.ts
+│   │   └── index.ts
+│   ├── security/          # 安全管理（敏感数据检测等）
+│   │   ├── SecurityManager.ts
 │   │   └── index.ts
 │   ├── tools/             # 工具注册表
 │   │   ├── ToolRegistry.ts
 │   │   └── index.ts
 │   ├── ui/                # 交互式 UI
-│   │   ├── InteractiveUIInterface.ts
+│   │   ├── contracts/     # UI 接口定义
+│   │   │   ├── core/      # 核心接口（UIFactory, Parser, Output）
+│   │   │   └── interactive/ # 交互 UI 接口
+│   │   ├── factories/     # UI 工厂
+│   │   │   ├── UIFactoryRegistry.ts
+│   │   │   ├── TerminalUIFactory.ts
+│   │   │   └── PermissionUIFactory.ts
+│   │   ├── implementations/ # UI 实现
+│   │   │   └── base/      # 基础实现（BaseInteractiveUI）
 │   │   ├── TerminalInteractiveUI.ts
+│   │   ├── TerminalParser.ts
+│   │   ├── TerminalOutput.ts
 │   │   └── index.ts
 │   ├── cli.ts             # CLI 入口
 │   ├── index.ts           # 主导出
-│   └── main.ts            # 主程序
+│   └── main.ts            # 主程序（Application 类）
 ├── tests/                 # 测试文件
 │   ├── agents/
-│   ├── ci/
+│   ├── checkpoint/
 │   ├── cli/
 │   ├── commands/
 │   ├── config/
 │   ├── context/
 │   ├── core/
+│   ├── custom-tools/
 │   ├── hooks/
 │   ├── image/
 │   ├── mcp/
 │   ├── output/
 │   ├── permissions/
 │   ├── plugins/
-│   ├── rewind/
+│   ├── runners/
+│   ├── sdk/
 │   ├── tools/
 │   ├── ui/
 │   └── utils/
@@ -167,40 +215,56 @@ claude-replica/
 ### 架构图
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        CLI 层                                │
-│  CLIParser → TerminalInteractiveUI / OutputFormatter        │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│                      核心引擎层                               │
-│  SessionManager → MessageRouter → StreamingMessageProcessor │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│                   Claude Agent SDK                           │
-│  query() 函数 → 流式消息处理 → 工具调用                       │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌──────────────┬──────────────┬──────────────┬────────────────┐
-│  工具系统     │  扩展系统     │  MCP 集成    │  配置系统       │
-│ ToolRegistry │ SDK Skills   │ MCPManager   │ ConfigManager  │
-│ Permission   │ CommandMgr   │              │ SDKConfigLoader│
-│ Manager      │ AgentRegistry│              │                │
-│              │ HookManager  │              │                │
-│              │ PluginManager│              │                │
-└──────────────┴──────────────┴──────────────┴────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                          CLI 层                                    │
+│  cli.ts → UIFactoryRegistry → UIFactory                           │
+│           ├─ TerminalParser (ParserInterface)                     │
+│           ├─ TerminalOutput (OutputInterface)                     │
+│           └─ TerminalInteractiveUI (InteractiveUIInterface)       │
+└───────────────────────────────────────────────────────────────────┘
+                                ↓
+┌───────────────────────────────────────────────────────────────────┐
+│                       应用运行层 (Runners)                          │
+│  ApplicationRunner → InteractiveRunner / NonInteractiveRunner     │
+└───────────────────────────────────────────────────────────────────┘
+                                ↓
+┌───────────────────────────────────────────────────────────────────┐
+│                      核心引擎层 (Core)                              │
+│  SessionManager → MessageRouter → StreamingMessageProcessor       │
+└───────────────────────────────────────────────────────────────────┘
+                                ↓
+┌───────────────────────────────────────────────────────────────────┐
+│                      SDK 封装层 (SDK)                              │
+│  SDKQueryExecutor → Claude Agent SDK query()                      │
+└───────────────────────────────────────────────────────────────────┘
+                                ↓
+┌───────────────────────────────────────────────────────────────────┐
+│                     Claude Agent SDK                               │
+│  query() 函数 → 流式消息处理 → 工具调用                             │
+└───────────────────────────────────────────────────────────────────┘
+                                ↓
+┌─────────────┬─────────────┬─────────────┬─────────────┬──────────┐
+│  工具系统    │  扩展系统    │  MCP 集成   │  配置系统    │ 辅助系统  │
+│ ToolRegistry│ SDK Skills  │ MCPManager  │ ConfigMgr   │ Security │
+│ CustomTools │ CommandMgr  │             │ SDKConfig   │ Logging  │
+│ Permission  │ AgentRegistry│            │ Loader      │ Perf.    │
+│ Manager     │ HookManager │             │             │ Checkpoint│
+│             │ PluginMgr   │             │             │          │
+│             │ Context     │             │             │          │
+└─────────────┴─────────────┴─────────────┴─────────────┴──────────┘
 ```
 
 ### 数据流
 
-1. **用户输入** → CLIParser 解析命令行参数
-2. **初始化** → Application 初始化所有管理器
-3. **会话管理** → SessionManager 创建/恢复会话
-4. **消息路由** → MessageRouter 构建查询选项
-5. **SDK 调用** → 调用 Claude Agent SDK 的 query() 函数
-6. **流式处理** → StreamingMessageProcessor 处理响应
-7. **输出** → TerminalInteractiveUI（InteractiveUIInterface）或 OutputFormatter 显示结果
+1. **用户输入** → CLIParser (TerminalParser) 解析命令行参数
+2. **UI 初始化** → UIFactoryRegistry 选择并创建 UIFactory
+3. **应用初始化** → Application 初始化所有管理器（配置、工具、权限、MCP 等）
+4. **运行器选择** → RunnerFactory 创建 InteractiveRunner 或 NonInteractiveRunner
+5. **会话管理** → SessionManager 创建/恢复会话
+6. **消息路由** → MessageRouter 构建查询选项（系统提示、工具权限、子代理等）
+7. **SDK 调用** → SDKQueryExecutor 调用 Claude Agent SDK 的 query() 函数
+8. **流式处理** → StreamingMessageProcessor 处理 SDK 响应流
+9. **输出** → TerminalInteractiveUI (InteractiveUIInterface) 或 TerminalOutput (OutputInterface) 显示结果
 
 ## 核心模块
 
@@ -394,18 +458,44 @@ export { MyFeatureManager, MyFeatureConfig } from './myfeature';
 
 ### 添加新工具
 
-工具通过 SDK 内置支持，但可以通过 MCP 添加自定义工具。
+Claude Replica 支持通过自定义工具扩展功能。自定义工具使用 Zod schema 定义参数验证，通过 MCP 服务器自动注册到系统中。
 
-1. 创建 MCP 服务器
-2. 在 `.mcp.json` 中配置
-3. 工具自动注册
+#### 基本流程
+
+1. 定义工具（使用 Zod + ToolDefinition）
+2. 注册工具或模块（使用 CustomToolManager）
+3. 配置权限（allowedTools / disallowedTools）
+
+#### 简单示例
+
+```typescript
+import { z } from 'zod';
+import type { ToolDefinition, ToolResult } from '@/custom-tools/types';
+
+const echoSchema = z.object({ message: z.string().min(1) });
+
+export const echoTool: ToolDefinition = {
+  name: 'echo',
+  description: 'Echo back the provided message.',
+  module: 'demo/echo',
+  schema: echoSchema,
+  handler: async ({ message }) => ({
+    content: [{ type: 'text', text: message }],
+  }),
+};
+```
+
+#### 详细文档
+
+关于工具定义规范、模块注册、MCP 服务器配置、权限控制、环境变量配置等详细内容，请参考 [自定义工具配置指南](./reference/CUSTOM_TOOLS_CONFIG_GUIDE.md)。
 
 ### SDK Skills
 
 Skills 由 Claude Agent SDK 自动发现，无需自定义 SkillManager。
 
-- 仅支持项目级自动发现
-- 目录：`.claude/skills/<skill-name>/SKILL.md`
+- 支持用户级和项目级自动发现
+- 用户级目录：`~/.claude/skills/<skill-name>/SKILL.md`
+- 项目级目录：`.claude/skills/<skill-name>/SKILL.md`
 - frontmatter 必须包含 `description`
 
 示例：
@@ -419,30 +509,73 @@ description: SDK 开发指南
 技能内容正文...
 ```
 
-### 创建插件
+### 子代理扩展
 
-插件是打包的扩展集合。
+Claude Replica 采用程序化预设架构管理子代理。所有子代理在代码中定义，由 `AgentRegistry` 统一管理并暴露给 SDK。
 
-```
-my-plugin/
-├── plugin.json          # 插件元数据
-├── commands/            # 命令文件
-├── skills/              # 技能文件
-├── agents/              # 代理文件
-├── hooks.json           # 钩子配置
-└── .mcp.json           # MCP 服务器配置
-```
+#### 预设子代理
 
-```json
-// plugin.json
-{
-  "name": "my-plugin",
-  "version": "1.0.0",
-  "description": "我的插件",
-  "author": "Your Name",
-  "repository": "https://github.com/your-username/my-plugin"
+系统提供以下预设子代理：
+- **code-reviewer**: 代码审查与回归风险检查
+- **test-runner**: 测试执行与失败分析
+- **doc-generator**: 文档撰写与更新
+- **refactoring-specialist**: 保持行为不变的重构
+- **security-auditor**: 安全风险审计与缓解建议
+- **data-analyzer**: 轻量数据/日志分析
+
+#### 添加新的子代理
+
+1. 在 `src/agents/PresetAgents.ts` 中定义新的代理配置
+2. 更新 `AgentRegistry` 注册流程
+3. 遵循约束规则：
+   - 必须包含 `description` 和 `prompt` 字段
+   - 不允许使用 `Task` 工具
+   - 模型只能是 `sonnet`、`opus`、`haiku`、`inherit`
+
+#### 详细文档
+
+关于子代理的使用方式、工具组合推荐、提示词编写建议、常见问题和故障排查，请参考 [SubAgents 使用指南](./reference/SUBAGENTS_GUIDE.md)。
+
+### 自定义UI开发
+
+Claude Replica 的 UI 层与核心逻辑完全解耦，支持实现自定义 UI 来替换默认的终端 UI。
+
+#### UI 架构
+
+UI 层由 4 个核心接口组成：
+- **UIFactory**: 工厂入口，创建所有 UI 组件
+- **ParserInterface**: CLI 参数解析
+- **OutputInterface**: 标准输出（info/warn/error 等）
+- **InteractiveUIInterface**: 交互 UI 核心（25 个方法）
+
+#### 实现级别
+
+- **Level 1 (5分钟)**: 最小实现，只需实现 `start()` 和 `stop()`
+- **Level 2 (30分钟)**: 基础交互，覆盖核心显示方法
+- **Level 3 (2-4小时)**: 完整功能，包含交互菜单和状态管理
+
+#### 快速开始
+
+继承 `BaseInteractiveUI` 只需实现两个必需方法：
+
+```typescript
+import { BaseInteractiveUI } from 'claude-replica';
+// 或者直接从路径导入：import { BaseInteractiveUI } from 'claude-replica/ui';
+
+export class MySimpleUI extends BaseInteractiveUI {
+  async start(): Promise<void> {
+    // 启动 UI 循环
+  }
+
+  stop(): void {
+    // 停止 UI 并清理资源
+  }
 }
 ```
+
+#### 详细文档
+
+关于 UI 接口详解、实现级别指南、WebSocket UI 示例、回调机制、注册方式和最佳实践，请参考 [自定义UI实现指南](./reference/CUSTOM_UI_GUIDE.md)。
 
 ## 测试
 
@@ -450,15 +583,41 @@ my-plugin/
 
 ```
 tests/
-├── agents/
-│   └── AgentRegistry.test.ts
-├── core/
+├── unit/                   # 单元测试
+├── integration/            # 集成测试
+├── e2e/                    # 端到端测试
+├── architecture/           # 架构测试
+├── checkpoint/             # 检查点系统测试
+├── cli/                    # CLI 测试
+├── collaboration/          # 协作功能测试
+├── config/                 # 配置管理测试
+├── context/                # 上下文管理测试
+├── core/                   # 核心引擎测试
 │   ├── SessionManager.test.ts
-│   └── MessageRouter.test.ts
-├── utils/
-│   ├── index.ts
-│   └── testHelpers.ts
-└── main.test.ts
+│   ├── MessageRouter.test.ts
+│   └── StreamingMessageProcessor.test.ts
+├── custom-tools/           # 自定义工具测试
+├── docs/                   # 文档生成器测试
+├── extensibility/          # 扩展性测试
+├── hooks/                  # 钩子系统测试
+├── image/                  # 图像处理测试
+├── language/               # 语言支持测试
+├── mcp/                    # MCP 集成测试
+├── output/                 # 输出格式化测试
+├── performance/            # 性能测试
+├── permissions/            # 权限管理测试
+├── plugins/                # 插件系统测试
+├── runners/                # 运行器测试
+├── sdk/                    # SDK 封装层测试
+├── security/               # 安全管理测试
+├── tools/                  # 工具注册表测试
+├── ui/                     # UI 层测试
+├── fixtures/               # 测试数据
+├── helpers/                # 测试辅助函数
+├── mocks/                  # 模拟对象
+├── test-helpers/           # 测试工具
+├── utils/                  # 工具函数测试
+└── main.test.ts            # 主程序测试
 ```
 
 ### 编写测试
@@ -730,6 +889,5 @@ docs: update API documentation
 
 ## 更多资源
 
-- [API 文档](API.md)
 - [用户指南](USER_GUIDE.md)
 - [Claude Agent SDK 文档](https://docs.claude.com/en/api/agent-sdk/overview)
